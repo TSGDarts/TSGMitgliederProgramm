@@ -9,6 +9,8 @@ import {
   unassignTeam,
   assignInviteTeam,
   unassignInviteTeam,
+  addPokal,
+  removePokal,
 } from "../actions";
 import { ArchiveButton } from "./ArchiveButton";
 import { AdminSurveyForm } from "./AdminSurveyForm";
@@ -109,6 +111,18 @@ export default async function AdminSeasonDetailPage({
     );
   }
 
+  // Pokal-Kader dieser Saison
+  const { data: squadData } = await supabase
+    .from("pokal_squads")
+    .select("id, kind, profile_id, invite_id")
+    .eq("season_id", id);
+  const squads = (squadData ?? []) as Array<{
+    id: string;
+    kind: string;
+    profile_id: string | null;
+    invite_id: string | null;
+  }>;
+
   // Team-Zuordnungen der registrierten Mitglieder
   const { data: tmData } = await supabase
     .from("team_members")
@@ -167,6 +181,27 @@ export default async function AdminSeasonDetailPage({
   });
 
   const answered = entries.filter((e) => e.r).length;
+
+  // Pokal-Planung: Bereitschaft aus der Abfrage + aktuelle Kader
+  const entryByKey = new Map(entries.map((e) => [e.key, e]));
+  const pokalRank = (v: string) =>
+    v === "yes" ? 0 : v === "if_needed" ? 1 : v === "no" ? 3 : v ? 2 : 4;
+  const POKALS = [
+    {
+      kind: "ku",
+      title: "Klaus Unterberg Pokal",
+      hint: "Mittelfranken-Pokal · 4 Spieler",
+      field: "pokal_ku" as const,
+      size: 4,
+    },
+    {
+      kind: "8er",
+      title: "8ter Cup",
+      hint: "BDV-Pokal · 8 Spieler",
+      field: "pokal_8er" as const,
+      size: 8,
+    },
+  ];
 
   return (
     <div className="space-y-8">
@@ -274,6 +309,125 @@ export default async function AdminSeasonDetailPage({
               </form>
             </CardBody>
           </Card>
+
+          {/* Pokal-Planung */}
+          <section className="space-y-3">
+            <h2 className="text-lg font-bold">Pokal-Planung</h2>
+            <p className="text-sm text-muted">
+              Die Auswahl zeigt die Bereitschaft aus der Saisonabfrage – wer
+              „Ja“ gesagt hat, steht oben.
+            </p>
+            <div className="grid gap-4 lg:grid-cols-2">
+              {POKALS.map((pokal) => {
+                const assigned = squads.filter((s) => s.kind === pokal.kind);
+                const assignedKeys = new Set(
+                  assigned.map((s) =>
+                    s.profile_id ? `p:${s.profile_id}` : `i:${s.invite_id}`,
+                  ),
+                );
+                const candidates = entries
+                  .filter((e) => !assignedKeys.has(e.key))
+                  .sort(
+                    (a, b) =>
+                      pokalRank(a.r?.[pokal.field] ?? "") -
+                        pokalRank(b.r?.[pokal.field] ?? "") ||
+                      a.name.localeCompare(b.name),
+                  );
+                return (
+                  <Card key={pokal.kind}>
+                    <CardBody className="space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <span className="font-semibold">{pokal.title}</span>
+                          <p className="text-sm text-muted">{pokal.hint}</p>
+                        </div>
+                        <Badge
+                          tone={
+                            assigned.length >= pokal.size ? "ok" : "neutral"
+                          }
+                        >
+                          {assigned.length}/{pokal.size}
+                        </Badge>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {assigned.length === 0 && (
+                          <span className="text-sm text-muted">
+                            Noch niemand zugeordnet.
+                          </span>
+                        )}
+                        {assigned.map((s) => {
+                          const key = s.profile_id
+                            ? `p:${s.profile_id}`
+                            : `i:${s.invite_id}`;
+                          const person = entryByKey.get(key);
+                          return (
+                            <form
+                              key={s.id}
+                              action={removePokal}
+                              className="inline-flex"
+                            >
+                              <input
+                                type="hidden"
+                                name="season_id"
+                                value={season.id}
+                              />
+                              <input type="hidden" name="id" value={s.id} />
+                              <button
+                                className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-3 py-1 text-sm text-primary hover:bg-primary/25"
+                                title="Aus Pokal-Kader entfernen"
+                              >
+                                {person?.name ?? "(unbekannt)"} ✕
+                              </button>
+                            </form>
+                          );
+                        })}
+                      </div>
+
+                      {candidates.length > 0 && (
+                        <form
+                          action={addPokal}
+                          className="flex items-center gap-1"
+                        >
+                          <input
+                            type="hidden"
+                            name="season_id"
+                            value={season.id}
+                          />
+                          <input type="hidden" name="kind" value={pokal.kind} />
+                          <select
+                            name="target"
+                            className={`${inputClass} w-auto py-1 text-sm`}
+                            defaultValue=""
+                            required
+                          >
+                            <option value="" disabled>
+                              + Person zuordnen …
+                            </option>
+                            {candidates.map((e) => {
+                              const answer = e.r?.[pokal.field] ?? "";
+                              return (
+                                <option
+                                  key={e.key}
+                                  value={`${e.kind === "profile" ? "p" : "i"}:${e.id}`}
+                                >
+                                  {e.name}
+                                  {answer ? ` – ${shortLabel(answer)}` : " – ?"}
+                                </option>
+                              );
+                            })}
+                          </select>
+                          <button className="rounded-lg border border-border px-2 py-1 text-sm hover:bg-border/40">
+                            OK
+                          </button>
+                        </form>
+                      )}
+                    </CardBody>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
 
           {/* Planung */}
           <section className="space-y-3">

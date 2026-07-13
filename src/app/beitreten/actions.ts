@@ -119,6 +119,22 @@ export async function claimMember(
       .eq("invite_id", inviteId);
   }
 
+  // Pokal-Zuordnungen vom angelegten Namen aufs neue Konto übertragen.
+  const { data: pokalRows } = await admin
+    .from("pokal_squads")
+    .select("id, season_id, kind")
+    .eq("invite_id", inviteId);
+  if (pokalRows && pokalRows.length > 0) {
+    for (const row of pokalRows) {
+      await admin.from("pokal_squads").insert({
+        season_id: row.season_id,
+        kind: row.kind,
+        profile_id: userId,
+      }); // Duplikate scheitern still
+    }
+    await admin.from("pokal_squads").delete().eq("invite_id", inviteId);
+  }
+
   // Direkt anmelden (Session setzen) und ins Dashboard.
   const supabase = await createClient();
   const { error: signErr } = await supabase.auth.signInWithPassword({

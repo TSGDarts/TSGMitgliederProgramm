@@ -58,6 +58,39 @@ export async function adminSaveSurvey(
   return { ok: true, message: "Antworten gespeichert." };
 }
 
+/** Person (Mitglied oder angelegter Name) einem Pokal-Kader zuordnen. */
+export async function addPokal(formData: FormData) {
+  await requireAdmin();
+  const season_id = String(formData.get("season_id") ?? "");
+  const kindRaw = String(formData.get("kind") ?? "");
+  const kind = ["ku", "8er"].includes(kindRaw) ? kindRaw : "";
+  const target = String(formData.get("target") ?? ""); // "p:<id>" oder "i:<id>"
+  const [t, id] = target.split(":");
+  if (!season_id || !kind || !id || (t !== "p" && t !== "i")) return;
+
+  const row = {
+    season_id,
+    kind,
+    profile_id: t === "p" ? id : null,
+    invite_id: t === "i" ? id : null,
+  };
+
+  const supabase = await createClient();
+  await supabase.from("pokal_squads").insert(row); // Duplikate scheitern still
+  revalidatePath(`/mitglieder/admin/saisons/${season_id}`);
+}
+
+export async function removePokal(formData: FormData) {
+  await requireAdmin();
+  const season_id = String(formData.get("season_id") ?? "");
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const supabase = await createClient();
+  await supabase.from("pokal_squads").delete().eq("id", id);
+  revalidatePath(`/mitglieder/admin/saisons/${season_id}`);
+}
+
 /** Team-Zuordnung für vorab angelegte (noch nicht registrierte) Namen. */
 export async function assignInviteTeam(formData: FormData) {
   await requireAdmin();
@@ -269,6 +302,38 @@ export async function archiveSeason(formData: FormData) {
         ),
       },
     });
+  }
+
+  // Pokal-Kader ebenfalls ins Archiv übernehmen
+  const { data: squadRows } = await supabase
+    .from("pokal_squads")
+    .select("kind, profiles(full_name), member_invites(full_name)")
+    .eq("season_id", id);
+  const pokalNames: Record<string, string> = {
+    ku: "Klaus Unterberg Pokal (4er)",
+    "8er": "8ter Cup (BDV)",
+  };
+  for (const kind of ["ku", "8er"]) {
+    const roster = (squadRows ?? [])
+      .filter((r) => r.kind === kind)
+      .map((r) => {
+        const p = r.profiles as unknown as { full_name: string } | null;
+        const i = r.member_invites as unknown as { full_name: string } | null;
+        return {
+          name: p?.full_name || i?.full_name || "?",
+          captain: false,
+          vice: false,
+        };
+      });
+    if (roster.length) {
+      await supabase.from("season_team_archive").insert({
+        season_id: id,
+        team_name: pokalNames[kind],
+        league: "Pokal",
+        roster,
+        stats: {},
+      });
+    }
   }
 
   await supabase
