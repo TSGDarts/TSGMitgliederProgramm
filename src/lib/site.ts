@@ -22,12 +22,14 @@ export const memberNav = [
   { href: "/mitglieder", label: "Übersicht", icon: "home" },
   { href: "/mitglieder/termine", label: "Termine & Zusagen", icon: "calendar" },
   { href: "/mitglieder/mannschaften", label: "Mannschaften", icon: "users" },
+  { href: "/mitglieder/saisonabfrage", label: "Saisonabfrage", icon: "clipboard" },
   { href: "/mitglieder/nuliga", label: "nuLiga", icon: "table" },
   { href: "/mitglieder/fragen", label: "Fragen", icon: "chat" },
   { href: "/mitglieder/profil", label: "Mein Profil", icon: "user" },
 ];
 
 export const adminNav = [
+  { href: "/mitglieder/admin/saisons", label: "Saisonplanung", icon: "shield" },
   { href: "/mitglieder/admin/beitritt", label: "Selbst-Anmeldung (Link/QR)", icon: "shield" },
   { href: "/mitglieder/admin/mitglieder", label: "Mitglieder verwalten", icon: "shield" },
   { href: "/mitglieder/admin/mannschaften", label: "Mannschaften verwalten", icon: "shield" },
