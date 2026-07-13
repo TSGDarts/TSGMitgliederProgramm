@@ -86,6 +86,7 @@ export type Participant = {
   profile: Profile;
   status: RsvpStatus | null;
   isCaptain: boolean;
+  isViceCaptain: boolean;
 };
 
 /**
@@ -99,14 +100,16 @@ export async function getEventParticipants(
 
   let profiles: Profile[] = [];
   const captainIds = new Set<string>();
+  const viceIds = new Set<string>();
 
   if (event.team_id) {
     const { data: members } = await supabase
       .from("team_members")
-      .select("profile_id,is_captain,profiles(*)")
+      .select("profile_id,is_captain,is_vice_captain,profiles(*)")
       .eq("team_id", event.team_id);
     profiles = (members ?? []).map((m) => {
       if (m.is_captain) captainIds.add(m.profile_id as string);
+      if (m.is_vice_captain) viceIds.add(m.profile_id as string);
       return m.profiles as unknown as Profile;
     });
   } else {
@@ -137,6 +140,7 @@ export async function getEventParticipants(
       profile: p,
       status: rsvpMap.get(p.id) ?? null,
       isCaptain: captainIds.has(p.id),
+      isViceCaptain: viceIds.has(p.id),
     }))
     .sort((a, b) => a.profile.full_name.localeCompare(b.profile.full_name));
 }
@@ -157,16 +161,37 @@ export async function getTeamRoster(teamId: string): Promise<TeamRosterEntry[]> 
   const supabase = await createClient();
   const { data } = await supabase
     .from("team_members")
-    .select("team_id,profile_id,is_captain,jersey_number,profiles(*)")
+    .select("team_id,profile_id,is_captain,is_vice_captain,jersey_number,profiles(*)")
     .eq("team_id", teamId);
   return (data ?? [])
     .map((m) => ({
       team_id: m.team_id as string,
       profile_id: m.profile_id as string,
       is_captain: m.is_captain as boolean,
+      is_vice_captain: m.is_vice_captain as boolean,
       jersey_number: m.jersey_number as number | null,
       profile: m.profiles as unknown as Profile,
     }))
     .filter((m) => m.profile)
     .sort((a, b) => a.profile.full_name.localeCompare(b.profile.full_name));
+}
+
+/** IDs der Teams, die der Nutzer verwalten darf (Admin = alle, sonst Kapitän/Vize). */
+export async function getManageableTeamIds(
+  profile: Profile,
+): Promise<Set<string>> {
+  if (profile.role === "admin") {
+    const teams = await getAllTeams();
+    return new Set(teams.map((t) => t.id));
+  }
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("team_members")
+    .select("team_id,is_captain,is_vice_captain")
+    .eq("profile_id", profile.id);
+  return new Set(
+    (data ?? [])
+      .filter((m) => m.is_captain || m.is_vice_captain)
+      .map((m) => m.team_id as string),
+  );
 }

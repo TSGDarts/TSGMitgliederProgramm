@@ -88,19 +88,56 @@ export async function removeRosterMember(formData: FormData) {
   revalidatePath(`/mitglieder/admin/mannschaften/${team_id}`);
 }
 
-export async function toggleCaptain(formData: FormData) {
+/**
+ * Setzt die Team-Rolle eines Spielers: 'captain', 'vice' oder 'none'.
+ * Regeln: pro Team nur EIN Kapitän / EIN Vize, und eine Person kann jeweils
+ * nur bei EINEM Team Kapitän bzw. Vize sein.
+ */
+export async function setTeamRole(formData: FormData) {
   await requireAdmin();
   const team_id = String(formData.get("team_id") ?? "");
   const profile_id = String(formData.get("profile_id") ?? "");
-  const is_captain = String(formData.get("is_captain") ?? "") === "true";
+  const role = String(formData.get("team_role") ?? "none");
   if (!team_id || !profile_id) return;
 
   const supabase = await createClient();
-  await supabase
-    .from("team_members")
-    .update({ is_captain: !is_captain })
-    .eq("team_id", team_id)
-    .eq("profile_id", profile_id);
+
+  if (role === "captain") {
+    await supabase
+      .from("team_members")
+      .update({ is_captain: false })
+      .eq("profile_id", profile_id); // Person: bisherige Kapitänsrolle lösen
+    await supabase
+      .from("team_members")
+      .update({ is_captain: false })
+      .eq("team_id", team_id); // Team: bisherigen Kapitän lösen
+    await supabase
+      .from("team_members")
+      .update({ is_captain: true, is_vice_captain: false })
+      .eq("team_id", team_id)
+      .eq("profile_id", profile_id);
+  } else if (role === "vice") {
+    await supabase
+      .from("team_members")
+      .update({ is_vice_captain: false })
+      .eq("profile_id", profile_id);
+    await supabase
+      .from("team_members")
+      .update({ is_vice_captain: false })
+      .eq("team_id", team_id);
+    await supabase
+      .from("team_members")
+      .update({ is_vice_captain: true, is_captain: false })
+      .eq("team_id", team_id)
+      .eq("profile_id", profile_id);
+  } else {
+    await supabase
+      .from("team_members")
+      .update({ is_captain: false, is_vice_captain: false })
+      .eq("team_id", team_id)
+      .eq("profile_id", profile_id);
+  }
+
   revalidatePath(`/mitglieder/admin/mannschaften/${team_id}`);
 }
 

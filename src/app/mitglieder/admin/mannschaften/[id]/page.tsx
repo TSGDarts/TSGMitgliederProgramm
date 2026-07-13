@@ -7,7 +7,7 @@ import {
   updateTeam,
   addRosterMember,
   removeRosterMember,
-  toggleCaptain,
+  setTeamRole,
 } from "../actions";
 import { ImportButton } from "./ImportButton";
 import {
@@ -149,22 +149,33 @@ export default async function AdminTeamDetailPage({
                   <span className="flex items-center gap-2">
                     {m.profile.full_name || m.profile.email}
                     {m.is_captain && <Badge tone="primary">Kapitän</Badge>}
+                    {m.is_vice_captain && <Badge>Vize</Badge>}
                   </span>
                   <div className="flex items-center gap-2">
-                    <form action={toggleCaptain}>
+                    <form action={setTeamRole} className="flex items-center gap-1">
                       <input type="hidden" name="team_id" value={team.id} />
                       <input
                         type="hidden"
                         name="profile_id"
                         value={m.profile_id}
                       />
-                      <input
-                        type="hidden"
-                        name="is_captain"
-                        value={String(m.is_captain)}
-                      />
-                      <button className="text-sm text-primary hover:underline">
-                        {m.is_captain ? "Kapitän entf." : "Zum Kapitän"}
+                      <select
+                        name="team_role"
+                        defaultValue={
+                          m.is_captain
+                            ? "captain"
+                            : m.is_vice_captain
+                              ? "vice"
+                              : "none"
+                        }
+                        className={`${inputClass} w-auto py-1`}
+                      >
+                        <option value="none">Spieler</option>
+                        <option value="captain">Kapitän</option>
+                        <option value="vice">Vize-Kapitän</option>
+                      </select>
+                      <button className="rounded-lg border border-border px-2 py-1 text-sm hover:bg-border/40">
+                        OK
                       </button>
                     </form>
                     <form action={removeRosterMember}>

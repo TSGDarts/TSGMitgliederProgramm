@@ -108,6 +108,7 @@ export default async function EventDetailPage({
                       >
                         <span>{p.profile.full_name || p.profile.email}</span>
                         {p.isCaptain && <Badge tone="primary">C</Badge>}
+                        {p.isViceCaptain && <Badge>VC</Badge>}
                         {g.key !== "open" &&
                           p.status &&
                           p.profile.id === profile.id && (

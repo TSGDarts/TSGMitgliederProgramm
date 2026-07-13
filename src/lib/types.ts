@@ -30,6 +30,7 @@ export interface TeamMember {
   team_id: string;
   profile_id: string;
   is_captain: boolean;
+  is_vice_captain: boolean;
   jersey_number: number | null;
 }
 
