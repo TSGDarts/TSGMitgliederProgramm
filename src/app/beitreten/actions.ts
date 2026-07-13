@@ -91,6 +91,34 @@ export async function claimMember(
     .update({ claimed: true, claimed_profile_id: userId })
     .eq("id", inviteId);
 
+  // Vom Admin bereits nachgetragene Saisonabfrage-Antworten übernehmen.
+  const { data: invAnswers } = await admin
+    .from("survey_responses_invites")
+    .select("*")
+    .eq("invite_id", inviteId);
+  if (invAnswers && invAnswers.length > 0) {
+    await admin.from("survey_responses").upsert(
+      invAnswers.map((a) => ({
+        season_id: a.season_id,
+        profile_id: userId,
+        played_last_season: a.played_last_season,
+        play_frequency: a.play_frequency,
+        captain_interest: a.captain_interest,
+        team_wishes: a.team_wishes,
+        ambitions: a.ambitions,
+        sit_out: a.sit_out,
+        pokal_ku: a.pokal_ku,
+        pokal_8er: a.pokal_8er,
+        updated_at: new Date().toISOString(),
+      })),
+      { onConflict: "season_id,profile_id" },
+    );
+    await admin
+      .from("survey_responses_invites")
+      .delete()
+      .eq("invite_id", inviteId);
+  }
+
   // Direkt anmelden (Session setzen) und ins Dashboard.
   const supabase = await createClient();
   const { error: signErr } = await supabase.auth.signInWithPassword({

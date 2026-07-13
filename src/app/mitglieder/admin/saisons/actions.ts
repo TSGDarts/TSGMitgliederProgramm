@@ -22,29 +22,87 @@ export async function adminSaveSurvey(
 
   const seasonId = String(formData.get("season_id") ?? "");
   const profileId = String(formData.get("profile_id") ?? "");
-  if (!seasonId || !profileId) {
-    return { ok: false, message: "Saison oder Mitglied fehlt." };
+  const inviteId = String(formData.get("invite_id") ?? "");
+  if (!seasonId || (!profileId && !inviteId)) {
+    return { ok: false, message: "Saison oder Person fehlt." };
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("survey_responses").upsert(
-    {
-      season_id: seasonId,
-      profile_id: profileId,
-      updated_at: new Date().toISOString(),
-      ...parseSurveyAnswers(formData),
-    },
-    { onConflict: "season_id,profile_id" },
-  );
+  const answers = parseSurveyAnswers(formData);
+  const updated_at = new Date().toISOString();
+
+  const { error } = profileId
+    ? await supabase.from("survey_responses").upsert(
+        { season_id: seasonId, profile_id: profileId, updated_at, ...answers },
+        { onConflict: "season_id,profile_id" },
+      )
+    : await supabase.from("survey_responses_invites").upsert(
+        { season_id: seasonId, invite_id: inviteId, updated_at, ...answers },
+        { onConflict: "season_id,invite_id" },
+      );
 
   if (error) {
-    return { ok: false, message: `Fehler beim Speichern: ${error.message}` };
+    return {
+      ok: false,
+      message: `Fehler beim Speichern: ${error.message}${
+        error.message.includes("survey_responses_invites")
+          ? " – bitte supabase/08_abfrage_nachtrag.sql (oder ALLE_ERWEITERUNGEN.sql) ausführen."
+          : ""
+      }`,
+    };
   }
 
   revalidatePath(`/mitglieder/admin/saisons/${seasonId}`);
   revalidatePath("/mitglieder/saisonabfrage");
   revalidatePath("/mitglieder");
   return { ok: true, message: "Antworten gespeichert." };
+}
+
+/** Team-Zuordnung für vorab angelegte (noch nicht registrierte) Namen. */
+export async function assignInviteTeam(formData: FormData) {
+  await requireAdmin();
+  const season_id = String(formData.get("season_id") ?? "");
+  const invite_id = String(formData.get("invite_id") ?? "");
+  const team_id = String(formData.get("team_id") ?? "");
+  if (!invite_id || !team_id) return;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("member_invites")
+    .select("team_ids")
+    .eq("id", invite_id)
+    .maybeSingle();
+  const current = (data?.team_ids as string[]) ?? [];
+  if (!current.includes(team_id)) {
+    await supabase
+      .from("member_invites")
+      .update({ team_ids: [...current, team_id] })
+      .eq("id", invite_id);
+  }
+  revalidatePath(`/mitglieder/admin/saisons/${season_id}`);
+  revalidatePath("/mitglieder/admin/beitritt");
+}
+
+export async function unassignInviteTeam(formData: FormData) {
+  await requireAdmin();
+  const season_id = String(formData.get("season_id") ?? "");
+  const invite_id = String(formData.get("invite_id") ?? "");
+  const team_id = String(formData.get("team_id") ?? "");
+  if (!invite_id || !team_id) return;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("member_invites")
+    .select("team_ids")
+    .eq("id", invite_id)
+    .maybeSingle();
+  const current = (data?.team_ids as string[]) ?? [];
+  await supabase
+    .from("member_invites")
+    .update({ team_ids: current.filter((t) => t !== team_id) })
+    .eq("id", invite_id);
+  revalidatePath(`/mitglieder/admin/saisons/${season_id}`);
+  revalidatePath("/mitglieder/admin/beitritt");
 }
 
 export async function createSeason(formData: FormData) {

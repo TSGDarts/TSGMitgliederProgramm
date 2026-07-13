@@ -1,7 +1,7 @@
 -- =====================================================================
 -- SAMMEL-SKRIPT: Alle Datenbank-Erweiterungen in einem Rutsch
 -- ---------------------------------------------------------------------
--- Führt die Skripte 02 bis 07 zusammen aus. Kann GEFAHRLOS mehrfach
+-- Führt die Skripte 02 bis 08 zusammen aus. Kann GEFAHRLOS mehrfach
 -- ausgeführt werden - bestehende Tabellen/Regeln bleiben erhalten,
 -- Rahmentermine werden nur aktualisiert, nie doppelt angelegt.
 -- (Voraussetzung: schema.sql wurde einmal ausgeführt.)
@@ -381,3 +381,34 @@ drop policy if exists "flyers_delete" on storage.objects;
 create policy "flyers_delete" on storage.objects
   for delete to authenticated
   using (bucket_id = 'flyers' and (public.is_admin() or owner = auth.uid()));
+
+-- ###################### 08_abfrage_nachtrag.sql ######################
+
+-- =====================================================================
+-- Erweiterung: Saisonabfrage-Antworten für noch nicht registrierte
+-- Namen (Selbst-Anmeldung). Beim Registrieren wandern die Antworten
+-- automatisch zum neuen Mitgliedskonto.
+-- ---------------------------------------------------------------------
+-- Im Supabase SQL-Editor EINMALIG ausführen.
+-- =====================================================================
+
+create table if not exists public.survey_responses_invites (
+  season_id          uuid not null references public.seasons (id) on delete cascade,
+  invite_id          uuid not null references public.member_invites (id) on delete cascade,
+  played_last_season boolean,
+  play_frequency     text not null default '',
+  captain_interest   text not null default '',
+  team_wishes        text not null default '',
+  ambitions          text not null default '',
+  sit_out            text not null default '',
+  pokal_ku           text not null default '',
+  pokal_8er          text not null default '',
+  updated_at         timestamptz not null default now(),
+  primary key (season_id, invite_id)
+);
+
+alter table public.survey_responses_invites enable row level security;
+
+drop policy if exists "survey_invites_admin" on public.survey_responses_invites;
+create policy "survey_invites_admin" on public.survey_responses_invites
+  for all using (public.is_admin()) with check (public.is_admin());

@@ -4,16 +4,18 @@ import { useActionState } from "react";
 import { adminSaveSurvey, type AdminSurveyResult } from "../actions";
 import { Button } from "@/components/ui";
 import { SurveyFields } from "@/components/SurveyFields";
-import type { SurveyResponse } from "@/lib/season";
+import type { SurveyAnswers } from "@/lib/season";
 
 export function AdminSurveyForm({
   seasonId,
   profileId,
+  inviteId,
   existing,
 }: {
   seasonId: string;
-  profileId: string;
-  existing: SurveyResponse | null;
+  profileId?: string;
+  inviteId?: string;
+  existing: SurveyAnswers | null;
 }) {
   const [state, formAction, pending] = useActionState<
     AdminSurveyResult | null,
@@ -23,7 +25,8 @@ export function AdminSurveyForm({
   return (
     <form action={formAction} className="space-y-6">
       <input type="hidden" name="season_id" value={seasonId} />
-      <input type="hidden" name="profile_id" value={profileId} />
+      {profileId && <input type="hidden" name="profile_id" value={profileId} />}
+      {inviteId && <input type="hidden" name="invite_id" value={inviteId} />}
 
       {state && (
         <p

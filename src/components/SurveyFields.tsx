@@ -4,7 +4,7 @@ import { inputClass } from "@/components/ui";
 import {
   SURVEY_QUESTIONS,
   type SurveyQuestion,
-  type SurveyResponse,
+  type SurveyAnswers,
 } from "@/lib/season";
 
 function RadioQuestion({
@@ -84,7 +84,7 @@ export function SurveyFields({
   existing,
   requireAll = true,
 }: {
-  existing: SurveyResponse | null;
+  existing: SurveyAnswers | null;
   requireAll?: boolean;
 }) {
   return (

@@ -26,6 +26,19 @@ export interface SurveyResponse {
   updated_at: string;
 }
 
+/** Nur die Antwort-Felder (für Mitglieder UND vorab angelegte Namen). */
+export type SurveyAnswers = Pick<
+  SurveyResponse,
+  | "played_last_season"
+  | "play_frequency"
+  | "captain_interest"
+  | "team_wishes"
+  | "ambitions"
+  | "sit_out"
+  | "pokal_ku"
+  | "pokal_8er"
+>;
+
 export interface ArchivedTeam {
   id: string;
   season_id: string;

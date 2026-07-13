@@ -3,7 +3,13 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAllTeams } from "@/lib/member-queries";
-import { toggleSurvey, assignTeam, unassignTeam } from "../actions";
+import {
+  toggleSurvey,
+  assignTeam,
+  unassignTeam,
+  assignInviteTeam,
+  unassignInviteTeam,
+} from "../actions";
 import { ArchiveButton } from "./ArchiveButton";
 import { AdminSurveyForm } from "./AdminSurveyForm";
 import {
@@ -20,9 +26,10 @@ import {
   shortLabel,
   type Season,
   type SurveyResponse,
+  type SurveyAnswers,
   type ArchivedTeam,
 } from "@/lib/season";
-import type { Profile, Team } from "@/lib/types";
+import type { Profile } from "@/lib/types";
 
 // Sortier-Hilfen für die Planungsansicht
 const captainRank: Record<string, number> = { yes: 0, maybe: 1 };
@@ -31,6 +38,16 @@ const freqRank: Record<string, number> = {
   when_can: 1,
   as_needed: 2,
   backup: 3,
+};
+
+/** Eine Person in der Planung: registriertes Mitglied ODER angelegter Name. */
+type PlanEntry = {
+  key: string;
+  kind: "profile" | "invite";
+  id: string;
+  name: string;
+  r: SurveyAnswers | null;
+  teamIds: string[];
 };
 
 export default async function AdminSeasonDetailPage({
@@ -50,7 +67,7 @@ export default async function AdminSeasonDetailPage({
   if (!seasonData) notFound();
   const season = seasonData as Season;
 
-  // Antworten + Profile + Teams laden
+  // Antworten + Profile + Teams + angelegte Namen laden
   const [{ data: respData }, { data: profData }, teams] = await Promise.all([
     supabase.from("survey_responses").select("*").eq("season_id", id),
     supabase.from("profiles").select("*").eq("is_active", true).order("full_name"),
@@ -61,7 +78,31 @@ export default async function AdminSeasonDetailPage({
   );
   const profiles = (profData as Profile[]) ?? [];
 
-  // Team-Zuordnungen aller Personen
+  // Noch nicht registrierte, vorab angelegte Namen + deren Antworten
+  const { data: invData } = await supabase
+    .from("member_invites")
+    .select("id, full_name, team_ids")
+    .eq("claimed", false)
+    .order("full_name");
+  const invites = (invData ?? []) as Array<{
+    id: string;
+    full_name: string;
+    team_ids: string[];
+  }>;
+
+  const inviteResponses = new Map<string, SurveyAnswers>();
+  const { data: invRespData } = await supabase
+    .from("survey_responses_invites")
+    .select("*")
+    .eq("season_id", id);
+  for (const r of invRespData ?? []) {
+    inviteResponses.set(
+      r.invite_id as string,
+      r as unknown as SurveyAnswers,
+    );
+  }
+
+  // Team-Zuordnungen der registrierten Mitglieder
   const { data: tmData } = await supabase
     .from("team_members")
     .select("team_id,profile_id");
@@ -84,24 +125,41 @@ export default async function AdminSeasonDetailPage({
     archive = (data as ArchivedTeam[]) ?? [];
   }
 
-  // Planungs-Sortierung: Kapitänskandidaten zuerst, dann nach Einsatzlevel,
-  // Unbeantwortete ans Ende.
-  const sorted = [...profiles].sort((a, b) => {
-    const ra = responses.get(a.id);
-    const rb = responses.get(b.id);
-    if (!ra && !rb) return a.full_name.localeCompare(b.full_name);
-    if (!ra) return 1;
-    if (!rb) return -1;
-    const ca = captainRank[ra.captain_interest] ?? 2;
-    const cb = captainRank[rb.captain_interest] ?? 2;
+  // Gemeinsame Liste: Mitglieder + angelegte Namen
+  const entries: PlanEntry[] = [
+    ...profiles.map((p) => ({
+      key: `p:${p.id}`,
+      kind: "profile" as const,
+      id: p.id,
+      name: p.full_name || p.email || "?",
+      r: responses.get(p.id) ?? null,
+      teamIds: memberTeams.get(p.id) ?? [],
+    })),
+    ...invites.map((inv) => ({
+      key: `i:${inv.id}`,
+      kind: "invite" as const,
+      id: inv.id,
+      name: inv.full_name,
+      r: inviteResponses.get(inv.id) ?? null,
+      teamIds: inv.team_ids ?? [],
+    })),
+  ];
+
+  // Sortierung: Kapitänskandidaten zuerst, dann Einsatz, Unbeantwortete ans Ende
+  const sorted = entries.sort((a, b) => {
+    if (!a.r && !b.r) return a.name.localeCompare(b.name);
+    if (!a.r) return 1;
+    if (!b.r) return -1;
+    const ca = captainRank[a.r.captain_interest] ?? 2;
+    const cb = captainRank[b.r.captain_interest] ?? 2;
     if (ca !== cb) return ca - cb;
-    const fa = freqRank[ra.play_frequency] ?? 4;
-    const fb = freqRank[rb.play_frequency] ?? 4;
+    const fa = freqRank[a.r.play_frequency] ?? 4;
+    const fb = freqRank[b.r.play_frequency] ?? 4;
     if (fa !== fb) return fa - fb;
-    return a.full_name.localeCompare(b.full_name);
+    return a.name.localeCompare(b.name);
   });
 
-  const answered = profiles.filter((p) => responses.has(p.id)).length;
+  const answered = entries.filter((e) => e.r).length;
 
   return (
     <div className="space-y-8">
@@ -117,7 +175,7 @@ export default async function AdminSeasonDetailPage({
         subtitle={
           season.status === "archived"
             ? "Archivierte Saison"
-            : `Saisonabfrage: ${answered} von ${profiles.length} Mitgliedern beantwortet`
+            : `Saisonabfrage: ${answered} von ${entries.length} Personen erfasst`
         }
       />
 
@@ -190,7 +248,7 @@ export default async function AdminSeasonDetailPage({
                 <p className="text-sm text-muted">
                   {season.survey_open
                     ? "Mitglieder sehen die Abfrage auf ihrer Übersicht und unter „Saisonabfrage“."
-                    : "Öffne die Abfrage, damit die Mitglieder antworten können."}
+                    : "Öffne die Abfrage, damit die Mitglieder selbst antworten können. Nachtragen kannst du unabhängig davon."}
                 </p>
               </div>
               <form action={toggleSurvey}>
@@ -215,55 +273,57 @@ export default async function AdminSeasonDetailPage({
             <h2 className="text-lg font-bold">Antworten & Mannschaftsplanung</h2>
             <p className="text-sm text-muted">
               Sortiert: Kapitäns-Kandidaten zuerst, dann nach Einsatz-Bereitschaft.
-              Teile die Spieler direkt hier den Mannschaften zu.
+              Auch vorab angelegte Namen (noch nicht registriert) sind dabei –
+              deren Antworten wandern bei der Registrierung automatisch mit.
             </p>
 
-            {sorted.map((p) => {
-              const r = responses.get(p.id);
-              const myTeams = memberTeams.get(p.id) ?? [];
-              const available = teams.filter((t) => !myTeams.includes(t.id));
+            {sorted.map((e) => {
+              const available = teams.filter((t) => !e.teamIds.includes(t.id));
               return (
-                <Card key={p.id} className={r ? "" : "opacity-60"}>
+                <Card key={e.key} className={e.r ? "" : "opacity-70"}>
                   <CardBody className="space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-semibold">{p.full_name}</span>
-                        {r?.captain_interest === "yes" && (
+                        <span className="font-semibold">{e.name}</span>
+                        {e.kind === "invite" && (
+                          <Badge tone="warn">noch nicht registriert</Badge>
+                        )}
+                        {e.r?.captain_interest === "yes" && (
                           <Badge tone="primary">Will Kapitän!</Badge>
                         )}
-                        {r?.captain_interest === "maybe" && (
+                        {e.r?.captain_interest === "maybe" && (
                           <Badge>Kapitän möglich</Badge>
                         )}
-                        {r?.played_last_season === false && (
+                        {e.r?.played_last_season === false && (
                           <Badge tone="warn">Neu in der Liga</Badge>
                         )}
-                        {!r && <Badge tone="warn">keine Antwort</Badge>}
+                        {!e.r && <Badge tone="warn">keine Antwort</Badge>}
                       </div>
                     </div>
 
-                    {r && (
+                    {e.r && (
                       <div className="grid gap-x-6 gap-y-1 text-sm text-muted sm:grid-cols-2">
                         <p>
                           <strong className="text-foreground">Einsatz:</strong>{" "}
-                          {surveyLabel("play_frequency", r.play_frequency)}
+                          {surveyLabel("play_frequency", e.r.play_frequency)}
                         </p>
                         <p>
                           <strong className="text-foreground">Ambition:</strong>{" "}
-                          {surveyLabel("ambitions", r.ambitions)}
+                          {surveyLabel("ambitions", e.r.ambitions)}
                         </p>
                         <p>
                           <strong className="text-foreground">Aussetzen:</strong>{" "}
-                          {surveyLabel("sit_out", r.sit_out)}
+                          {surveyLabel("sit_out", e.r.sit_out)}
                         </p>
                         <p>
                           <strong className="text-foreground">Pokale:</strong>{" "}
-                          KU: {shortLabel(r.pokal_ku)} · 8ter:{" "}
-                          {shortLabel(r.pokal_8er)}
+                          KU: {shortLabel(e.r.pokal_ku)} · 8ter:{" "}
+                          {shortLabel(e.r.pokal_8er)}
                         </p>
-                        {r.team_wishes && (
+                        {e.r.team_wishes && (
                           <p className="sm:col-span-2">
                             <strong className="text-foreground">Wünsche:</strong>{" "}
-                            {r.team_wishes}
+                            {e.r.team_wishes}
                           </p>
                         )}
                       </div>
@@ -272,31 +332,40 @@ export default async function AdminSeasonDetailPage({
                     {/* Antworten nachtragen / bearbeiten (Admin) */}
                     <details className="rounded-lg border border-border">
                       <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-primary">
-                        ✏️ Antworten {r ? "bearbeiten" : "nachtragen"}
+                        ✏️ Antworten {e.r ? "bearbeiten" : "nachtragen"}
                       </summary>
                       <div className="border-t border-border p-4">
                         <AdminSurveyForm
                           seasonId={season.id}
-                          profileId={p.id}
-                          existing={r ?? null}
+                          profileId={e.kind === "profile" ? e.id : undefined}
+                          inviteId={e.kind === "invite" ? e.id : undefined}
+                          existing={e.r}
                         />
                       </div>
                     </details>
 
                     {/* Team-Zuordnung */}
                     <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-                      {myTeams.map((tid) => {
-                        const t = teamById.get(tid) as Team | undefined;
+                      {e.teamIds.map((tid) => {
+                        const t = teamById.get(tid);
                         if (!t) return null;
                         return (
                           <form
                             key={tid}
-                            action={unassignTeam}
+                            action={
+                              e.kind === "profile"
+                                ? unassignTeam
+                                : unassignInviteTeam
+                            }
                             className="inline-flex"
                           >
                             <input type="hidden" name="season_id" value={season.id} />
                             <input type="hidden" name="team_id" value={tid} />
-                            <input type="hidden" name="profile_id" value={p.id} />
+                            {e.kind === "profile" ? (
+                              <input type="hidden" name="profile_id" value={e.id} />
+                            ) : (
+                              <input type="hidden" name="invite_id" value={e.id} />
+                            )}
                             <button
                               className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-3 py-1 text-sm text-primary hover:bg-primary/25"
                               title="Aus Team entfernen"
@@ -308,11 +377,17 @@ export default async function AdminSeasonDetailPage({
                       })}
                       {available.length > 0 && (
                         <form
-                          action={assignTeam}
+                          action={
+                            e.kind === "profile" ? assignTeam : assignInviteTeam
+                          }
                           className="inline-flex items-center gap-1"
                         >
                           <input type="hidden" name="season_id" value={season.id} />
-                          <input type="hidden" name="profile_id" value={p.id} />
+                          {e.kind === "profile" ? (
+                            <input type="hidden" name="profile_id" value={e.id} />
+                          ) : (
+                            <input type="hidden" name="invite_id" value={e.id} />
+                          )}
                           <select
                             name="team_id"
                             className={`${inputClass} w-auto py-1 text-sm`}
