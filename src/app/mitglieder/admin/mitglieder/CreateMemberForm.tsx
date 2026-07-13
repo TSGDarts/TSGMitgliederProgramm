@@ -15,7 +15,13 @@ export function CreateMemberForm({ teams }: { teams: Team[] }) {
   return (
     <Card>
       <CardBody className="space-y-4">
-        <h2 className="font-semibold">Neuen Zugang anlegen</h2>
+        <h2 className="font-semibold">Neues Mitglied anlegen</h2>
+        <p className="text-sm text-muted">
+          Nur der <strong>Name</strong> ist nötig. Ohne E-Mail wartet die Person
+          auf die Selbst-Anmeldung über den Beitritts-Link/QR und gibt E-Mail +
+          Passwort dabei selbst an. Mit E-Mail wird sofort ein Zugang mit
+          Passwort-Link erstellt.
+        </p>
 
         {state && (
           <div
@@ -33,8 +39,8 @@ export function CreateMemberForm({ teams }: { teams: Team[] }) {
             <Field label="Name">
               <input name="full_name" required className={inputClass} />
             </Field>
-            <Field label="E-Mail">
-              <input name="email" type="email" required className={inputClass} />
+            <Field label="E-Mail (optional)">
+              <input name="email" type="email" className={inputClass} />
             </Field>
           </div>
 

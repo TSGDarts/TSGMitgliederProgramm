@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { regenerateJoinToken } from "@/lib/invites";
@@ -14,9 +15,17 @@ export async function addInviteName(formData: FormData) {
   const team_ids = formData.getAll("team_ids").map(String).filter(Boolean);
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("member_invites")
     .insert({ full_name, role, team_ids });
+
+  if (error) {
+    // Fehler sichtbar machen statt still zu scheitern.
+    redirect(
+      `/mitglieder/admin/beitritt?fehler=${encodeURIComponent(error.message)}`,
+    );
+  }
+
   revalidatePath("/mitglieder/admin/beitritt");
   revalidatePath("/mitglieder/admin/mitglieder");
 }

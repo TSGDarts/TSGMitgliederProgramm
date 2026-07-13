@@ -45,8 +45,35 @@ export async function createMember(
     : "player";
   const teamIds = formData.getAll("team_ids").map(String).filter(Boolean);
 
-  if (!email || !full_name) {
-    return { ok: false, message: "Name und E-Mail sind erforderlich." };
+  if (!full_name) {
+    return { ok: false, message: "Bitte einen Namen angeben." };
+  }
+
+  // Ohne E-Mail: Name für die Selbst-Anmeldung anlegen. Die Person
+  // registriert sich später über den Beitritts-Link/QR und gibt ihre
+  // E-Mail dabei selbst an.
+  if (!email) {
+    let admin;
+    try {
+      admin = createAdminSupabase();
+    } catch {
+      return { ok: false, message: "SUPABASE_SERVICE_ROLE_KEY fehlt." };
+    }
+    const { error } = await admin
+      .from("member_invites")
+      .insert({ full_name, role, team_ids: teamIds });
+    if (error) {
+      return {
+        ok: false,
+        message: `Konnte nicht angelegt werden: ${error.message}. Falls die Tabelle fehlt: bitte supabase/ALLE_ERWEITERUNGEN.sql im SQL-Editor ausführen.`,
+      };
+    }
+    revalidatePath("/mitglieder/admin/mitglieder");
+    revalidatePath("/mitglieder/admin/beitritt");
+    return {
+      ok: true,
+      message: `${full_name} wurde angelegt und wartet auf die Selbst-Anmeldung. Verteile den Beitritts-Link/QR (unter „Selbst-Anmeldung“ oder „App & Teilen“) – die E-Mail gibt die Person bei der Registrierung selbst an.`,
+    };
   }
 
   let admin;

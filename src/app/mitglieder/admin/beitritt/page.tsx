@@ -27,14 +27,19 @@ type Invite = {
   claimed: boolean;
 };
 
-export default async function AdminBeitrittPage() {
+export default async function AdminBeitrittPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ fehler?: string }>;
+}) {
+  const { fehler } = await searchParams;
   await requireAdmin();
   const teams = await getAllTeams();
   const token = await getOrCreateJoinToken();
   const joinUrl = `${siteUrl}/beitreten?token=${token}`;
 
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error: dbError } = await supabase
     .from("member_invites")
     .select("id, full_name, role, team_ids, claimed")
     .order("claimed")
@@ -51,6 +56,30 @@ export default async function AdminBeitrittPage() {
         title="Selbst-Anmeldung"
         subtitle="Namen anlegen, Link/QR verteilen – die Leute melden sich selbst an"
       />
+
+      {dbError && (
+        <Card className="border-danger/40 bg-danger/5">
+          <CardBody className="space-y-1 text-sm">
+            <p className="font-semibold text-danger">
+              Die Datenbank-Erweiterung für die Selbst-Anmeldung fehlt oder ist
+              unvollständig.
+            </p>
+            <p className="text-muted">
+              Bitte im Supabase SQL-Editor das Skript{" "}
+              <code>supabase/ALLE_ERWEITERUNGEN.sql</code> ausführen (kann
+              gefahrlos mehrfach laufen). Technische Meldung: {dbError.message}
+            </p>
+          </CardBody>
+        </Card>
+      )}
+
+      {fehler && (
+        <Card className="border-danger/40 bg-danger/5">
+          <CardBody className="text-sm text-danger">
+            Name konnte nicht angelegt werden: {fehler}
+          </CardBody>
+        </Card>
+      )}
 
       <JoinLinkCard url={joinUrl} />
 
