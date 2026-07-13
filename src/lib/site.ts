@@ -22,6 +22,8 @@ export const memberNav = [
   { href: "/mitglieder", label: "Übersicht", icon: "home" },
   { href: "/mitglieder/termine", label: "Termine & Zusagen", icon: "calendar" },
   { href: "/mitglieder/mannschaften", label: "Mannschaften", icon: "users" },
+  { href: "/mitglieder/turniere", label: "Turniere", icon: "trophy" },
+  { href: "/mitglieder/competitions", label: "Competitions", icon: "target" },
   { href: "/mitglieder/saisonabfrage", label: "Saisonabfrage", icon: "clipboard" },
   { href: "/mitglieder/nuliga", label: "nuLiga", icon: "table" },
   { href: "/mitglieder/fragen", label: "Fragen", icon: "chat" },
