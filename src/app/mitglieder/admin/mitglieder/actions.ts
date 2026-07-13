@@ -40,8 +40,9 @@ export async function createMember(
     .trim()
     .toLowerCase();
   const full_name = String(formData.get("full_name") ?? "").trim();
-  const role = String(formData.get("role") ?? "player") === "admin"
-    ? "admin"
+  const roleRaw = String(formData.get("role") ?? "player");
+  const role = ["admin", "player", "member"].includes(roleRaw)
+    ? roleRaw
     : "player";
   const teamIds = formData.getAll("team_ids").map(String).filter(Boolean);
 
@@ -156,8 +157,9 @@ export async function regenerateLink(
 export async function setMemberRole(formData: FormData) {
   await requireAdmin();
   const id = String(formData.get("id") ?? "");
-  const role = String(formData.get("role") ?? "player") === "admin"
-    ? "admin"
+  const roleRaw = String(formData.get("role") ?? "player");
+  const role = ["admin", "player", "member"].includes(roleRaw)
+    ? roleRaw
     : "player";
   if (!id) return;
 

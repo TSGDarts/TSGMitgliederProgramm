@@ -10,8 +10,10 @@ export async function addInviteName(formData: FormData) {
   await requireAdmin();
   const full_name = String(formData.get("full_name") ?? "").trim();
   if (!full_name) return;
-  const role =
-    String(formData.get("role") ?? "player") === "admin" ? "admin" : "player";
+  const roleRaw = String(formData.get("role") ?? "player");
+  const role = ["admin", "player", "member"].includes(roleRaw)
+    ? roleRaw
+    : "player";
   const team_ids = formData.getAll("team_ids").map(String).filter(Boolean);
 
   const supabase = await createClient();

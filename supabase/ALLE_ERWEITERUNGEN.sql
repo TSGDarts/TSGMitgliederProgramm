@@ -1,7 +1,7 @@
 -- =====================================================================
 -- SAMMEL-SKRIPT: Alle Datenbank-Erweiterungen in einem Rutsch
 -- ---------------------------------------------------------------------
--- Führt die Skripte 02 bis 08 zusammen aus. Kann GEFAHRLOS mehrfach
+-- Führt die Skripte 02 bis 09 zusammen aus. Kann GEFAHRLOS mehrfach
 -- ausgeführt werden - bestehende Tabellen/Regeln bleiben erhalten,
 -- Rahmentermine werden nur aktualisiert, nie doppelt angelegt.
 -- (Voraussetzung: schema.sql wurde einmal ausgeführt.)
@@ -412,3 +412,25 @@ alter table public.survey_responses_invites enable row level security;
 drop policy if exists "survey_invites_admin" on public.survey_responses_invites;
 create policy "survey_invites_admin" on public.survey_responses_invites
   for all using (public.is_admin()) with check (public.is_admin());
+
+-- ###################### 09_mitglied_ohne_liga.sql ######################
+
+-- =====================================================================
+-- Erweiterung: Rolle "Mitglied (ohne Liga)"
+-- ---------------------------------------------------------------------
+-- Im Supabase SQL-Editor EINMALIG ausführen.
+-- Fügt die dritte Rolle 'member' hinzu: Vereinsmitglied ohne
+-- Liga-Spielbetrieb (nur Grundfunktionen, keine Saisonabfrage/Kader).
+-- =====================================================================
+
+alter table public.profiles
+  drop constraint if exists profiles_role_check;
+alter table public.profiles
+  add constraint profiles_role_check
+  check (role in ('admin', 'player', 'member'));
+
+alter table public.member_invites
+  drop constraint if exists member_invites_role_check;
+alter table public.member_invites
+  add constraint member_invites_role_check
+  check (role in ('admin', 'player', 'member'));

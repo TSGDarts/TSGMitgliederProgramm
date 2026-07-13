@@ -46,7 +46,7 @@ export default async function AdminTeamDetailPage({
     .select("*")
     .order("full_name");
   const available = ((allProfiles as Profile[]) ?? []).filter(
-    (p) => !rosterIds.has(p.id),
+    (p) => !rosterIds.has(p.id) && p.role !== "member", // ohne Liga: kein Kader
   );
 
   return (

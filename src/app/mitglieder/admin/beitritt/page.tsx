@@ -94,7 +94,8 @@ export default async function AdminBeitrittPage({
               </Field>
               <Field label="Rolle">
                 <select name="role" defaultValue="player" className={inputClass}>
-                  <option value="player">Spieler</option>
+                  <option value="player">Spieler (Liga)</option>
+                  <option value="member">Mitglied (ohne Liga)</option>
                   <option value="admin">Admin</option>
                 </select>
               </Field>
@@ -137,6 +138,7 @@ export default async function AdminBeitrittPage({
                     {inv.role === "admin" && (
                       <Badge tone="primary">Admin</Badge>
                     )}
+                    {inv.role === "member" && <Badge>ohne Liga</Badge>}
                     {inv.team_ids?.length > 0 && (
                       <span className="ml-2 text-sm text-muted">
                         {inv.team_ids.map(teamName).filter(Boolean).join(", ")}

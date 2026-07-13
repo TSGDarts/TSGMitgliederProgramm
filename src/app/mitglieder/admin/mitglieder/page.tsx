@@ -61,6 +61,7 @@ export default async function AdminMembersPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{inv.full_name}</span>
                     {inv.role === "admin" && <Badge tone="primary">Admin</Badge>}
+                    {inv.role === "member" && <Badge>ohne Liga</Badge>}
                     <Badge tone="warn">noch nicht angemeldet</Badge>
                     {inv.team_ids?.length > 0 && (
                       <span className="text-sm text-muted">
@@ -109,6 +110,7 @@ export default async function AdminMembersPage() {
                       {m.full_name || "(ohne Namen)"}
                     </span>
                     {m.role === "admin" && <Badge tone="primary">Admin</Badge>}
+                    {m.role === "member" && <Badge>ohne Liga</Badge>}
                     {!m.is_active && <Badge tone="danger">inaktiv</Badge>}
                   </div>
                   <p className="text-sm text-muted">{m.email}</p>
@@ -122,7 +124,8 @@ export default async function AdminMembersPage() {
                       defaultValue={m.role}
                       className={`${inputClass} w-auto py-1`}
                     >
-                      <option value="player">Spieler</option>
+                      <option value="player">Spieler (Liga)</option>
+                      <option value="member">Mitglied (ohne Liga)</option>
                       <option value="admin">Admin</option>
                     </select>
                     <button className="rounded-lg border border-border px-3 py-1 text-sm hover:bg-border/40">

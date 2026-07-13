@@ -9,6 +9,23 @@ export const metadata: Metadata = { title: "Saisonabfrage" };
 
 export default async function SaisonabfragePage() {
   const profile = await requireProfile();
+
+  // Mitglieder ohne Liga-Spielbetrieb betrifft die Abfrage nicht.
+  if (profile.role === "member") {
+    return (
+      <div className="max-w-2xl space-y-6">
+        <PageHeader
+          title="Saisonabfrage"
+          subtitle="Deine Rückmeldung für die Mannschaftsplanung"
+        />
+        <EmptyState
+          title="Die Saisonabfrage richtet sich an Liga-Spieler"
+          hint="Du bist als Mitglied ohne Liga-Spielbetrieb eingetragen. Falls du doch Liga spielen möchtest, melde dich beim Vereins-Admin."
+        />
+      </div>
+    );
+  }
+
   const supabase = await createClient();
 
   // Aktuell offene Abfrage (neueste zuerst)

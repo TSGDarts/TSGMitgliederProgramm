@@ -1,6 +1,14 @@
 // Zentrale Typen für die Datenbank-Tabellen.
 
-export type Role = "admin" | "player";
+export type Role = "admin" | "player" | "member";
+
+export const ROLE_LABELS: Record<Role, string> = {
+  admin: "Admin",
+  player: "Spieler (Liga)",
+  member: "Mitglied (ohne Liga)",
+};
+
+export const VALID_ROLES: Role[] = ["admin", "player", "member"];
 export type EventType = "match" | "friendly" | "training" | "meeting" | "other";
 export type RsvpStatus = "yes" | "no" | "maybe";
 

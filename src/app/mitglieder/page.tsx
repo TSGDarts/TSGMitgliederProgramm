@@ -19,6 +19,7 @@ export default async function DashboardPage() {
   const offen = events.filter((e) => e.myStatus === null).length;
 
   // Läuft gerade eine Saisonabfrage, die ich noch nicht beantwortet habe?
+  // (Mitglieder ohne Liga-Spielbetrieb betrifft sie nicht.)
   const supabase = await createClient();
   const { data: openSeasonData } = await supabase
     .from("seasons")
@@ -28,7 +29,8 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const openSeason = openSeasonData as Season | null;
+  const openSeason =
+    profile.role === "member" ? null : (openSeasonData as Season | null);
   let surveyMissing = false;
   if (openSeason) {
     const { data: myAnswer } = await supabase

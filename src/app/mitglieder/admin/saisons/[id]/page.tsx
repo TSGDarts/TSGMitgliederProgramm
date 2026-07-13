@@ -70,7 +70,12 @@ export default async function AdminSeasonDetailPage({
   // Antworten + Profile + Teams + angelegte Namen laden
   const [{ data: respData }, { data: profData }, teams] = await Promise.all([
     supabase.from("survey_responses").select("*").eq("season_id", id),
-    supabase.from("profiles").select("*").eq("is_active", true).order("full_name"),
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("is_active", true)
+      .neq("role", "member") // Mitglieder ohne Liga spielen hier keine Rolle
+      .order("full_name"),
     getAllTeams(),
   ]);
   const responses = new Map(
@@ -81,12 +86,14 @@ export default async function AdminSeasonDetailPage({
   // Noch nicht registrierte, vorab angelegte Namen + deren Antworten
   const { data: invData } = await supabase
     .from("member_invites")
-    .select("id, full_name, team_ids")
+    .select("id, full_name, role, team_ids")
     .eq("claimed", false)
+    .neq("role", "member")
     .order("full_name");
   const invites = (invData ?? []) as Array<{
     id: string;
     full_name: string;
+    role: string;
     team_ids: string[];
   }>;
 

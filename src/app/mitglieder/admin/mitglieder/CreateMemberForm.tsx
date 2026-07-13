@@ -46,7 +46,8 @@ export function CreateMemberForm({ teams }: { teams: Team[] }) {
 
           <Field label="Rolle">
             <select name="role" className={inputClass} defaultValue="player">
-              <option value="player">Spieler</option>
+              <option value="player">Spieler (Liga)</option>
+              <option value="member">Mitglied (ohne Liga)</option>
               <option value="admin">Admin</option>
             </select>
           </Field>
