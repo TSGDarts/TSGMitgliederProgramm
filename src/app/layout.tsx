@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 import { site } from "@/lib/site";
@@ -14,6 +14,19 @@ export const metadata: Metadata = {
     template: `%s · ${site.clubName} ${site.section}`,
   },
   description: `Mitglieder- und Infoportal der ${site.fullName}.`,
+  icons: {
+    icon: "/icons/icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "TSG Dart",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#c8102e",
 };
 
 export default function RootLayout({

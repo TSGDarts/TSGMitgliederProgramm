@@ -25,6 +25,7 @@ export const memberNav = [
   { href: "/mitglieder/saisonabfrage", label: "Saisonabfrage", icon: "clipboard" },
   { href: "/mitglieder/nuliga", label: "nuLiga", icon: "table" },
   { href: "/mitglieder/fragen", label: "Fragen", icon: "chat" },
+  { href: "/mitglieder/app", label: "App & Teilen", icon: "share" },
   { href: "/mitglieder/profil", label: "Mein Profil", icon: "user" },
 ];
 
