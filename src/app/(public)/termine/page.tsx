@@ -21,6 +21,19 @@ export default async function TerminePage() {
         title="Terminkalender"
         subtitle="Gemeinsamer Rahmenkalender – kommende Termine"
       />
+      <Card className="mb-6 bg-primary/5">
+        <CardBody className="flex flex-wrap items-center justify-between gap-3">
+          <p className="font-medium">📄 Rahmenterminplan 2026/27 & 2027/28</p>
+          <a
+            href="/rahmenterminplan.pdf"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-border/40"
+          >
+            PDF öffnen
+          </a>
+        </CardBody>
+      </Card>
       {events.length === 0 ? (
         <EmptyState
           title="Noch keine Termine eingetragen"

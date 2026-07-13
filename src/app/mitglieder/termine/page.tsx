@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { requireProfile } from "@/lib/auth";
 import { getMemberEvents } from "@/lib/member-queries";
 import { EventCard } from "@/components/EventCard";
-import { PageHeader, EmptyState } from "@/components/ui";
+import { PageHeader, EmptyState, Card, CardBody } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Termine & Zusagen" };
 
@@ -19,6 +19,26 @@ export default async function MemberTerminePage() {
         title="Termine & Zusagen"
         subtitle="Sag zu oder ab – für Spieltage, Freundschaftsspiele und Training"
       />
+
+      <Card className="bg-primary/5">
+        <CardBody className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold">📄 Rahmenterminplan 2026/27 & 2027/28</p>
+            <p className="text-sm text-muted">
+              Der offizielle Rahmenterminplan (Mittelfranken / BDV / DDV) als
+              PDF – die Spielwochen stehen auch unten im Kalender.
+            </p>
+          </div>
+          <a
+            href="/rahmenterminplan.pdf"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-border/40"
+          >
+            PDF öffnen
+          </a>
+        </CardBody>
+      </Card>
 
       <section>
         <h2 className="mb-3 text-lg font-bold">Anstehend</h2>

@@ -18,6 +18,7 @@ export async function addInviteName(formData: FormData) {
     .from("member_invites")
     .insert({ full_name, role, team_ids });
   revalidatePath("/mitglieder/admin/beitritt");
+  revalidatePath("/mitglieder/admin/mitglieder");
 }
 
 export async function deleteInvite(formData: FormData) {
@@ -27,6 +28,7 @@ export async function deleteInvite(formData: FormData) {
   const supabase = await createClient();
   await supabase.from("member_invites").delete().eq("id", id);
   revalidatePath("/mitglieder/admin/beitritt");
+  revalidatePath("/mitglieder/admin/mitglieder");
 }
 
 export async function regenerateTokenAction() {

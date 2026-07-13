@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAllTeams } from "@/lib/member-queries";
+import Link from "next/link";
 import { CreateMemberForm } from "./CreateMemberForm";
 import { RegenerateLink } from "./RegenerateLink";
 import { MemberActionButtons } from "./MemberActionButtons";
 import { setMemberRole } from "./actions";
+import { deleteInvite } from "../beitritt/actions";
 import { PageHeader, Card, CardBody, Badge, inputClass } from "@/components/ui";
 import type { Profile } from "@/lib/types";
 
@@ -21,6 +23,20 @@ export default async function AdminMembersPage() {
     .order("full_name");
   const members = (data as Profile[]) ?? [];
 
+  // Vorab angelegte Namen, die noch auf die Selbst-Anmeldung warten
+  const { data: invitesData } = await supabase
+    .from("member_invites")
+    .select("id, full_name, role, team_ids")
+    .eq("claimed", false)
+    .order("full_name");
+  const openInvites = (invitesData ?? []) as Array<{
+    id: string;
+    full_name: string;
+    role: string;
+    team_ids: string[];
+  }>;
+  const teamName = (id: string) => teams.find((t) => t.id === id)?.name ?? "";
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -29,6 +45,52 @@ export default async function AdminMembersPage() {
       />
 
       <CreateMemberForm teams={teams} />
+
+      {openInvites.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-lg font-bold">
+            Angelegt – warten auf Selbst-Anmeldung{" "}
+            <span className="text-sm font-normal text-muted">
+              ({openInvites.length})
+            </span>
+          </h2>
+          <div className="space-y-2">
+            {openInvites.map((inv) => (
+              <Card key={inv.id} className="border-dashed">
+                <CardBody className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{inv.full_name}</span>
+                    {inv.role === "admin" && <Badge tone="primary">Admin</Badge>}
+                    <Badge tone="warn">noch nicht angemeldet</Badge>
+                    {inv.team_ids?.length > 0 && (
+                      <span className="text-sm text-muted">
+                        {inv.team_ids.map(teamName).filter(Boolean).join(", ")}
+                      </span>
+                    )}
+                  </div>
+                  <form action={deleteInvite}>
+                    <input type="hidden" name="id" value={inv.id} />
+                    <button className="text-sm text-danger hover:underline">
+                      Entfernen
+                    </button>
+                  </form>
+                </CardBody>
+              </Card>
+            ))}
+          </div>
+          <p className="mt-2 text-sm text-muted">
+            Diese Namen wurden über die{" "}
+            <Link
+              href="/mitglieder/admin/beitritt"
+              className="text-primary hover:underline"
+            >
+              Selbst-Anmeldung
+            </Link>{" "}
+            angelegt. Sobald sich die Person über den Beitritts-Link anmeldet,
+            erscheint sie unten bei den Mitgliedern.
+          </p>
+        </section>
+      )}
 
       <section>
         <h2 className="mb-3 text-lg font-bold">
