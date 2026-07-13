@@ -1,8 +1,9 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { isValidJoinToken, listUnclaimedInvites } from "@/lib/invites";
+import { getCurrentProfile } from "@/lib/auth";
 import { ClaimForm } from "./ClaimForm";
-import { Card, CardBody } from "@/components/ui";
+import { Card, CardBody, ButtonLink } from "@/components/ui";
 import { site } from "@/lib/site";
 
 export const metadata: Metadata = { title: "Anmelden" };
@@ -12,6 +13,10 @@ export default async function BeitretenPage({
 }: {
   searchParams: Promise<{ token?: string }>;
 }) {
+  // Wer schon eingeloggt ist, landet direkt in der App.
+  const profile = await getCurrentProfile();
+  if (profile) redirect("/mitglieder");
+
   const { token } = await searchParams;
   const valid = token ? await isValidJoinToken(token) : false;
   const invites = valid ? await listUnclaimedInvites() : [];
@@ -28,10 +33,20 @@ export default async function BeitretenPage({
           </span>
         </div>
 
+        {/* Schon registriert? Direkt zum Login */}
+        <Card className="mb-4 bg-primary/5">
+          <CardBody className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <p className="text-sm font-medium">Du hast schon einen Zugang?</p>
+            <ButtonLink href="/login" variant="secondary">
+              Anmelden
+            </ButtonLink>
+          </CardBody>
+        </Card>
+
         <Card>
           <CardBody className="space-y-4">
             <div>
-              <h1 className="text-lg font-bold">Bei uns anmelden</h1>
+              <h1 className="text-lg font-bold">Neu hier? Registrieren</h1>
               <p className="text-sm text-muted">
                 Wähle deinen Namen und lege deinen Zugang an.
               </p>
@@ -52,10 +67,8 @@ export default async function BeitretenPage({
             )}
 
             <p className="border-t border-border pt-3 text-center text-xs text-muted">
-              Schon angemeldet?{" "}
-              <Link href="/login" className="text-primary hover:underline">
-                Hier einloggen
-              </Link>
+              Dein Name ist nicht dabei oder schon vergeben? Melde dich einfach
+              bei eurem Vereins-Admin.
             </p>
           </CardBody>
         </Card>

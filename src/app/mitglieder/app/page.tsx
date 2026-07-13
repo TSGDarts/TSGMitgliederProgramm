@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
 import { siteUrl } from "@/lib/supabase/config";
 import { site } from "@/lib/site";
+import { getOrCreateJoinToken } from "@/lib/invites";
 import { ShareCard } from "./ShareCard";
 import { PageHeader, Card, CardBody } from "@/components/ui";
 
@@ -21,6 +21,17 @@ function Step({ nr, children }: { nr: number; children: React.ReactNode }) {
 
 export default async function AppPage() {
   await requireProfile();
+
+  // EIN Link für alles: Neue registrieren sich darüber (Namensauswahl),
+  // wer schon einen Zugang hat, kommt über den Anmelden-Button hinein –
+  // und wer eingeloggt ist, landet direkt in der App.
+  let shareUrl = siteUrl;
+  try {
+    const token = await getOrCreateJoinToken();
+    shareUrl = `${siteUrl}/beitreten?token=${token}`;
+  } catch {
+    // Ohne Service-Schlüssel (z. B. lokal): normale Adresse verwenden.
+  }
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -94,21 +105,18 @@ export default async function AppPage() {
       </Card>
 
       {/* Teilen */}
-      <ShareCard url={siteUrl} title={`${site.clubName} ${site.section} – Vereins-App`} />
+      <ShareCard
+        url={shareUrl}
+        title={`${site.clubName} ${site.section} – Vereins-App`}
+      />
 
       <Card className="border-dashed">
         <CardBody className="text-sm text-muted">
-          <strong className="text-foreground">Hinweis:</strong> Neue Mitglieder
-          brauchen zum ersten Anmelden den <em>Beitritts-Link</em> – den
-          erzeugen Admins unter{" "}
-          <Link
-            href="/mitglieder/admin/beitritt"
-            className="text-primary hover:underline"
-          >
-            Selbst-Anmeldung (Link/QR)
-          </Link>
-          . Der Link hier auf dieser Seite ist die normale App-Adresse für alle,
-          die schon einen Zugang haben.
+          <strong className="text-foreground">Ein Link für alles:</strong> Wer
+          den QR-Code scannt und <em>neu</em> ist, wählt seinen Namen und
+          registriert sich selbst. Wer <em>schon einen Zugang</em> hat, tippt
+          einfach auf „Anmelden“ – und wer bereits eingeloggt ist, landet
+          direkt in der App.
         </CardBody>
       </Card>
     </div>
