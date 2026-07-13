@@ -48,6 +48,16 @@ export default async function LoginPage({
                 E-Mail oder Passwort ist falsch.
               </p>
             )}
+            {fehler === "gesperrt" && (
+              <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
+                Dein Zugang ist gesperrt. Bitte wende dich an den Verein.
+              </p>
+            )}
+            {fehler === "link" && (
+              <p className="rounded-lg bg-warn/10 px-3 py-2 text-sm text-warn">
+                Der Link ist ungültig oder abgelaufen. Bitte einen neuen anfordern.
+              </p>
+            )}
             {fehler === "setup" && (
               <p className="rounded-lg bg-warn/10 px-3 py-2 text-sm text-warn">
                 Die Datenbank ist noch nicht eingerichtet. Bitte Supabase-Zugang

@@ -7,8 +7,8 @@ import {
 } from "./config";
 
 /**
- * Hält die Supabase-Session bei jeder Anfrage frisch und schützt den
- * Mitglieder-Bereich (/app/...) vor nicht eingeloggten Besuchern.
+ * Hält die Supabase-Session bei jeder Anfrage frisch und schützt die
+ * GESAMTE Website vor nicht eingeloggten Besuchern (reine Mitglieder-Seite).
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -41,12 +41,18 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isProtected = path.startsWith("/mitglieder");
 
-  if (!user && isProtected) {
+  // Ohne Login erreichbar sind nur: Login, Selbst-Anmeldung (Beitritts-Link),
+  // die Auth-Callbacks und das Passwort-Setzen (über Einladungslink).
+  const openPaths = ["/login", "/beitreten", "/passwort-setzen"];
+  const isOpen =
+    openPaths.some((p) => path === p || path.startsWith(p + "/")) ||
+    path.startsWith("/auth");
+
+  if (!user && !isOpen) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("weiter", path);
+    if (path !== "/") url.searchParams.set("weiter", path);
     return NextResponse.redirect(url);
   }
 

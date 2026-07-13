@@ -138,3 +138,36 @@ export async function setMemberRole(formData: FormData) {
   await admin.from("profiles").update({ role }).eq("id", id);
   revalidatePath("/mitglieder/admin/mitglieder");
 }
+
+/** Löscht ein Mitglied endgültig (Login + Profil + alle Zuordnungen). */
+export async function deleteMember(formData: FormData) {
+  const me = await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id || id === me.id) return; // sich selbst löschen: nicht erlaubt
+
+  const admin = createAdminSupabase();
+  await admin.auth.admin.deleteUser(id);
+  // Profil, Team-Zuordnungen, Zusagen usw. werden per "on delete cascade"
+  // automatisch mit entfernt.
+  revalidatePath("/mitglieder/admin/mitglieder");
+}
+
+/** Sperrt bzw. entsperrt den Login eines Mitglieds. */
+export async function toggleMemberActive(formData: FormData) {
+  const me = await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const currentlyActive = String(formData.get("is_active") ?? "") === "true";
+  if (!id || id === me.id) return; // sich selbst sperren: nicht erlaubt
+
+  const admin = createAdminSupabase();
+  if (currentlyActive) {
+    // Sperren: Login bei Supabase blockieren (sehr lange "Bann-Dauer")
+    await admin.auth.admin.updateUserById(id, { ban_duration: "87600h" });
+    await admin.from("profiles").update({ is_active: false }).eq("id", id);
+  } else {
+    // Entsperren
+    await admin.auth.admin.updateUserById(id, { ban_duration: "none" });
+    await admin.from("profiles").update({ is_active: true }).eq("id", id);
+  }
+  revalidatePath("/mitglieder/admin/mitglieder");
+}

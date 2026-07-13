@@ -26,12 +26,15 @@ export async function getCurrentProfile(): Promise<Profile | null> {
 }
 
 /**
- * Erzwingt einen eingeloggten Nutzer. Leitet sonst zur Login-Seite um.
+ * Erzwingt einen eingeloggten, aktiven Nutzer. Leitet sonst zur Login-Seite um.
  */
 export async function requireProfile(nextPath = "/mitglieder"): Promise<Profile> {
   const profile = await getCurrentProfile();
   if (!profile) {
     redirect(`/login?weiter=${encodeURIComponent(nextPath)}`);
+  }
+  if (!profile.is_active) {
+    redirect("/login?fehler=gesperrt");
   }
   return profile;
 }

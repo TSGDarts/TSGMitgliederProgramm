@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAllTeams } from "@/lib/member-queries";
 import { CreateMemberForm } from "./CreateMemberForm";
 import { RegenerateLink } from "./RegenerateLink";
+import { MemberActionButtons } from "./MemberActionButtons";
 import { setMemberRole } from "./actions";
 import { PageHeader, Card, CardBody, Badge, inputClass } from "@/components/ui";
 import type { Profile } from "@/lib/types";
@@ -11,7 +12,7 @@ import type { Profile } from "@/lib/types";
 export const metadata: Metadata = { title: "Mitglieder verwalten" };
 
 export default async function AdminMembersPage() {
-  await requireAdmin();
+  const me = await requireAdmin();
   const teams = await getAllTeams();
   const supabase = await createClient();
   const { data } = await supabase
@@ -67,6 +68,12 @@ export default async function AdminMembersPage() {
                     </button>
                   </form>
                   {m.email && <RegenerateLink email={m.email} />}
+                  <MemberActionButtons
+                    id={m.id}
+                    name={m.full_name || m.email || "Mitglied"}
+                    isActive={m.is_active}
+                    isSelf={m.id === me.id}
+                  />
                 </div>
               </CardBody>
             </Card>
