@@ -2,18 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { SURVEY_QUESTIONS } from "@/lib/season";
+import { parseSurveyAnswers } from "@/lib/season";
 
 export type SurveyResult = { ok: boolean; message: string };
-
-/** Liest eine Radio-Antwort; bei "Sonstiges" den Freitext übernehmen. */
-function pick(formData: FormData, name: string): string {
-  const v = String(formData.get(name) ?? "");
-  if (v === "__other") {
-    return String(formData.get(`${name}_other`) ?? "").trim();
-  }
-  return v;
-}
 
 export async function submitSurvey(
   _prev: SurveyResult | null,
@@ -38,18 +29,12 @@ export async function submitSurvey(
     return { ok: false, message: "Die Saisonabfrage ist derzeit geschlossen." };
   }
 
-  const playedRaw = String(formData.get("played_last_season") ?? "");
   const row: Record<string, unknown> = {
     season_id: seasonId,
     profile_id: user.id,
-    played_last_season:
-      playedRaw === "ja" ? true : playedRaw === "nein" ? false : null,
-    team_wishes: String(formData.get("team_wishes") ?? "").trim(),
     updated_at: new Date().toISOString(),
+    ...parseSurveyAnswers(formData),
   };
-  for (const q of SURVEY_QUESTIONS) {
-    row[q.field] = pick(formData, q.field);
-  }
 
   const { error } = await supabase
     .from("survey_responses")

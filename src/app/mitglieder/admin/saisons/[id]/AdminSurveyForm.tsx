@@ -1,26 +1,29 @@
 "use client";
 
 import { useActionState } from "react";
-import { submitSurvey, type SurveyResult } from "./actions";
+import { adminSaveSurvey, type AdminSurveyResult } from "../actions";
 import { Button } from "@/components/ui";
 import { SurveyFields } from "@/components/SurveyFields";
 import type { SurveyResponse } from "@/lib/season";
 
-export function SurveyForm({
+export function AdminSurveyForm({
   seasonId,
+  profileId,
   existing,
 }: {
   seasonId: string;
+  profileId: string;
   existing: SurveyResponse | null;
 }) {
   const [state, formAction, pending] = useActionState<
-    SurveyResult | null,
+    AdminSurveyResult | null,
     FormData
-  >(submitSurvey, null);
+  >(adminSaveSurvey, null);
 
   return (
-    <form action={formAction} className="space-y-8">
+    <form action={formAction} className="space-y-6">
       <input type="hidden" name="season_id" value={seasonId} />
+      <input type="hidden" name="profile_id" value={profileId} />
 
       {state && (
         <p
@@ -32,14 +35,11 @@ export function SurveyForm({
         </p>
       )}
 
-      <SurveyFields existing={existing} />
+      {/* requireAll=false: beim Nachtragen dürfen Fragen offen bleiben */}
+      <SurveyFields existing={existing} requireAll={false} />
 
-      <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-        {pending
-          ? "Speichere …"
-          : existing
-            ? "Antworten aktualisieren"
-            : "Antworten absenden"}
+      <Button type="submit" disabled={pending}>
+        {pending ? "Speichere …" : "Antworten speichern"}
       </Button>
     </form>
   );

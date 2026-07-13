@@ -4,7 +4,48 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { parseSurveyAnswers } from "@/lib/season";
 import type { EventRow } from "@/lib/types";
+
+export type AdminSurveyResult = { ok: boolean; message: string };
+
+/**
+ * Admin trägt die Saisonabfrage-Antworten eines Mitglieds ein oder
+ * bearbeitet sie – unabhängig davon, ob die Abfrage gerade offen ist
+ * (z. B. zum Übertragen einer bereits per Forms durchgeführten Umfrage).
+ */
+export async function adminSaveSurvey(
+  _prev: AdminSurveyResult | null,
+  formData: FormData,
+): Promise<AdminSurveyResult> {
+  await requireAdmin();
+
+  const seasonId = String(formData.get("season_id") ?? "");
+  const profileId = String(formData.get("profile_id") ?? "");
+  if (!seasonId || !profileId) {
+    return { ok: false, message: "Saison oder Mitglied fehlt." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("survey_responses").upsert(
+    {
+      season_id: seasonId,
+      profile_id: profileId,
+      updated_at: new Date().toISOString(),
+      ...parseSurveyAnswers(formData),
+    },
+    { onConflict: "season_id,profile_id" },
+  );
+
+  if (error) {
+    return { ok: false, message: `Fehler beim Speichern: ${error.message}` };
+  }
+
+  revalidatePath(`/mitglieder/admin/saisons/${seasonId}`);
+  revalidatePath("/mitglieder/saisonabfrage");
+  revalidatePath("/mitglieder");
+  return { ok: true, message: "Antworten gespeichert." };
+}
 
 export async function createSeason(formData: FormData) {
   await requireAdmin();

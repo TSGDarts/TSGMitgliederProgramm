@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAllTeams } from "@/lib/member-queries";
 import { toggleSurvey, assignTeam, unassignTeam } from "../actions";
 import { ArchiveButton } from "./ArchiveButton";
+import { AdminSurveyForm } from "./AdminSurveyForm";
 import {
   PageHeader,
   Card,
@@ -267,6 +268,20 @@ export default async function AdminSeasonDetailPage({
                         )}
                       </div>
                     )}
+
+                    {/* Antworten nachtragen / bearbeiten (Admin) */}
+                    <details className="rounded-lg border border-border">
+                      <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-primary">
+                        ✏️ Antworten {r ? "bearbeiten" : "nachtragen"}
+                      </summary>
+                      <div className="border-t border-border p-4">
+                        <AdminSurveyForm
+                          seasonId={season.id}
+                          profileId={p.id}
+                          existing={r ?? null}
+                        />
+                      </div>
+                    </details>
 
                     {/* Team-Zuordnung */}
                     <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">

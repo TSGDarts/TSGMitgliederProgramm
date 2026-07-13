@@ -138,6 +138,31 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
   },
 ];
 
+/**
+ * Liest die Antworten aus einem abgesendeten Fragebogen-Formular.
+ * Bei "Sonstiges" wird der Freitext übernommen.
+ */
+export function parseSurveyAnswers(formData: FormData) {
+  const pick = (name: string): string => {
+    const v = String(formData.get(name) ?? "");
+    if (v === "__other") {
+      return String(formData.get(`${name}_other`) ?? "").trim();
+    }
+    return v;
+  };
+
+  const playedRaw = String(formData.get("played_last_season") ?? "");
+  const answers: Record<string, unknown> = {
+    played_last_season:
+      playedRaw === "ja" ? true : playedRaw === "nein" ? false : null,
+    team_wishes: String(formData.get("team_wishes") ?? "").trim(),
+  };
+  for (const q of SURVEY_QUESTIONS) {
+    answers[q.field] = pick(q.field);
+  }
+  return answers;
+}
+
 /** Übersetzt einen gespeicherten Wert in den Anzeigetext. */
 export function surveyLabel(field: SurveyQuestion["field"], value: string): string {
   if (!value) return "—";
