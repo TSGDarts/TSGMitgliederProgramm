@@ -23,3 +23,21 @@ export function berlinLocalToISO(local: string): string | null {
   const [, y, mo, d, h, mi] = m;
   return `${y}-${mo}-${d}T${h}:${mi}:00${berlinOffset(+y, +mo, +d)}`;
 }
+
+/**
+ * Gegenrichtung: wandelt eine gespeicherte ISO-Zeit in den Wert für
+ * <input type="datetime-local"> (deutsche Ortszeit, "YYYY-MM-DDTHH:mm").
+ */
+export function berlinISOToLocalInput(iso: string): string {
+  const fmt = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  // "sv-SE" liefert "YYYY-MM-DD HH:mm"
+  return fmt.format(new Date(iso)).replace(" ", "T");
+}
