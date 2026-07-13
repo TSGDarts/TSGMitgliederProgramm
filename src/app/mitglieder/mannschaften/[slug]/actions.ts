@@ -70,6 +70,39 @@ export async function createTeamEvent(slug: string, formData: FormData) {
   revalidatePath("/termine");
 }
 
+export async function updateTeamEvent(slug: string, formData: FormData) {
+  const teamId = String(formData.get("team_id") ?? "");
+  const eventId = String(formData.get("event_id") ?? "");
+  const { supabase } = await assertCanManage(teamId);
+  if (!eventId) return;
+
+  const title = String(formData.get("title") ?? "").trim();
+  const starts_at = berlinLocalToISO(String(formData.get("starts_at") ?? ""));
+  if (!title || !starts_at) return;
+
+  const typeRaw = String(formData.get("type") ?? "match") as EventType;
+  const type = VALID_TYPES.includes(typeRaw) ? typeRaw : "other";
+
+  await supabase
+    .from("events")
+    .update({
+      title,
+      type,
+      starts_at,
+      location: String(formData.get("location") ?? "").trim(),
+      description: String(formData.get("description") ?? "").trim(),
+      is_public: formData.get("is_public") === "on",
+    })
+    .eq("id", eventId)
+    .eq("team_id", teamId);
+
+  revalidatePath(`/mitglieder/mannschaften/${slug}`);
+  revalidatePath("/mitglieder/termine");
+  revalidatePath(`/mitglieder/termine/${eventId}`);
+  revalidatePath("/mitglieder");
+  revalidatePath("/termine");
+}
+
 export async function deleteTeamEvent(slug: string, formData: FormData) {
   const teamId = String(formData.get("team_id") ?? "");
   const eventId = String(formData.get("event_id") ?? "");
