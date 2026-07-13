@@ -9,9 +9,9 @@ export const metadata: Metadata = { title: "Login" };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ weiter?: string; fehler?: string }>;
+  searchParams: Promise<{ weiter?: string; fehler?: string; angemeldet?: string }>;
 }) {
-  const { weiter, fehler } = await searchParams;
+  const { weiter, fehler, angemeldet } = await searchParams;
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
@@ -37,6 +37,12 @@ export default async function LoginPage({
               </p>
             </div>
 
+            {angemeldet && (
+              <p className="rounded-lg bg-ok/10 px-3 py-2 text-sm text-ok">
+                Dein Zugang wurde angelegt. Melde dich jetzt mit deiner E-Mail und
+                deinem Passwort an.
+              </p>
+            )}
             {fehler === "login" && (
               <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
                 E-Mail oder Passwort ist falsch.
