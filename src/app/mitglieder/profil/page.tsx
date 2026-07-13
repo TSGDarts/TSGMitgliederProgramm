@@ -1,0 +1,64 @@
+import type { Metadata } from "next";
+import { requireProfile } from "@/lib/auth";
+import { updateProfile } from "./actions";
+import {
+  PageHeader,
+  Card,
+  CardBody,
+  Button,
+  Field,
+  inputClass,
+  Badge,
+} from "@/components/ui";
+
+export const metadata: Metadata = { title: "Mein Profil" };
+
+export default async function ProfilPage() {
+  const profile = await requireProfile();
+
+  return (
+    <div className="max-w-lg space-y-6">
+      <PageHeader title="Mein Profil" />
+
+      <Card>
+        <CardBody className="space-y-4">
+          <div className="flex items-center gap-2 text-sm text-muted">
+            <span>{profile.email}</span>
+            {profile.role === "admin" && <Badge tone="primary">Admin</Badge>}
+          </div>
+
+          <form action={updateProfile} className="space-y-4">
+            <Field label="Name">
+              <input
+                name="full_name"
+                defaultValue={profile.full_name}
+                required
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Telefon (optional)" hint="Für Mitspieler im Kader sichtbar">
+              <input
+                name="phone"
+                type="tel"
+                defaultValue={profile.phone ?? ""}
+                className={inputClass}
+              />
+            </Field>
+            <Button type="submit">Speichern</Button>
+          </form>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardBody className="text-sm text-muted">
+          <p className="mb-1 font-medium text-foreground">Passwort ändern</p>
+          Du kannst dein Passwort jederzeit über die Seite{" "}
+          <a href="/passwort-setzen" className="text-primary hover:underline">
+            Passwort festlegen
+          </a>{" "}
+          neu setzen, solange du angemeldet bist.
+        </CardBody>
+      </Card>
+    </div>
+  );
+}
