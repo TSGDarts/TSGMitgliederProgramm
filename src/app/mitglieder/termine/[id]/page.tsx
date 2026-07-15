@@ -62,10 +62,20 @@ export default async function EventDetailPage({
         }`}
       />
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Badge tone="primary">{EVENT_TYPE_LABELS[event.type]}</Badge>
         <Badge>{teamName ?? "Gesamter Verein"}</Badge>
         {event.source === "nuliga" && <Badge>aus nuLiga</Badge>}
+        {event.meeting_url && (
+          <a
+            href={event.meeting_url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg hover:opacity-90"
+          >
+            🎦 Online teilnehmen
+          </a>
+        )}
       </div>
 
       {event.description && (

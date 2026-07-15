@@ -102,7 +102,17 @@ export async function getEventParticipants(
   const captainIds = new Set<string>();
   const viceIds = new Set<string>();
 
-  if (event.team_id) {
+  // Termine mit Einladungsliste: Teilnehmer = die Eingeladenen
+  const { data: invited } = await supabase
+    .from("event_invitees")
+    .select("profile_id, profiles(*)")
+    .eq("event_id", event.id);
+
+  if (invited && invited.length > 0) {
+    profiles = invited
+      .map((m) => m.profiles as unknown as Profile)
+      .filter(Boolean);
+  } else if (event.team_id) {
     const { data: members } = await supabase
       .from("team_members")
       .select("profile_id,is_captain,is_vice_captain,profiles(*)")

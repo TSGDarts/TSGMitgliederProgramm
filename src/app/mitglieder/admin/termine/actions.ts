@@ -37,17 +37,30 @@ export async function createEvent(formData: FormData) {
   const team_id = String(formData.get("team_id") ?? "") || null;
 
   const supabase = await createClient();
-  await supabase.from("events").insert({
-    title,
-    type,
-    team_id,
-    starts_at,
-    location: String(formData.get("location") ?? "").trim(),
-    description: String(formData.get("description") ?? "").trim(),
-    is_public: formData.get("is_public") === "on",
-    source: "manual",
-    created_by: profile.id,
-  });
+  const { data: created } = await supabase
+    .from("events")
+    .insert({
+      title,
+      type,
+      team_id,
+      starts_at,
+      location: String(formData.get("location") ?? "").trim(),
+      description: String(formData.get("description") ?? "").trim(),
+      meeting_url: String(formData.get("meeting_url") ?? "").trim(),
+      is_public: formData.get("is_public") === "on",
+      source: "manual",
+      created_by: profile.id,
+    })
+    .select("id")
+    .single();
+
+  // Optionale Einladungsliste: nur die Angehakten sehen den Termin.
+  const invitees = formData.getAll("invitees").map(String).filter(Boolean);
+  if (created?.id && invitees.length) {
+    await supabase.from("event_invitees").insert(
+      invitees.map((profile_id) => ({ event_id: created.id, profile_id })),
+    );
+  }
 
   revalidateEvents();
 }
@@ -75,9 +88,19 @@ export async function updateEvent(formData: FormData) {
       starts_at,
       location: String(formData.get("location") ?? "").trim(),
       description: String(formData.get("description") ?? "").trim(),
+      meeting_url: String(formData.get("meeting_url") ?? "").trim(),
       is_public: formData.get("is_public") === "on",
     })
     .eq("id", id);
+
+  // Einladungsliste sauber ersetzen (hinzufügen UND entfernen greifen sofort)
+  const invitees = formData.getAll("invitees").map(String).filter(Boolean);
+  await supabase.from("event_invitees").delete().eq("event_id", id);
+  if (invitees.length) {
+    await supabase.from("event_invitees").insert(
+      invitees.map((profile_id) => ({ event_id: id, profile_id })),
+    );
+  }
 
   revalidateEvents(id);
 }

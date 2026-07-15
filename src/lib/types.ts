@@ -56,6 +56,7 @@ export interface EventRow {
   title: string;
   description: string | null;
   location: string | null;
+  meeting_url?: string | null; // Online-Link (Teams, Meet, …)
   type: EventType;
   starts_at: string;
   ends_at: string | null;

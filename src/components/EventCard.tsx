@@ -35,12 +35,24 @@ export function EventCard({ event }: { event: EventWithStatus }) {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <RsvpButtons eventId={event.id} current={event.myStatus} />
-          <Link
-            href={`/mitglieder/termine/${event.id}`}
-            className="text-sm text-primary hover:underline"
-          >
-            Wer kommt? →
-          </Link>
+          <span className="flex items-center gap-3">
+            {event.meeting_url && (
+              <a
+                href={event.meeting_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-primary hover:underline"
+              >
+                🎦 Online-Link
+              </a>
+            )}
+            <Link
+              href={`/mitglieder/termine/${event.id}`}
+              className="text-sm text-primary hover:underline"
+            >
+              Wer kommt? →
+            </Link>
+          </span>
         </div>
       </CardBody>
     </Card>

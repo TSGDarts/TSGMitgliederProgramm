@@ -14,10 +14,57 @@ import {
   Badge,
   EmptyState,
 } from "@/components/ui";
-import { EVENT_TYPE_LABELS, type EventRow } from "@/lib/types";
+import { EVENT_TYPE_LABELS, type EventRow, type Profile } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Termine verwalten" };
+
+/** Aufklappbare Teilnehmer-Auswahl (nur Angehakte sehen den Termin). */
+function InviteePicker({
+  members,
+  selected,
+}: {
+  members: Profile[];
+  selected?: Set<string>;
+}) {
+  const count = selected?.size ?? 0;
+  return (
+    <details
+      className="rounded-lg border border-border"
+      open={count > 0 ? true : undefined}
+    >
+      <summary className="cursor-pointer px-4 py-2 text-sm font-medium">
+        👥 Nur bestimmte Teilnehmer einladen{" "}
+        <span className="text-muted">
+          {count > 0 ? `(${count} ausgewählt)` : "(optional)"}
+        </span>
+      </summary>
+      <div className="space-y-2 border-t border-border p-3">
+        <p className="text-xs text-muted">
+          Ohne Auswahl gilt der Termin für die gewählte Mannschaft bzw. den
+          ganzen Verein. Mit Auswahl sehen <strong>nur die Eingeladenen</strong>{" "}
+          diesen Termin – Änderungen greifen sofort.
+        </p>
+        <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+          {members.map((m) => (
+            <label
+              key={m.id}
+              className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-border/30"
+            >
+              <input
+                type="checkbox"
+                name="invitees"
+                value={m.id}
+                defaultChecked={selected?.has(m.id)}
+              />
+              {m.full_name || m.email}
+            </label>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+}
 
 export default async function AdminEventsPage() {
   await requireAdmin();
@@ -32,6 +79,28 @@ export default async function AdminEventsPage() {
   const events = (data as EventRow[]) ?? [];
   const teamName = (id: string | null) =>
     id ? teams.find((t) => t.id === id)?.name : null;
+
+  // Aktive Mitglieder für die Teilnehmer-Auswahl
+  const { data: memberData } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("is_active", true)
+    .order("full_name");
+  const members = (memberData as Profile[]) ?? [];
+
+  // Bestehende Einladungslisten (für Bearbeiten + Badge)
+  const inviteesByEvent = new Map<string, Set<string>>();
+  if (events.length) {
+    const { data: invData } = await supabase
+      .from("event_invitees")
+      .select("event_id, profile_id")
+      .in("event_id", events.map((e) => e.id));
+    for (const row of invData ?? []) {
+      const set = inviteesByEvent.get(row.event_id as string) ?? new Set();
+      set.add(row.profile_id as string);
+      inviteesByEvent.set(row.event_id as string, set);
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -81,7 +150,19 @@ export default async function AdminEventsPage() {
               <Field label="Beschreibung (optional)">
                 <input name="description" className={inputClass} />
               </Field>
+              <Field
+                label="Online-Link (optional)"
+                hint="z. B. Teams-, Meet- oder Zoom-Link – praktisch für Besprechungen"
+              >
+                <input
+                  name="meeting_url"
+                  type="url"
+                  placeholder="https://teams.microsoft.com/…"
+                  className={inputClass}
+                />
+              </Field>
             </div>
+            <InviteePicker members={members} />
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="is_public" defaultChecked />
               Im öffentlichen Kalender anzeigen
@@ -106,6 +187,11 @@ export default async function AdminEventsPage() {
                       <Badge>{teamName(ev.team_id) ?? "Verein"}</Badge>
                       {ev.source === "nuliga" && <Badge>nuLiga</Badge>}
                       {!ev.is_public && <Badge tone="warn">intern</Badge>}
+                      {(inviteesByEvent.get(ev.id)?.size ?? 0) > 0 && (
+                        <Badge tone="warn">
+                          👥 nur Eingeladene ({inviteesByEvent.get(ev.id)!.size})
+                        </Badge>
+                      )}
                       <span className="font-medium">{ev.title}</span>
                     </div>
                     <p className="mt-1 text-sm text-muted">
@@ -190,7 +276,20 @@ export default async function AdminEventsPage() {
                           className={inputClass}
                         />
                       </Field>
+                      <Field label="Online-Link (optional)">
+                        <input
+                          name="meeting_url"
+                          type="url"
+                          defaultValue={ev.meeting_url ?? ""}
+                          placeholder="https://teams.microsoft.com/…"
+                          className={inputClass}
+                        />
+                      </Field>
                     </div>
+                    <InviteePicker
+                      members={members}
+                      selected={inviteesByEvent.get(ev.id)}
+                    />
                     <label className="flex items-center gap-2 text-sm">
                       <input
                         type="checkbox"
