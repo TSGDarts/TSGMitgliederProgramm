@@ -117,6 +117,9 @@ export async function createEvent(formData: FormData) {
   const startsLocal = String(formData.get("starts_at") ?? "");
   const starts_at = berlinLocalToISO(startsLocal);
   if (!starts_at) abbruchMitFehler("Bitte Datum und Startzeit angeben.");
+  const ends_at = berlinLocalToISO(String(formData.get("ends_at") ?? ""));
+  if (ends_at && new Date(ends_at) <= new Date(starts_at))
+    abbruchMitFehler("Das Ende muss nach dem Beginn liegen.");
 
   const typeRaw = String(formData.get("type") ?? "other") as EventType;
   const type = VALID_TYPES.includes(typeRaw) ? typeRaw : "other";
@@ -139,6 +142,7 @@ export async function createEvent(formData: FormData) {
       type,
       team_id,
       starts_at,
+      ends_at,
       location,
       opponent_id,
       opponent_team_no,
@@ -177,6 +181,9 @@ export async function updateEvent(formData: FormData) {
 
   const starts_at = berlinLocalToISO(String(formData.get("starts_at") ?? ""));
   if (!starts_at) abbruchMitFehler("Bitte Datum und Startzeit angeben.");
+  const ends_at = berlinLocalToISO(String(formData.get("ends_at") ?? ""));
+  if (ends_at && new Date(ends_at) <= new Date(starts_at))
+    abbruchMitFehler("Das Ende muss nach dem Beginn liegen.");
 
   const typeRaw = String(formData.get("type") ?? "other") as EventType;
   const type = VALID_TYPES.includes(typeRaw) ? typeRaw : "other";
@@ -199,6 +206,7 @@ export async function updateEvent(formData: FormData) {
       type,
       team_id,
       starts_at,
+      ends_at,
       location,
       opponent_id,
       opponent_team_no,

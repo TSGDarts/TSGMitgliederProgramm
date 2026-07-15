@@ -4,7 +4,7 @@ import { RsvpButtons } from "@/components/RsvpButtons";
 import { AddressLine } from "@/components/AddressLine";
 import { EVENT_TYPE_LABELS } from "@/lib/types";
 import type { EventWithStatus } from "@/lib/member-queries";
-import { formatDate, formatTime } from "@/lib/format";
+import { formatDate, formatTime, formatUntil } from "@/lib/format";
 
 export function EventCard({ event }: { event: EventWithStatus }) {
   return (
@@ -39,6 +39,9 @@ export function EventCard({ event }: { event: EventWithStatus }) {
                 </span>
               ) : (
                 <>Start {formatTime(event.starts_at)} Uhr</>
+              )}
+              {event.ends_at && (
+                <> · {formatUntil(event.starts_at, event.ends_at)}</>
               )}
             </p>
             {(event.meet_home_time || event.meet_venue_time) && (

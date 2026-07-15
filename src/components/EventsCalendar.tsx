@@ -76,10 +76,13 @@ export async function EventsCalendar({
   const gridStart = Date.UTC(y, m - 1, 1 - lead);
 
   const supabase = await createClient();
+  // Auch mehrtägige Termine erfassen, die vor dem Raster beginnen,
+  // aber erst darin enden (ends_at im Rasterbereich).
+  const gridStartIso = new Date(gridStart).toISOString();
   const { data } = await supabase
     .from("events")
     .select("*")
-    .gte("starts_at", new Date(gridStart).toISOString())
+    .or(`starts_at.gte.${gridStartIso},ends_at.gte.${gridStartIso}`)
     .lt("starts_at", new Date(gridStart + totalCells * 864e5).toISOString())
     .order("starts_at");
   let events = (data as EventRow[]) ?? [];
@@ -89,22 +92,39 @@ export async function EventsCalendar({
     events = events.filter((e) => e.team_id === teamFilter);
   }
 
-  // Archiv-Frist: ältere Termine ausblenden (bleiben in der Datenbank)
+  // Archiv-Frist: ältere Termine ausblenden (bleiben in der Datenbank).
+  // Bei mehrtägigen Terminen zählt das Ende.
   const archiveDays = await getEventArchiveDays();
   const cutoffKey = berlinDay.format(
     new Date(Date.now() - archiveDays * 864e5),
   );
   events = events.filter(
-    (e) => berlinDay.format(new Date(e.starts_at)) >= cutoffKey,
+    (e) => berlinDay.format(new Date(e.ends_at ?? e.starts_at)) >= cutoffKey,
   );
 
-  // Termine nach Berliner Kalendertag gruppieren
+  // Termine nach Berliner Kalendertag gruppieren – mehrtägige Termine
+  // erscheinen an jedem Tag ihres Zeitraums (Deckel gegen Ausreißer).
   const byDay = new Map<string, EventRow[]>();
   for (const ev of events) {
-    const key = berlinDay.format(new Date(ev.starts_at));
-    const list = byDay.get(key) ?? [];
-    list.push(ev);
-    byDay.set(key, list);
+    const startKey = berlinDay.format(new Date(ev.starts_at));
+    const endKey = ev.ends_at
+      ? berlinDay.format(new Date(ev.ends_at))
+      : startKey;
+    const dayKeys = new Set<string>([startKey]);
+    if (endKey > startKey) {
+      let t = new Date(ev.starts_at).getTime();
+      for (let i = 0; i < 62; i++) {
+        t += 864e5;
+        const k = berlinDay.format(new Date(t));
+        if (k > endKey) break;
+        dayKeys.add(k);
+      }
+    }
+    for (const key of dayKeys) {
+      const list = byDay.get(key) ?? [];
+      list.push(ev);
+      byDay.set(key, list);
+    }
   }
 
   // Eigene Zu-/Absagen für die angezeigten Termine
@@ -275,7 +295,10 @@ export async function EventsCalendar({
                         eventId={ev.id}
                         title={ev.title}
                         time={
-                          !ev.time_tbd && formatTime(ev.starts_at) !== "00:00"
+                          // Startzeit nur am ersten Tag des Zeitraums zeigen
+                          berlinDay.format(new Date(ev.starts_at)) === key &&
+                          !ev.time_tbd &&
+                          formatTime(ev.starts_at) !== "00:00"
                             ? formatTime(ev.starts_at)
                             : ""
                         }

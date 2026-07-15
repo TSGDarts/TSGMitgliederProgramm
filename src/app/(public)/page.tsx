@@ -3,7 +3,7 @@ import { getTeams, getPublicUpcomingEvents } from "@/lib/queries";
 import { site } from "@/lib/site";
 import { Card, CardBody, ButtonLink, Badge, EmptyState } from "@/components/ui";
 import { EVENT_TYPE_LABELS } from "@/lib/types";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatUntil } from "@/lib/format";
 
 export default async function HomePage() {
   const [teams, events] = await Promise.all([
@@ -63,6 +63,9 @@ export default async function HomePage() {
                   </div>
                   <span className="text-sm text-muted">
                     {formatDateTime(ev.starts_at)}
+                    {ev.ends_at
+                      ? ` – ${formatUntil(ev.starts_at, ev.ends_at)}`
+                      : ""}
                   </span>
                 </CardBody>
               </Card>

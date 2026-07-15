@@ -29,3 +29,20 @@ export function formatDateTime(value: string | Date): string {
 export function isPast(value: string | Date): boolean {
   return new Date(value).getTime() < Date.now();
 }
+
+/**
+ * „bis …“-Zusatz für Termine mit Ende: am selben Tag nur die Uhrzeit,
+ * sonst das Datum (plus Uhrzeit, wenn eine gesetzt ist).
+ */
+export function formatUntil(
+  starts: string | Date,
+  ends: string | Date,
+): string {
+  const endTime = formatTime(ends);
+  if (formatDate(starts) === formatDate(ends)) {
+    return `bis ${endTime} Uhr`;
+  }
+  return endTime !== "00:00"
+    ? `bis ${formatDate(ends)}, ${endTime} Uhr`
+    : `bis ${formatDate(ends)}`;
+}

@@ -27,7 +27,7 @@ import {
   type Profile,
   type Opponent,
 } from "@/lib/types";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatUntil } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Termine verwalten" };
 
@@ -293,6 +293,12 @@ export default async function AdminEventsPage({
                   className={inputClass}
                 />
               </Field>
+              <Field
+                label="Ende (optional)"
+                hint="Für längere oder mehrtägige Termine – z. B. ein Fest oder Wochenende"
+              >
+                <input name="ends_at" type="datetime-local" className={inputClass} />
+              </Field>
               <Field label="Treffpunkt bei der TSG (optional)" hint="z. B. zum gemeinsamen Fahren">
                 <input name="meet_home_time" type="time" className={inputClass} />
               </Field>
@@ -385,6 +391,9 @@ export default async function AdminEventsPage({
                       {ev.time_tbd
                         ? `${formatDate(ev.starts_at)} – ⏳ Uhrzeit folgt`
                         : formatDateTime(ev.starts_at)}
+                      {ev.ends_at
+                        ? ` – ${formatUntil(ev.starts_at, ev.ends_at)}`
+                        : ""}
                       {ev.location ? ` · ${ev.location}` : ""}
                     </p>
                   </div>
@@ -461,6 +470,19 @@ export default async function AdminEventsPage({
                           type="datetime-local"
                           required
                           defaultValue={berlinISOToLocalInput(ev.starts_at)}
+                          className={inputClass}
+                        />
+                      </Field>
+                      <Field
+                        label="Ende (optional)"
+                        hint="Für längere oder mehrtägige Termine"
+                      >
+                        <input
+                          name="ends_at"
+                          type="datetime-local"
+                          defaultValue={
+                            ev.ends_at ? berlinISOToLocalInput(ev.ends_at) : ""
+                          }
                           className={inputClass}
                         />
                       </Field>

@@ -244,7 +244,7 @@ export default async function TurnierePage({
                         rel="noreferrer"
                         className="inline-flex items-center rounded-lg border border-border px-4 py-1.5 text-sm font-medium hover:bg-border/40"
                       >
-                        🔗 Turnierseite
+                        🔗 Zum Turnier
                       </a>
                     )}
 

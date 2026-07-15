@@ -40,7 +40,8 @@ export async function getMemberEvents(
 
   let query = supabase.from("events").select("*");
   if (opts.past) {
-    // Vergangene nur bis zur Archiv-Frist anzeigen
+    // Vergangene nur bis zur Archiv-Frist anzeigen; noch laufende
+    // mehrtägige Termine gehören nicht hierher, sondern zu „Kommende“
     const archiveDays = await getEventArchiveDays();
     const cutoffIso = new Date(
       Date.now() - archiveDays * 864e5,
@@ -48,10 +49,12 @@ export async function getMemberEvents(
     query = query
       .lt("starts_at", nowIso)
       .gte("starts_at", cutoffIso)
+      .or(`ends_at.is.null,ends_at.lt.${nowIso}`)
       .order("starts_at", { ascending: false });
   } else {
+    // Kommende: auch bereits begonnene Termine, deren Ende noch aussteht
     query = query
-      .gte("starts_at", nowIso)
+      .or(`starts_at.gte.${nowIso},ends_at.gte.${nowIso}`)
       .order("starts_at", { ascending: true });
   }
   if (opts.limit) query = query.limit(opts.limit * 3);
