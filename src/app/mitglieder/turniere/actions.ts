@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { getManageableTeamIds } from "@/lib/member-queries";
@@ -16,19 +17,37 @@ async function assertCanManageExtras() {
   return profile;
 }
 
-export async function createTournament(formData: FormData) {
-  const profile = await assertCanManageExtras();
+/** Bricht ab und zeigt die Fehlermeldung oben auf der Seite an. */
+function abbruchMitFehler(msg: string): never {
+  let text = msg;
+  if (/column|schema cache/i.test(msg)) {
+    text =
+      "In der Datenbank fehlt eine Spalte. Bitte das Skript ALLE_ERWEITERUNGEN.sql " +
+      `im Supabase SQL-Editor ausführen und erneut speichern. (Technisch: ${msg})`;
+  }
+  redirect(`/mitglieder/turniere?fehler=${encodeURIComponent(text)}`);
+}
 
+/** Nach erfolgreichem Speichern: Erfolgs-Hinweis + Formulare zuklappen/leeren. */
+function fertigMitErfolg(): never {
+  redirect(`/mitglieder/turniere?gespeichert=${Date.now()}`);
+}
+
+/** Liest die gemeinsamen Turnier-Felder aus dem Formular. */
+function readTournamentFields(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const starts_at = berlinLocalToISO(String(formData.get("starts_at") ?? ""));
-  if (!title || !starts_at) return;
+  if (!title || !starts_at) {
+    abbruchMitFehler("Bitte Turniername und Turnierbeginn angeben.");
+  }
 
   const deadlineRaw = String(formData.get("entry_deadline") ?? "");
   const entry_deadline = deadlineRaw ? berlinLocalToISO(deadlineRaw) : null;
 
-  // Optionales Turnierende (mehrtägig); ein Ende vor dem Beginn wird verworfen
-  let ends_at = berlinLocalToISO(String(formData.get("ends_at") ?? ""));
-  if (ends_at && new Date(ends_at) <= new Date(starts_at)) ends_at = null;
+  const ends_at = berlinLocalToISO(String(formData.get("ends_at") ?? ""));
+  if (ends_at && new Date(ends_at) <= new Date(starts_at)) {
+    abbruchMitFehler("Das Turnierende muss nach dem Turnierbeginn liegen.");
+  }
 
   const kindRaw = String(formData.get("kind") ?? "frei");
   const kind = ["ddv", "bdv", "bezirk", "frei"].includes(kindRaw)
@@ -44,8 +63,7 @@ export async function createTournament(formData: FormData) {
     display_until = (ends_at ?? starts_at).slice(0, 10);
   }
 
-  const supabase = await createClient();
-  await supabase.from("tournaments").insert({
+  return {
     title,
     kind,
     mode,
@@ -59,10 +77,39 @@ export async function createTournament(formData: FormData) {
     register_url: String(formData.get("register_url") ?? "").trim(),
     info_url: String(formData.get("info_url") ?? "").trim(),
     display_until,
+  };
+}
+
+export async function createTournament(formData: FormData) {
+  const profile = await assertCanManageExtras();
+  const fields = readTournamentFields(formData);
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("tournaments").insert({
+    ...fields,
     created_by: profile.id,
   });
+  if (error) abbruchMitFehler(error.message);
 
   revalidatePath("/mitglieder/turniere");
+  fertigMitErfolg();
+}
+
+export async function updateTournament(formData: FormData) {
+  await assertCanManageExtras();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const fields = readTournamentFields(formData);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("tournaments")
+    .update(fields)
+    .eq("id", id);
+  if (error) abbruchMitFehler(error.message);
+
+  revalidatePath("/mitglieder/turniere");
+  fertigMitErfolg();
 }
 
 /** Verschiebt ein Turnier sofort ins Archiv. */

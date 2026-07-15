@@ -153,12 +153,25 @@ export async function EventsCalendar({
   // Kärtchen (mehrtägige an jedem Tag ihres Zeitraums).
   const tournamentsByDay = new Map<string, Tournament[]>();
   if (!teamFilter || teamFilter === "verein") {
-    const { data: tourData } = await supabase
+    const gridEndIso = new Date(
+      gridStart + totalCells * 864e5,
+    ).toISOString();
+    let { data: tourData } = await supabase
       .from("tournaments")
       .select("*")
       .or(`starts_at.gte.${gridStartIso},ends_at.gte.${gridStartIso}`)
-      .lt("starts_at", new Date(gridStart + totalCells * 864e5).toISOString())
+      .lt("starts_at", gridEndIso)
       .order("starts_at");
+    if (!tourData) {
+      // Rückfall ohne ends_at-Filter (Spalte kommt erst mit Skript 29 –
+      // ohne sie würde sonst die ganze Turnier-Abfrage scheitern)
+      ({ data: tourData } = await supabase
+        .from("tournaments")
+        .select("*")
+        .gte("starts_at", gridStartIso)
+        .lt("starts_at", gridEndIso)
+        .order("starts_at"));
+    }
     for (const t of (tourData as Tournament[]) ?? []) {
       const startKey = berlinDay.format(new Date(t.starts_at));
       const endKey = t.ends_at

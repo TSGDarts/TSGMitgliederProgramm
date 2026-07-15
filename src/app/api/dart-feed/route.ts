@@ -186,15 +186,9 @@ export async function GET() {
     return [out];
   });
 
-  // Öffentliche Vereinstermine – inkl. vergangener (Archiv der Competition-App).
-  // Einträge mit source_uid "comp-app:…" stammen aus der Competition-App selbst
-  // (comp-import) und werden NICHT zurückgeliefert – sonst kämen sie dort doppelt an.
+  // Öffentliche Vereinstermine – inkl. vergangener (Archiv der Competition-App)
   const termine = (((clubEventsData as EventRow[]) ?? []))
-    .filter(
-      (ev) =>
-        ev.feed_export !== false &&
-        !(ev.source_uid ?? "").startsWith("comp-app:"),
-    )
+    .filter((ev) => ev.feed_export !== false)
     .map((ev) => {
     const start = new Date(ev.starts_at);
     const out: Record<string, unknown> = {

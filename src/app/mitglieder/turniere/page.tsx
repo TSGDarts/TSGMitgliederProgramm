@@ -3,7 +3,13 @@ import type { Metadata } from "next";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getManageableTeamIds } from "@/lib/member-queries";
-import { createTournament, archiveTournament, deleteTournament } from "./actions";
+import {
+  createTournament,
+  updateTournament,
+  archiveTournament,
+  deleteTournament,
+} from "./actions";
+import { berlinISOToLocalInput } from "@/lib/tz";
 import { FlyerUpload } from "@/components/FlyerUpload";
 import {
   PageHeader,
@@ -25,12 +31,153 @@ import { formatDate, formatDateTime, formatTime, formatUntil } from "@/lib/forma
 
 export const metadata: Metadata = { title: "Turniere im Umkreis" };
 
+/** Gemeinsame Formularfelder für Anlegen UND Bearbeiten (vorausgefüllt). */
+function TournamentFields({ defaults }: { defaults?: Tournament }) {
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Turniername">
+          <input
+            name="title"
+            required
+            defaultValue={defaults?.title ?? ""}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Ort (Adresse)">
+          <input
+            name="location"
+            defaultValue={defaults?.location ?? ""}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Turnierart">
+          <select
+            name="kind"
+            defaultValue={defaults?.kind ?? "frei"}
+            className={inputClass}
+          >
+            {Object.entries(TOURNAMENT_KIND_LABELS).map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Einzel oder Doppel">
+          <select
+            name="mode"
+            defaultValue={defaults?.mode ?? "einzel"}
+            className={inputClass}
+          >
+            <option value="einzel">Einzelturnier</option>
+            <option value="doppel">Doppelturnier</option>
+          </select>
+        </Field>
+        <Field label="Turnierbeginn">
+          <input
+            name="starts_at"
+            type="datetime-local"
+            required
+            defaultValue={
+              defaults ? berlinISOToLocalInput(defaults.starts_at) : undefined
+            }
+            className={inputClass}
+          />
+        </Field>
+        <Field
+          label="Turnierende (optional)"
+          hint="Für mehrtägige Turniere – z. B. ein Ranglisten-Wochenende"
+        >
+          <input
+            name="ends_at"
+            type="datetime-local"
+            defaultValue={
+              defaults?.ends_at
+                ? berlinISOToLocalInput(defaults.ends_at)
+                : undefined
+            }
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Einlass ab (optional)">
+          <input
+            name="doors_time"
+            type="time"
+            defaultValue={defaults?.doors_time ?? ""}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Anmeldeschluss (optional)">
+          <input
+            name="entry_deadline"
+            type="datetime-local"
+            defaultValue={
+              defaults?.entry_deadline
+                ? berlinISOToLocalInput(defaults.entry_deadline)
+                : undefined
+            }
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Anmeldelink (optional)">
+          <input
+            name="register_url"
+            type="url"
+            placeholder="https://…"
+            defaultValue={defaults?.register_url ?? ""}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Link zum Turnier (optional)">
+          <input
+            name="info_url"
+            type="url"
+            placeholder="https://…"
+            defaultValue={defaults?.info_url ?? ""}
+            className={inputClass}
+          />
+        </Field>
+        <Field
+          label="Anzeigen bis (optional)"
+          hint="Danach wandert das Turnier automatisch ins Archiv. Leer = letzter Turniertag."
+        >
+          <input
+            name="display_until"
+            type="date"
+            defaultValue={defaults?.display_until ?? ""}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Flyer (Bild oder PDF, optional)">
+          <FlyerUpload initial={defaults?.flyer_url ?? ""} />
+        </Field>
+      </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          name="details_tbd"
+          defaultChecked={defaults?.details_tbd ?? false}
+        />
+        ⏳ Noch keine Details verfügbar – „Details folgen“ anzeigen
+        <span className="text-xs text-muted">
+          (oben trotzdem ein ungefähres Datum wählen)
+        </span>
+      </label>
+    </>
+  );
+}
+
 export default async function TurnierePage({
   searchParams,
 }: {
-  searchParams: Promise<{ archiv?: string }>;
+  searchParams: Promise<{
+    archiv?: string;
+    fehler?: string;
+    gespeichert?: string;
+  }>;
 }) {
-  const { archiv } = await searchParams;
+  const { archiv, fehler, gespeichert } = await searchParams;
   const showArchive = archiv === "1";
 
   const profile = await requireProfile();
@@ -53,6 +200,23 @@ export default async function TurnierePage({
         title="Turniere im Umkreis"
         subtitle="Steeldart-Turniere in der Region – eingetragen von Admins und Kapitänen"
       />
+
+      {fehler ? (
+        <Card className="border-danger/40 bg-danger/10">
+          <CardBody>
+            <p className="font-semibold text-danger">
+              ⚠️ Speichern fehlgeschlagen
+            </p>
+            <p className="mt-1 text-sm">{fehler}</p>
+          </CardBody>
+        </Card>
+      ) : null}
+
+      {gespeichert ? (
+        <Card className="border-ok/40 bg-ok/10">
+          <CardBody className="font-semibold text-ok">✓ Gespeichert.</CardBody>
+        </Card>
+      ) : null}
 
       {/* Aktuell / Archiv Umschalter */}
       <div className="flex gap-2">
@@ -85,86 +249,12 @@ export default async function TurnierePage({
             ➕ Turnier eintragen
           </summary>
           <div className="border-t border-border p-5">
-            <form action={createTournament} className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Turniername">
-                  <input name="title" required className={inputClass} />
-                </Field>
-                <Field label="Ort (Adresse)">
-                  <input name="location" className={inputClass} />
-                </Field>
-                <Field label="Turnierart">
-                  <select name="kind" defaultValue="frei" className={inputClass}>
-                    {Object.entries(TOURNAMENT_KIND_LABELS).map(([v, l]) => (
-                      <option key={v} value={v}>
-                        {l}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Einzel oder Doppel">
-                  <select name="mode" defaultValue="einzel" className={inputClass}>
-                    <option value="einzel">Einzelturnier</option>
-                    <option value="doppel">Doppelturnier</option>
-                  </select>
-                </Field>
-                <Field label="Turnierbeginn">
-                  <input
-                    name="starts_at"
-                    type="datetime-local"
-                    required
-                    className={inputClass}
-                  />
-                </Field>
-                <Field
-                  label="Turnierende (optional)"
-                  hint="Für mehrtägige Turniere – z. B. ein Ranglisten-Wochenende"
-                >
-                  <input name="ends_at" type="datetime-local" className={inputClass} />
-                </Field>
-                <Field label="Einlass ab (optional)">
-                  <input name="doors_time" type="time" className={inputClass} />
-                </Field>
-                <Field label="Anmeldeschluss (optional)">
-                  <input
-                    name="entry_deadline"
-                    type="datetime-local"
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Anmeldelink (optional)">
-                  <input
-                    name="register_url"
-                    type="url"
-                    placeholder="https://…"
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Link zum Turnier (optional)">
-                  <input
-                    name="info_url"
-                    type="url"
-                    placeholder="https://…"
-                    className={inputClass}
-                  />
-                </Field>
-                <Field
-                  label="Anzeigen bis (optional)"
-                  hint="Danach wandert das Turnier automatisch ins Archiv. Leer = Turniertag."
-                >
-                  <input name="display_until" type="date" className={inputClass} />
-                </Field>
-                <Field label="Flyer (Bild oder PDF, optional)">
-                  <FlyerUpload />
-                </Field>
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="details_tbd" />
-                ⏳ Noch keine Details verfügbar – „Details folgen“ anzeigen
-                <span className="text-xs text-muted">
-                  (oben trotzdem ein ungefähres Datum wählen)
-                </span>
-              </label>
+            <form
+              key={gespeichert ?? "neu"}
+              action={createTournament}
+              className="space-y-4"
+            >
+              <TournamentFields />
               <Button type="submit">Turnier eintragen</Button>
             </form>
           </div>
@@ -298,6 +388,27 @@ export default async function TurnierePage({
                       </span>
                     )}
                   </div>
+
+                  {/* Bearbeiten (aufklappbar, vorausgefüllt); Schlüssel
+                      wechselt nach dem Speichern → Feld klappt wieder zu */}
+                  {mayEdit && (
+                    <details
+                      key={`${t.id}-${gespeichert ?? ""}`}
+                      className="rounded-lg border border-border"
+                    >
+                      <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-primary">
+                        ✏️ Bearbeiten
+                      </summary>
+                      <form
+                        action={updateTournament}
+                        className="space-y-4 border-t border-border p-4"
+                      >
+                        <input type="hidden" name="id" value={t.id} />
+                        <TournamentFields defaults={t} />
+                        <Button type="submit">Änderungen speichern</Button>
+                      </form>
+                    </details>
+                  )}
                 </CardBody>
               </Card>
             );
