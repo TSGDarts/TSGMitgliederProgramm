@@ -6,9 +6,17 @@ import Link from "next/link";
 import { CreateMemberForm } from "./CreateMemberForm";
 import { RegenerateLink } from "./RegenerateLink";
 import { MemberActionButtons } from "./MemberActionButtons";
-import { setMemberRole } from "./actions";
+import { setMemberRole, updateMemberData } from "./actions";
 import { deleteInvite } from "../beitritt/actions";
-import { PageHeader, Card, CardBody, Badge, inputClass } from "@/components/ui";
+import {
+  PageHeader,
+  Card,
+  CardBody,
+  Badge,
+  Button,
+  Field,
+  inputClass,
+} from "@/components/ui";
 import type { Profile } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Mitglieder verwalten" };
@@ -103,7 +111,8 @@ export default async function AdminMembersPage() {
         <div className="space-y-3">
           {members.map((m) => (
             <Card key={m.id}>
-              <CardBody className="flex flex-wrap items-center justify-between gap-4">
+              <CardBody className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-medium">
@@ -113,7 +122,20 @@ export default async function AdminMembersPage() {
                     {m.role === "member" && <Badge>ohne Liga</Badge>}
                     {!m.is_active && <Badge tone="danger">inaktiv</Badge>}
                   </div>
-                  <p className="text-sm text-muted">{m.email}</p>
+                  <p className="text-sm text-muted">
+                    {m.email}
+                    {m.phone && <> · 📱 {m.phone}</>}
+                    {m.birthday && <> · 🎂 {m.birthday}</>}
+                    {!m.birthday && (
+                      <>
+                        {" "}
+                        ·{" "}
+                        <span className="text-warn">
+                          Geburtstag fehlt (für Liga nötig)
+                        </span>
+                      </>
+                    )}
+                  </p>
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
@@ -140,6 +162,55 @@ export default async function AdminMembersPage() {
                     isSelf={m.id === me.id}
                   />
                 </div>
+              </div>
+
+              {/* Stammdaten bearbeiten (Admin) */}
+              <details className="rounded-lg border border-border">
+                <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-primary">
+                  ✏️ Daten bearbeiten
+                </summary>
+                <form
+                  action={updateMemberData}
+                  className="space-y-4 border-t border-border p-4"
+                >
+                  <input type="hidden" name="id" value={m.id} />
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <Field label="Name">
+                      <input
+                        name="full_name"
+                        required
+                        defaultValue={m.full_name}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Handynummer" hint="Ideal für WhatsApp-Abstimmungen">
+                      <input
+                        name="phone"
+                        type="tel"
+                        defaultValue={m.phone ?? ""}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Geburtstag" hint="Für die Liga-Meldung">
+                      <input
+                        name="birthday"
+                        type="date"
+                        defaultValue={m.birthday ?? ""}
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name="birthday_public"
+                      defaultChecked={m.birthday_public ?? false}
+                    />
+                    Geburtstag im Mitglieder-Kalender anzeigen 🎂
+                  </label>
+                  <Button type="submit">Speichern</Button>
+                </form>
+              </details>
               </CardBody>
             </Card>
           ))}

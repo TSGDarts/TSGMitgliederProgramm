@@ -36,7 +36,10 @@ export default async function ProfilPage() {
                 className={inputClass}
               />
             </Field>
-            <Field label="Telefon (optional)" hint="Für Mitspieler im Kader sichtbar">
+            <Field
+              label="Handynummer (optional)"
+              hint="Ideal für WhatsApp-Abstimmungen im Team – für Mitspieler im Kader sichtbar"
+            >
               <input
                 name="phone"
                 type="tel"

@@ -60,6 +60,7 @@ export interface Opponent {
   street?: string | null;
   zip?: string | null;
   city?: string | null;
+  boards?: number | null; // Anzahl Dartboards beim Gegner
   notes: string;
   created_at: string;
 }

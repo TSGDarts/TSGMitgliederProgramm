@@ -14,7 +14,14 @@ function readAddress(formData: FormData) {
   const street = String(formData.get("street") ?? "").trim();
   const zip = String(formData.get("zip") ?? "").trim();
   const city = String(formData.get("city") ?? "").trim();
-  return { street, zip, city, address: composeAddress(street, zip, city) };
+  const boardsRaw = Number(formData.get("boards") ?? 0);
+  return {
+    street,
+    zip,
+    city,
+    address: composeAddress(street, zip, city),
+    boards: boardsRaw >= 1 ? boardsRaw : null,
+  };
 }
 
 export async function createOpponent(formData: FormData) {

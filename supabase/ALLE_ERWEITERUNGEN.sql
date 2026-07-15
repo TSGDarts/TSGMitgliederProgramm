@@ -1,7 +1,7 @@
 -- =====================================================================
 -- SAMMEL-SKRIPT: Alle Datenbank-Erweiterungen in einem Rutsch
 -- ---------------------------------------------------------------------
--- Führt die Skripte 02 bis 21 zusammen aus (OHNE 06_rahmentermine -
+-- Führt die Skripte 02 bis 22 zusammen aus (OHNE 06_rahmentermine -
 -- die Rahmentermine wurden auf Wunsch entfernt). Kann GEFAHRLOS
 -- mehrfach ausgeführt werden.
 -- (Voraussetzung: schema.sql wurde einmal ausgeführt.)
@@ -744,3 +744,14 @@ values
   ('Nur Gruppenphase (jeder gegen jeden)'),
   ('Gruppenphase (nach Setzliste)')
 on conflict (name) do nothing;
+
+-- ###################### 22_gegner_boards.sql ######################
+
+-- =====================================================================
+-- Erweiterung: Board-Anzahl bei Gegnern
+-- ---------------------------------------------------------------------
+-- Im Supabase SQL-Editor EINMALIG ausführen.
+-- =====================================================================
+
+alter table public.opponents
+  add column if not exists boards int;

@@ -168,6 +168,32 @@ export async function setMemberRole(formData: FormData) {
   revalidatePath("/mitglieder/admin/mitglieder");
 }
 
+/** Admin bearbeitet die Stammdaten eines Mitglieds. */
+export async function updateMemberData(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const full_name = String(formData.get("full_name") ?? "").trim();
+  if (!id || !full_name) return;
+
+  const birthdayRaw = String(formData.get("birthday") ?? "");
+  const birthday = /^\d{4}-\d{2}-\d{2}$/.test(birthdayRaw)
+    ? birthdayRaw
+    : null;
+
+  const admin = createAdminSupabase();
+  await admin
+    .from("profiles")
+    .update({
+      full_name,
+      phone: String(formData.get("phone") ?? "").trim(),
+      birthday,
+      birthday_public: formData.get("birthday_public") === "on",
+    })
+    .eq("id", id);
+
+  revalidatePath("/mitglieder/admin/mitglieder");
+}
+
 /** Löscht ein Mitglied endgültig (Login + Profil + alle Zuordnungen). */
 export async function deleteMember(formData: FormData) {
   const me = await requireAdmin();

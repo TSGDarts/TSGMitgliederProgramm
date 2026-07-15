@@ -63,7 +63,14 @@ export function ClaimForm({
         <input name="email" type="email" required className={inputClass} />
       </Field>
 
-      <Field label="3. Dein Geburtstag">
+      <Field
+        label="3. Handynummer (optional)"
+        hint="Ideal für WhatsApp-Abstimmungen im Team – kein Pflichtfeld."
+      >
+        <input name="phone" type="tel" className={inputClass} />
+      </Field>
+
+      <Field label="4. Dein Geburtstag" hint="Pflichtfeld – brauchen wir für die Liga-Meldung.">
         <input name="birthday" type="date" required className={inputClass} />
       </Field>
       <label className="flex items-center gap-2 text-sm">
@@ -75,7 +82,7 @@ export function ClaimForm({
         das jederzeit in deinem Profil ändern.
       </p>
 
-      <Field label="4. Passwort festlegen" hint="Mindestens 8 Zeichen">
+      <Field label="5. Passwort festlegen" hint="Mindestens 8 Zeichen">
         <input
           name="password"
           type="password"

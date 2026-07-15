@@ -127,12 +127,22 @@ export default async function AdminOpponentsPage() {
               <input name="name" required className={inputClass} />
             </Field>
             <AddressFields />
-            <Field
-              label="Notiz (optional)"
-              hint="z. B. Parken hinterm Haus, Eingang über den Hof …"
-            >
-              <input name="notes" className={inputClass} />
-            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Anzahl Boards (optional)" hint="Falls bekannt">
+                <input
+                  name="boards"
+                  type="number"
+                  min={1}
+                  className={inputClass}
+                />
+              </Field>
+              <Field
+                label="Notiz (optional)"
+                hint="z. B. Parken hinterm Haus, Eingang über den Hof …"
+              >
+                <input name="notes" className={inputClass} />
+              </Field>
+            </div>
             <Button type="submit">Gegner anlegen</Button>
           </form>
         </CardBody>
@@ -163,6 +173,11 @@ export default async function AdminOpponentsPage() {
                     ) : (
                       <p className="text-sm text-muted">
                         Keine Adresse hinterlegt
+                      </p>
+                    )}
+                    {o.boards && (
+                      <p className="mt-1 text-sm text-muted">
+                        🎯 {o.boards} Boards
                       </p>
                     )}
                     {o.notes && (
@@ -201,13 +216,24 @@ export default async function AdminOpponentsPage() {
                         city: o.city ?? "",
                       }}
                     />
-                    <Field label="Notiz (optional)">
-                      <input
-                        name="notes"
-                        defaultValue={o.notes}
-                        className={inputClass}
-                      />
-                    </Field>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Anzahl Boards (optional)">
+                        <input
+                          name="boards"
+                          type="number"
+                          min={1}
+                          defaultValue={o.boards ?? ""}
+                          className={inputClass}
+                        />
+                      </Field>
+                      <Field label="Notiz (optional)">
+                        <input
+                          name="notes"
+                          defaultValue={o.notes}
+                          className={inputClass}
+                        />
+                      </Field>
+                    </div>
                     <Button type="submit">Änderungen speichern</Button>
                   </form>
                 </details>
