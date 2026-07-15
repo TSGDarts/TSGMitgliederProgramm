@@ -64,7 +64,7 @@ export default async function MemberLayout({
       <aside className="md:w-60 md:shrink-0">
         <div className="space-y-4 md:sticky md:top-6">
           <div className="flex items-center justify-between gap-2">
-            <Link href="/" className="flex items-center gap-2 font-bold">
+            <Link href="/mitglieder" className="flex items-center gap-2 font-bold">
               <Image
                 src="/icons/icon-192.png"
                 alt="TSG 08 Roth Darts"
