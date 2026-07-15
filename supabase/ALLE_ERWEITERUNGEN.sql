@@ -1,7 +1,7 @@
 -- =====================================================================
 -- SAMMEL-SKRIPT: Alle Datenbank-Erweiterungen in einem Rutsch
 -- ---------------------------------------------------------------------
--- Führt die Skripte 02 bis 12 zusammen aus. Kann GEFAHRLOS mehrfach
+-- Führt die Skripte 02 bis 13 zusammen aus. Kann GEFAHRLOS mehrfach
 -- ausgeführt werden - bestehende Tabellen/Regeln bleiben erhalten,
 -- Rahmentermine werden nur aktualisiert, nie doppelt angelegt.
 -- (Voraussetzung: schema.sql wurde einmal ausgeführt.)
@@ -506,3 +506,18 @@ alter table public.teams
 
 alter table public.teams
   add column if not exists home_match_time text not null default ''; -- z. B. "20:00"
+
+-- ###################### 13_kapitaen_vorab.sql ######################
+
+-- =====================================================================
+-- Erweiterung: Kapitän/Vize auch für vorab angelegte Namen
+-- ---------------------------------------------------------------------
+-- Im Supabase SQL-Editor EINMALIG ausführen.
+-- Bei der Registrierung wandert die Rolle automatisch mit.
+-- =====================================================================
+
+alter table public.member_invites
+  add column if not exists captain_of uuid references public.teams (id) on delete set null;
+
+alter table public.member_invites
+  add column if not exists vice_of uuid references public.teams (id) on delete set null;

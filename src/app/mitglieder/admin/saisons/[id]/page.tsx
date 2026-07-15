@@ -120,7 +120,7 @@ export default async function AdminSeasonDetailPage({
   // Noch nicht registrierte, vorab angelegte Namen + deren Antworten
   const { data: invData } = await supabase
     .from("member_invites")
-    .select("id, full_name, role, team_ids")
+    .select("*")
     .eq("claimed", false)
     .neq("role", "member")
     .order("full_name");
@@ -129,7 +129,16 @@ export default async function AdminSeasonDetailPage({
     full_name: string;
     role: string;
     team_ids: string[];
+    captain_of?: string | null;
+    vice_of?: string | null;
   }>;
+
+  // Kapitäns-Rollen der vorab angelegten Namen
+  const inviteRoleMap = new Map<string, "captain" | "vice">();
+  for (const inv of invites) {
+    if (inv.captain_of) inviteRoleMap.set(`${inv.id}:${inv.captain_of}`, "captain");
+    if (inv.vice_of) inviteRoleMap.set(`${inv.id}:${inv.vice_of}`, "vice");
+  }
 
   const inviteResponses = new Map<string, SurveyAnswers>();
   const { data: invRespData } = await supabase
@@ -617,7 +626,7 @@ export default async function AdminSeasonDetailPage({
                     role:
                       e.kind === "profile"
                         ? (teamRoleMap.get(`${e.id}:${teamId}`) ?? null)
-                        : null,
+                        : (inviteRoleMap.get(`${e.id}:${teamId}`) ?? null),
                   })),
                 )}
               />

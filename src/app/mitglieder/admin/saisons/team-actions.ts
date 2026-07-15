@@ -85,34 +85,43 @@ export async function swapTeamsAction(
     if (error) return { ok: false, message: error.message };
   }
 
-  // Vorab angelegte Namen: Team-IDs in den Arrays tauschen
+  // Vorab angelegte Namen: Team-IDs (und Kapitäns-Rollen) tauschen
   const { data: invs } = await supabase
     .from("member_invites")
-    .select("id, team_ids")
+    .select("*")
     .eq("claimed", false);
   for (const inv of invs ?? []) {
     const ids = (inv.team_ids as string[]) ?? [];
-    if (!ids.includes(teamAId) && !ids.includes(teamBId)) continue;
-    const swapped = [
-      ...new Set(
-        ids.map((x) =>
-          x === teamAId ? teamBId : x === teamBId ? teamAId : x,
-        ),
-      ),
-    ];
-    await supabase
-      .from("member_invites")
-      .update({ team_ids: swapped })
-      .eq("id", inv.id);
+    const cap = (inv.captain_of as string | null) ?? null;
+    const vice = (inv.vice_of as string | null) ?? null;
+    const touches =
+      ids.includes(teamAId) ||
+      ids.includes(teamBId) ||
+      cap === teamAId ||
+      cap === teamBId ||
+      vice === teamAId ||
+      vice === teamBId;
+    if (!touches) continue;
+
+    const flip = (x: string | null) =>
+      x === teamAId ? teamBId : x === teamBId ? teamAId : x;
+    const patch: Record<string, unknown> = {
+      team_ids: [...new Set(ids.map((x) => flip(x) as string))],
+    };
+    if (cap === teamAId || cap === teamBId) patch.captain_of = flip(cap);
+    if (vice === teamAId || vice === teamBId) patch.vice_of = flip(vice);
+
+    await supabase.from("member_invites").update(patch).eq("id", inv.id);
   }
 
   return { ok: true };
 }
 
 /**
- * Team-Rolle setzen: 'captain', 'vice' oder 'none'.
+ * Team-Rolle setzen: 'captain', 'vice' oder 'none' – für registrierte
+ * Mitglieder UND vorab angelegte Namen (member_invites.captain_of/vice_of).
  * Regeln: pro Team nur EIN Kapitän / EIN Vize; eine Person nur bei
- * EINEM Team Kapitän bzw. Vize. Nur für registrierte Mitglieder.
+ * EINEM Team Kapitän bzw. Vize.
  */
 export async function setTeamRoleAction(
   teamId: string,
@@ -121,51 +130,89 @@ export async function setTeamRoleAction(
 ): Promise<Res> {
   await requireAdmin();
   const [t, id] = target.split(":");
-  if (t !== "p" || !id || !teamId) {
-    return {
-      ok: false,
-      message: "Kapitän geht erst, wenn die Person registriert ist.",
-    };
+  if ((t !== "p" && t !== "i") || !id || !teamId) {
+    return { ok: false, message: "Ungültige Angaben." };
   }
 
   const supabase = await createClient();
-  if (role === "captain") {
+
+  if (role === "captain" || role === "vice") {
+    const memberCol = role === "captain" ? "is_captain" : "is_vice_captain";
+    const inviteCol = role === "captain" ? "captain_of" : "vice_of";
+
+    // Diese Rolle im Team bei allen anderen lösen (Mitglieder + Namen)
     await supabase
       .from("team_members")
-      .update({ is_captain: false })
-      .eq("profile_id", id);
-    await supabase
-      .from("team_members")
-      .update({ is_captain: false })
+      .update({ [memberCol]: false })
       .eq("team_id", teamId);
-    const { error } = await supabase
-      .from("team_members")
-      .update({ is_captain: true, is_vice_captain: false })
-      .eq("team_id", teamId)
-      .eq("profile_id", id);
-    if (error) return { ok: false, message: error.message };
-  } else if (role === "vice") {
     await supabase
-      .from("team_members")
-      .update({ is_vice_captain: false })
-      .eq("profile_id", id);
-    await supabase
-      .from("team_members")
-      .update({ is_vice_captain: false })
-      .eq("team_id", teamId);
-    const { error } = await supabase
-      .from("team_members")
-      .update({ is_vice_captain: true, is_captain: false })
-      .eq("team_id", teamId)
-      .eq("profile_id", id);
-    if (error) return { ok: false, message: error.message };
+      .from("member_invites")
+      .update({ [inviteCol]: null })
+      .eq(inviteCol, teamId);
+
+    if (t === "p") {
+      // Eine Person nur bei einem Team in dieser Rolle
+      await supabase
+        .from("team_members")
+        .update({ [memberCol]: false })
+        .eq("profile_id", id);
+      const { error } = await supabase
+        .from("team_members")
+        .update(
+          role === "captain"
+            ? { is_captain: true, is_vice_captain: false }
+            : { is_vice_captain: true, is_captain: false },
+        )
+        .eq("team_id", teamId)
+        .eq("profile_id", id);
+      if (error) return { ok: false, message: error.message };
+    } else {
+      // Nicht gleichzeitig Kapitän UND Vize desselben Teams
+      const { data: cur } = await supabase
+        .from("member_invites")
+        .select("captain_of, vice_of")
+        .eq("id", id)
+        .maybeSingle();
+      const patch: Record<string, string | null> = { [inviteCol]: teamId };
+      if (role === "captain" && cur?.vice_of === teamId) patch.vice_of = null;
+      if (role === "vice" && cur?.captain_of === teamId) patch.captain_of = null;
+      const { error } = await supabase
+        .from("member_invites")
+        .update(patch)
+        .eq("id", id);
+      if (error) {
+        return {
+          ok: false,
+          message: `${error.message} – falls die Spalten fehlen: bitte supabase/13_kapitaen_vorab.sql ausführen.`,
+        };
+      }
+    }
   } else {
-    const { error } = await supabase
-      .from("team_members")
-      .update({ is_captain: false, is_vice_captain: false })
-      .eq("team_id", teamId)
-      .eq("profile_id", id);
-    if (error) return { ok: false, message: error.message };
+    // Rolle entfernen
+    if (t === "p") {
+      const { error } = await supabase
+        .from("team_members")
+        .update({ is_captain: false, is_vice_captain: false })
+        .eq("team_id", teamId)
+        .eq("profile_id", id);
+      if (error) return { ok: false, message: error.message };
+    } else {
+      const { data: cur } = await supabase
+        .from("member_invites")
+        .select("captain_of, vice_of")
+        .eq("id", id)
+        .maybeSingle();
+      const patch: Record<string, null> = {};
+      if (cur?.captain_of === teamId) patch.captain_of = null;
+      if (cur?.vice_of === teamId) patch.vice_of = null;
+      if (Object.keys(patch).length) {
+        const { error } = await supabase
+          .from("member_invites")
+          .update(patch)
+          .eq("id", id);
+        if (error) return { ok: false, message: error.message };
+      }
+    }
   }
   return { ok: true };
 }
@@ -205,13 +252,19 @@ export async function removeTeamMemberAction(
   } else {
     const { data } = await supabase
       .from("member_invites")
-      .select("team_ids")
+      .select("*")
       .eq("id", id)
       .maybeSingle();
     const current = (data?.team_ids as string[]) ?? [];
+    const patch: Record<string, unknown> = {
+      team_ids: current.filter((x) => x !== teamId),
+    };
+    // Kapitäns-Rolle für dieses Team mit entfernen
+    if ((data?.captain_of as string | null) === teamId) patch.captain_of = null;
+    if ((data?.vice_of as string | null) === teamId) patch.vice_of = null;
     const { error } = await supabase
       .from("member_invites")
-      .update({ team_ids: current.filter((x) => x !== teamId) })
+      .update(patch)
       .eq("id", id);
     if (error) return { ok: false, message: error.message };
   }

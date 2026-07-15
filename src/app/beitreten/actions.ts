@@ -86,6 +86,32 @@ export async function claimMember(
       .insert(teamIds.map((team_id) => ({ team_id, profile_id: userId })));
   }
 
+  // In der Planung vergebene Kapitäns-/Vize-Rolle mit übernehmen
+  const captainOf = (invite.captain_of as string | null) ?? null;
+  const viceOf = (invite.vice_of as string | null) ?? null;
+  if (captainOf) {
+    await admin
+      .from("team_members")
+      .update({ is_captain: false })
+      .eq("team_id", captainOf);
+    await admin
+      .from("team_members")
+      .update({ is_captain: true })
+      .eq("team_id", captainOf)
+      .eq("profile_id", userId);
+  }
+  if (viceOf) {
+    await admin
+      .from("team_members")
+      .update({ is_vice_captain: false })
+      .eq("team_id", viceOf);
+    await admin
+      .from("team_members")
+      .update({ is_vice_captain: true })
+      .eq("team_id", viceOf)
+      .eq("profile_id", userId);
+  }
+
   await admin
     .from("member_invites")
     .update({ claimed: true, claimed_profile_id: userId })

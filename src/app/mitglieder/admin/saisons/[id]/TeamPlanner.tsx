@@ -113,7 +113,6 @@ export function TeamPlanner({
 
   /** Rolle durchschalten: Spieler → Kapitän → Vize → Spieler. */
   function cycleRole(key: string, teamId: string, current: TeamRole) {
-    if (!key.startsWith("p:")) return; // nur registrierte Mitglieder
     const next: TeamRole =
       current === null ? "captain" : current === "captain" ? "vice" : null;
     setError("");
@@ -383,21 +382,19 @@ export function TeamPlanner({
                           )}
                           {p.name}{" "}
                           <span className="opacity-70">{freqMark(p.freq)}</span>
-                          {p.key.startsWith("p:") && (
-                            <button
-                              onClick={() => cycleRole(p.key, t.id, a.role)}
-                              className="ml-0.5 opacity-60 hover:opacity-100"
-                              title={
-                                a.role === null
-                                  ? "Zum Kapitän machen"
-                                  : a.role === "captain"
-                                    ? "Zum Vize-Kapitän machen"
-                                    : "Rolle entfernen"
-                              }
-                            >
-                              👑
-                            </button>
-                          )}
+                          <button
+                            onClick={() => cycleRole(p.key, t.id, a.role)}
+                            className="ml-0.5 opacity-60 hover:opacity-100"
+                            title={
+                              a.role === null
+                                ? "Zum Kapitän machen"
+                                : a.role === "captain"
+                                  ? "Zum Vize-Kapitän machen"
+                                  : "Rolle entfernen"
+                            }
+                          >
+                            👑
+                          </button>
                           {otherTeams.length > 0 && (
                             <span
                               className="rounded-full bg-warn/25 px-1.5 text-xs font-bold text-warn"
