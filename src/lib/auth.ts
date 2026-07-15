@@ -61,3 +61,21 @@ export async function requireEditor(): Promise<Profile> {
   }
   return profile;
 }
+
+/** Darf Trainings verwalten: Trainer-Haken oder Admin/Bearbeiter. */
+export function canManageTrainings(profile: Profile): boolean {
+  return (
+    profile.role === "admin" ||
+    profile.role === "editor" ||
+    !!profile.is_trainer
+  );
+}
+
+/** Erzwingt einen Trainer (oder Admin/Bearbeiter). Leitet sonst um. */
+export async function requireTrainer(): Promise<Profile> {
+  const profile = await requireProfile("/mitglieder");
+  if (!canManageTrainings(profile)) {
+    redirect("/mitglieder");
+  }
+  return profile;
+}

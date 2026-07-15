@@ -2,11 +2,11 @@
 
 import { useMemo, useState } from "react";
 
-const ARTEN: { key: string; label: string }[] = [
+const ARTEN: { key: string; label: string; teamwahl?: boolean }[] = [
   { key: "punktspiele", label: "🎯 Punktspiele (Liga)" },
-  { key: "pokal", label: "🏆 Pokalspiele" },
-  { key: "freundschaft", label: "🤝 Freundschaftsspiele" },
-  { key: "training", label: "💪 Training" },
+  { key: "pokal", label: "🏆 Pokalspiele", teamwahl: true },
+  { key: "freundschaft", label: "🤝 Freundschaftsspiele", teamwahl: true },
+  { key: "training", label: "💪 Training", teamwahl: true },
   { key: "verein", label: "🏠 Vereinstermine (Feste, Besprechungen …)" },
   { key: "turniere", label: "🏟 Turniere im Umkreis" },
   { key: "competitions", label: "🎯 Unsere Competition-Abende" },
@@ -30,15 +30,23 @@ export function CalendarSubscribe({
   const [arten, setArten] = useState<Set<string>>(
     new Set(ARTEN.map((a) => a.key)),
   );
+  // Kategorien, die trotz Mannschafts-Filter von ALLEN Mannschaften kommen
+  const [trotzTeam, setTrotzTeam] = useState<Set<string>>(new Set());
 
   const alleGewaehlt = arten.size === ARTEN.length;
   const url = useMemo(() => {
     const params = new URLSearchParams();
     if (team) params.set("team", team);
     if (!alleGewaehlt) params.set("arten", ARTEN.map((a) => a.key).filter((k) => arten.has(k)).join(","));
+    if (team) {
+      const alle = ARTEN.map((a) => a.key).filter(
+        (k) => trotzTeam.has(k) && arten.has(k),
+      );
+      if (alle.length) params.set("alle", alle.join(","));
+    }
     const qs = params.toString();
     return qs ? `${icsUrl}?${qs}` : icsUrl;
-  }, [icsUrl, team, arten, alleGewaehlt]);
+  }, [icsUrl, team, arten, alleGewaehlt, trotzTeam]);
 
   const webcalUrl = url.replace(/^https?:\/\//i, "webcal://");
 
@@ -77,14 +85,33 @@ export function CalendarSubscribe({
           <legend className="mb-1 font-medium">Was soll in den Kalender?</legend>
           <div className="space-y-1">
             {ARTEN.map((a) => (
-              <label key={a.key} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={arten.has(a.key)}
-                  onChange={() => toggleArt(a.key)}
-                />
-                {a.label}
-              </label>
+              <div key={a.key} className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={arten.has(a.key)}
+                    onChange={() => toggleArt(a.key)}
+                  />
+                  {a.label}
+                </label>
+                {a.teamwahl && team && arten.has(a.key) && (
+                  <select
+                    value={trotzTeam.has(a.key) ? "alle" : "team"}
+                    onChange={(e) =>
+                      setTrotzTeam((prev) => {
+                        const next = new Set(prev);
+                        if (e.target.value === "alle") next.add(a.key);
+                        else next.delete(a.key);
+                        return next;
+                      })
+                    }
+                    className="rounded-lg border border-border bg-background px-2 py-1 text-xs"
+                  >
+                    <option value="team">nur gewählte Mannschaft</option>
+                    <option value="alle">alle Mannschaften</option>
+                  </select>
+                )}
+              </div>
             ))}
           </div>
         </fieldset>

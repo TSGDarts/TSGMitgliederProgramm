@@ -28,6 +28,7 @@ export interface Profile {
   birthday_public?: boolean | null; // im Mitglieder-Kalender anzeigen?
   birthday_congrats?: boolean | null; // in der Mitgliedergruppe gratulieren ok?
   role: Role;
+  is_trainer?: boolean | null; // darf Trainings eintragen (Haken vom Admin)
   is_active: boolean;
   created_at: string;
 }

@@ -203,6 +203,7 @@ export async function updateMemberData(formData: FormData) {
       birthday,
       birthday_public: formData.get("birthday_public") === "on",
       birthday_congrats: formData.get("birthday_congrats") === "on",
+      is_trainer: formData.get("is_trainer") === "on",
     })
     .eq("id", id);
 

@@ -21,6 +21,7 @@ export const publicNav = [
 export const memberNav = [
   { href: "/mitglieder", label: "Übersicht", icon: "home" },
   { href: "/mitglieder/termine", label: "Termine & Zusagen", icon: "calendar" },
+  { href: "/mitglieder/training", label: "Training", icon: "dumbbell" },
   { href: "/mitglieder/mannschaften", label: "Mannschaften", icon: "users" },
   { href: "/mitglieder/turniere", label: "Turniere", icon: "trophy" },
   { href: "/mitglieder/competitions", label: "Competitions", icon: "target" },

@@ -230,6 +230,7 @@ export default async function AdminMembersPage() {
                       <Badge tone="primary">Bearbeiter</Badge>
                     )}
                     {m.role === "member" && <Badge>ohne Liga</Badge>}
+                    {m.is_trainer && <Badge tone="ok">💪 Trainer</Badge>}
                     {!m.is_active && <Badge tone="danger">inaktiv</Badge>}
                   </div>
                   <p className="text-sm text-muted">
@@ -335,6 +336,14 @@ export default async function AdminMembersPage() {
                       defaultChecked={m.birthday_congrats ?? false}
                     />
                     In der Mitgliedergruppe gratulieren 🎉
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name="is_trainer"
+                      defaultChecked={m.is_trainer ?? false}
+                    />
+                    💪 Trainer – darf Trainings eintragen
                   </label>
                   <Button type="submit">Speichern</Button>
                 </form>

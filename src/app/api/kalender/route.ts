@@ -12,6 +12,8 @@ import type { Tournament } from "@/lib/extras";
 //   ?team=<id>            nur die Termine dieser Mannschaft (Vereinstermine bleiben)
 //   ?arten=a,b,c          nur diese Kategorien: punktspiele, pokal, freundschaft,
 //                         training, verein, turniere, competitions
+//   ?alle=pokal,…         diese Kategorien trotz Mannschafts-Filter von ALLEN
+//                         Mannschaften liefern (z. B. alle Pokalspiele)
 // Ohne Parameter: alles (bestehende Abos laufen unverändert weiter).
 export const dynamic = "force-dynamic";
 
@@ -111,6 +113,10 @@ export async function GET(request: Request) {
       ? artenRaw.split(",").filter((a) => (ALLE_ARTEN as readonly string[]).includes(a))
       : ALLE_ARTEN,
   );
+  // Kategorien, die trotz Mannschafts-Filter von allen Mannschaften kommen
+  const trotzTeam = new Set(
+    (params.get("alle") ?? "").split(",").filter(Boolean),
+  );
 
   // Kalendername: bei Mannschafts-Filter den Teamnamen mit aufnehmen
   let kalName = "TSG 08 Roth Dart";
@@ -176,8 +182,15 @@ export async function GET(request: Request) {
 
   for (const ev of ((eventData as EventRow[]) ?? [])) {
     // Gewählte Kategorien + Mannschafts-Filter anwenden
-    if (!arten.has(eventKategorie(ev))) continue;
-    if (teamId && ev.team_id && ev.team_id !== teamId) continue;
+    const kategorie = eventKategorie(ev);
+    if (!arten.has(kategorie)) continue;
+    if (
+      teamId &&
+      ev.team_id &&
+      ev.team_id !== teamId &&
+      !trotzTeam.has(kategorie)
+    )
+      continue;
     const allDay =
       !!ev.time_tbd || berlinTime.format(new Date(ev.starts_at)) === "00:00";
     const description = [
