@@ -22,10 +22,13 @@ export async function createCompetition(formData: FormData) {
   const weekday = Number(formData.get("weekday") ?? 0);
   if (!title || weekday < 1 || weekday > 7) return;
 
+  const boardsRaw = Number(formData.get("boards") ?? 0);
+
   const supabase = await createClient();
   await supabase.from("competitions").insert({
     title,
     weekday,
+    boards: boardsRaw >= 1 ? boardsRaw : null,
     mode: String(formData.get("mode") ?? "").trim(),
     doors_time: String(formData.get("doors_time") ?? "").trim(),
     start_time: String(formData.get("start_time") ?? "").trim() || "19:00",

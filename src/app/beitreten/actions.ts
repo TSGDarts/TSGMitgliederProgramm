@@ -30,6 +30,11 @@ export async function claimMember(
   if (!email || !email.includes("@")) {
     return { ok: false, message: "Bitte gib eine gültige E-Mail-Adresse an." };
   }
+  const birthday = String(formData.get("birthday") ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthday)) {
+    return { ok: false, message: "Bitte gib deinen Geburtstag an." };
+  }
+  const birthday_public = formData.get("birthday_public") === "on";
   if (password.length < 8) {
     return { ok: false, message: "Das Passwort muss mindestens 8 Zeichen haben." };
   }
@@ -76,7 +81,13 @@ export async function claimMember(
 
   await admin
     .from("profiles")
-    .update({ full_name: invite.full_name, role: invite.role, email })
+    .update({
+      full_name: invite.full_name,
+      role: invite.role,
+      email,
+      birthday,
+      birthday_public,
+    })
     .eq("id", userId);
 
   const teamIds = (invite.team_ids as string[]) ?? [];

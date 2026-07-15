@@ -63,7 +63,19 @@ export function ClaimForm({
         <input name="email" type="email" required className={inputClass} />
       </Field>
 
-      <Field label="3. Passwort festlegen" hint="Mindestens 8 Zeichen">
+      <Field label="3. Dein Geburtstag">
+        <input name="birthday" type="date" required className={inputClass} />
+      </Field>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="birthday_public" defaultChecked />
+        Meinen Geburtstag im Mitglieder-Kalender anzeigen 🎂
+      </label>
+      <p className="-mt-3 text-xs text-muted">
+        Nur für eingeloggte Mitglieder sichtbar – niemals öffentlich. Du kannst
+        das jederzeit in deinem Profil ändern.
+      </p>
+
+      <Field label="4. Passwort festlegen" hint="Mindestens 8 Zeichen">
         <input
           name="password"
           type="password"

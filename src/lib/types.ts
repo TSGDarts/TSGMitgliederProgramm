@@ -23,6 +23,8 @@ export interface Profile {
   full_name: string;
   email: string | null;
   phone: string | null;
+  birthday?: string | null; // JJJJ-MM-TT
+  birthday_public?: boolean | null; // im Mitglieder-Kalender anzeigen?
   role: Role;
   is_active: boolean;
   created_at: string;

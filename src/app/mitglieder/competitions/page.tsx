@@ -261,6 +261,14 @@ export default async function CompetitionsPage({
                 <Field label="Anmelden bis (optional)">
                   <input name="signup_until" type="time" className={inputClass} />
                 </Field>
+                <Field label="Anzahl Boards (optional)">
+                  <input
+                    name="boards"
+                    type="number"
+                    min={1}
+                    className={inputClass}
+                  />
+                </Field>
                 <Field label="Anmeldelink (optional)">
                   <input
                     name="register_url"
@@ -306,6 +314,7 @@ export default async function CompetitionsPage({
                     <span className="font-semibold">{c.title}</span>
                     <Badge tone="primary">{weekdayLabel(c.weekday)}s</Badge>
                     {c.mode && <Badge>{c.mode}</Badge>}
+                    {c.boards && <Badge>🎯 {c.boards} Boards</Badge>}
                   </div>
 
                   <p className="text-sm text-muted">
@@ -334,7 +343,7 @@ export default async function CompetitionsPage({
                         href={c.register_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-background hover:opacity-90"
+                        className="inline-flex items-center rounded-lg bg-primary px-4 py-1.5 text-sm font-medium text-primary-fg hover:opacity-90"
                       >
                         📝 Zur Anmeldung
                       </a>

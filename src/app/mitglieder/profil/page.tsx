@@ -44,6 +44,27 @@ export default async function ProfilPage() {
                 className={inputClass}
               />
             </Field>
+            <Field label="Geburtstag">
+              <input
+                name="birthday"
+                type="date"
+                required
+                defaultValue={profile.birthday ?? ""}
+                className={inputClass}
+              />
+            </Field>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="birthday_public"
+                defaultChecked={profile.birthday_public ?? false}
+              />
+              Meinen Geburtstag im Mitglieder-Kalender anzeigen 🎂
+            </label>
+            <p className="-mt-2 text-xs text-muted">
+              Nur für eingeloggte Mitglieder sichtbar – niemals öffentlich oder
+              in Datenübergaben an andere Programme.
+            </p>
             <Button type="submit">Speichern</Button>
           </form>
         </CardBody>

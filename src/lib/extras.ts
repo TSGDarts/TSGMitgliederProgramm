@@ -38,6 +38,7 @@ export interface Competition {
   address: string;
   register_url: string;
   onsite_signup: boolean;
+  boards?: number | null; // Anzahl Dartboards
   is_active: boolean;
   created_by: string | null;
   created_at: string;

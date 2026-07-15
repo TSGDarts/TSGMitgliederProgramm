@@ -118,6 +118,35 @@ export async function EventsCalendar({
     }
   }
 
+  // Geburtstage (nur Mitglieder, die der Anzeige zugestimmt haben).
+  // Erscheinen ausschließlich hier im Mitglieder-Kalender – nie in Feeds.
+  const birthdayByDay = new Map<string, string[]>();
+  const { data: bdayData } = await supabase
+    .from("profiles")
+    .select("full_name, birthday")
+    .eq("birthday_public", true)
+    .eq("is_active", true)
+    .not("birthday", "is", null);
+  const gridEnd = gridStart + totalCells * 864e5;
+  for (const p of bdayData ?? []) {
+    const bday = String(p.birthday); // JJJJ-MM-TT
+    const bMonth = Number(bday.slice(5, 7));
+    const bDay = Number(bday.slice(8, 10));
+    const startYear = new Date(gridStart).getUTCFullYear();
+    const endYear = new Date(gridEnd).getUTCFullYear();
+    for (let year = startYear; year <= endYear; year++) {
+      const t = Date.UTC(year, bMonth - 1, bDay);
+      // 29.02. in Nicht-Schaltjahren überspringen
+      if (new Date(t).getUTCDate() !== bDay) continue;
+      if (t >= gridStart && t < gridEnd) {
+        const key = new Date(t).toISOString().slice(0, 10);
+        const list = birthdayByDay.get(key) ?? [];
+        list.push(p.full_name as string);
+        birthdayByDay.set(key, list);
+      }
+    }
+  }
+
   const todayKey = berlinDay.format(new Date());
   const prev = addMonth(y, m, -1);
   const next = addMonth(y, m, 1);
@@ -218,6 +247,15 @@ export async function EventsCalendar({
                     {dayNum}
                   </div>
                   <div className="space-y-1">
+                    {(birthdayByDay.get(key) ?? []).map((name) => (
+                      <div
+                        key={`bday-${name}`}
+                        title={`${name} hat Geburtstag 🎂`}
+                        className="truncate rounded bg-purple-600/15 px-1.5 py-0.5 text-xs text-purple-600"
+                      >
+                        🎂 {name}
+                      </div>
+                    ))}
                     {dayEvents.map((ev) => (
                       <CalendarEventChip
                         key={ev.id}
@@ -260,9 +298,12 @@ export async function EventsCalendar({
         <span className="rounded bg-warn/20 px-1.5 py-0.5 text-warn">
           Training
         </span>{" "}
-        <span className="rounded bg-border/70 px-1.5 py-0.5">Sonstiges</span> ·
-        Termin antippen für Zu-/Absage direkt im Kalender · ✓/~/✗ = deine
-        Antwort.
+        <span className="rounded bg-border/70 px-1.5 py-0.5">Sonstiges</span>{" "}
+        <span className="rounded bg-purple-600/15 px-1.5 py-0.5 text-purple-600">
+          🎂 Geburtstag
+        </span>{" "}
+        · Termin antippen für Zu-/Absage · ✓/~/✗ = deine Antwort · Geburtstage
+        sind nur für Mitglieder sichtbar.
       </p>
     </section>
   );

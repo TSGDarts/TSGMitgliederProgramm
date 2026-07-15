@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { TOURNAMENT_KIND_LABELS, type Tournament } from "@/lib/extras";
+import {
+  TOURNAMENT_KIND_LABELS,
+  type Tournament,
+  type Competition,
+} from "@/lib/extras";
 
 // Öffentlicher, schreibgeschützter Feed (ohne Login) mit unseren
 // Competition-Terminen und Turnieren. Enthält KEINE Mitgliederdaten.
@@ -41,18 +45,25 @@ export async function GET() {
 
   const today = berlinDate.format(new Date()); // JJJJ-MM-TT
 
-  const [{ data: compData }, { data: tourData }] = await Promise.all([
-    admin
-      .from("competition_dates")
-      .select("date, event_url, nr, boards")
-      .gte("date", today)
-      .order("date", { ascending: true }),
-    admin
-      .from("tournaments")
-      .select("*")
-      .gte("display_until", today)
-      .order("starts_at", { ascending: true }),
-  ]);
+  const [{ data: compData }, { data: tourData }, { data: weeklyData }] =
+    await Promise.all([
+      admin
+        .from("competition_dates")
+        .select("date, event_url, nr, boards")
+        .gte("date", today)
+        .order("date", { ascending: true }),
+      admin
+        .from("tournaments")
+        .select("*")
+        .gte("display_until", today)
+        .order("starts_at", { ascending: true }),
+      admin
+        .from("competitions")
+        .select("*")
+        .eq("is_active", true)
+        .order("weekday")
+        .order("start_time"),
+    ]);
 
   const kommendeCompetitions = (compData ?? []).map((c) => {
     const out: Record<string, unknown> = { datum: c.date as string };
@@ -83,8 +94,27 @@ export async function GET() {
     return out;
   });
 
+  // Wöchentliche Competitions im Umkreis (inkl. Boards)
+  const woechentlicheCompetitions = ((weeklyData as Competition[]) ?? []).map(
+    (c) => {
+      const out: Record<string, unknown> = {
+        name: c.title,
+        wochentag: c.weekday, // 1 = Montag … 7 = Sonntag
+        beginn: c.start_time,
+      };
+      if (c.mode) out.modus = c.mode;
+      if (c.doors_time) out.einlass = c.doors_time;
+      if (c.signup_until) out.anmeldenBis = c.signup_until;
+      if (c.address) out.adresse = c.address;
+      if (c.register_url) out.anmeldeUrl = c.register_url;
+      if (c.boards !== null && c.boards !== undefined) out.boards = c.boards;
+      out.anmeldungVorOrt = c.onsite_signup;
+      return out;
+    },
+  );
+
   return NextResponse.json(
-    { kommendeCompetitions, turniere },
+    { kommendeCompetitions, turniere, woechentlicheCompetitions },
     {
       headers: {
         ...CORS,
