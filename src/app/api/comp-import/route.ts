@@ -100,19 +100,9 @@ export async function GET() {
       (e.text ?? "").trim(),
   );
 
-  // Zusätzlich: unsere eigenen Competition-Abende (competition_dates) in den
-  // Terminkalender spiegeln – so erscheinen sie in Kalender & Termin-Listen.
-  const { data: compDates } = await admin
-    .from("competition_dates")
-    .select("date, nr");
-  for (const c of compDates ?? []) {
-    if (!c.date) continue;
-    gueltig.push({
-      uid: `comp-app:cd-${c.date}`,
-      datum: c.date as string,
-      text: c.nr != null ? `🎯 Competition ${c.nr}` : "🎯 Competition",
-    });
-  }
+  // Die Competition-Abende kommen (wie VM/Finalturnier) ebenfalls aus dem
+  // Datenblock der öffentlichen Competition-Seite (uid "comp-app:cd-…") –
+  // gepflegt wird alles davon in der Competition-App, nicht hier.
 
   const { data: vorhanden } = await admin
     .from("events")
@@ -153,14 +143,14 @@ export async function GET() {
     byUid.delete(e.uid as string);
   }
   // Übrig gebliebene comp-app-Einträge gibt es in der Competition-App nicht mehr.
-  // VM/Finalturnier (nicht "cd-") aber NUR aufräumen, wenn der Datenblock wirklich
-  // gelesen wurde – sonst würde eine noch nicht veröffentlichte Seite sie löschen.
+  // Aufräumen aber NUR, wenn der Datenblock wirklich gelesen wurde – sonst würde
+  // eine noch nicht veröffentlichte Seite alle Einträge fälschlich löschen.
   const blockOk = !!m && !hinweis;
-  for (const rest of byUid.values()) {
-    const uid = (rest.source_uid as string) || "";
-    if (!uid.startsWith("comp-app:cd-") && !blockOk) continue;
-    await admin.from("events").delete().eq("id", rest.id);
-    entfernt++;
+  if (blockOk) {
+    for (const rest of byUid.values()) {
+      await admin.from("events").delete().eq("id", rest.id);
+      entfernt++;
+    }
   }
 
   return NextResponse.json({
