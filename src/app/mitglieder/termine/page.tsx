@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { getMemberEvents, getAllTeams } from "@/lib/member-queries";
 import { siteUrl } from "@/lib/supabase/config";
 import { EventCard } from "@/components/EventCard";
@@ -105,6 +106,28 @@ async function ListView({ profileId }: { profileId: string }) {
     getMemberEvents(profileId, { past: true, limit: 10 }),
   ]);
 
+  // Namen der Ansprechpartner auflösen (eine Abfrage für alle Termine)
+  const kontaktIds = [
+    ...new Set(
+      [...upcoming, ...past].flatMap((e) => e.contact_ids ?? []),
+    ),
+  ];
+  const nameById = new Map<string, string>();
+  if (kontaktIds.length) {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", kontaktIds);
+    for (const p of data ?? []) {
+      nameById.set(p.id as string, p.full_name as string);
+    }
+  }
+  const kontakteFuer = (e: (typeof upcoming)[number]) =>
+    (e.contact_ids ?? [])
+      .map((id) => nameById.get(id))
+      .filter((n): n is string => !!n);
+
   return (
     <>
       <section>
@@ -114,7 +137,11 @@ async function ListView({ profileId }: { profileId: string }) {
         ) : (
           <div className="space-y-3">
             {upcoming.map((event) => (
-              <EventCard key={event.id} event={event} />
+              <EventCard
+                key={event.id}
+                event={event}
+                contactNames={kontakteFuer(event)}
+              />
             ))}
           </div>
         )}
@@ -128,7 +155,11 @@ async function ListView({ profileId }: { profileId: string }) {
         >
           <div className="space-y-3 opacity-70">
             {past.map((event) => (
-              <EventCard key={event.id} event={event} />
+              <EventCard
+                key={event.id}
+                event={event}
+                contactNames={kontakteFuer(event)}
+              />
             ))}
           </div>
         </Einklappbar>

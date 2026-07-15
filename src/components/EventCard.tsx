@@ -9,9 +9,11 @@ import { formatDate, formatTime, formatUntil } from "@/lib/format";
 export function EventCard({
   event,
   trainerNames,
+  contactNames,
 }: {
   event: EventWithStatus;
   trainerNames?: string[];
+  contactNames?: string[];
 }) {
   return (
     <Card>
@@ -53,6 +55,11 @@ export function EventCard({
             {trainerNames && trainerNames.length > 0 && (
               <p className="mt-0.5 text-sm text-muted">
                 💪 Trainer: {trainerNames.join(", ")}
+              </p>
+            )}
+            {contactNames && contactNames.length > 0 && (
+              <p className="mt-0.5 text-sm text-muted">
+                👤 Ansprechpartner: {contactNames.join(", ")}
               </p>
             )}
             {(event.meet_home_time || event.meet_venue_time) && (

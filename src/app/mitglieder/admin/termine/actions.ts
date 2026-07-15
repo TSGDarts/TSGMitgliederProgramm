@@ -154,6 +154,7 @@ export async function createEvent(formData: FormData) {
       is_public: formData.get("is_public") === "on",
       time_tbd: formData.get("time_tbd") === "on",
       feed_export: formData.get("feed_export") === "on",
+      contact_ids: formData.getAll("contact_ids").map(String).filter(Boolean),
       source: "manual",
       created_by: profile.id,
     })
@@ -218,6 +219,7 @@ export async function updateEvent(formData: FormData) {
       is_public: formData.get("is_public") === "on",
       time_tbd: formData.get("time_tbd") === "on",
       feed_export: formData.get("feed_export") === "on",
+      contact_ids: formData.getAll("contact_ids").map(String).filter(Boolean),
     })
     .eq("id", id);
   if (updateError) abbruchMitFehler(updateError.message);

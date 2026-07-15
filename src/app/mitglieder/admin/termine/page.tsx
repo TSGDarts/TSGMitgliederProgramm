@@ -111,6 +111,52 @@ function OpponentFields({
 }
 
 /** Aufklappbare Teilnehmer-Auswahl (nur Angehakte sehen den Termin). */
+/** Ansprechpartner wählen (mehrere möglich) – rein informativ am Termin. */
+function ContactPicker({
+  members,
+  selected,
+}: {
+  members: Profile[];
+  selected?: Set<string>;
+}) {
+  const count = selected?.size ?? 0;
+  return (
+    <details
+      className="rounded-lg border border-border"
+      open={count > 0 ? true : undefined}
+    >
+      <summary className="cursor-pointer px-4 py-2 text-sm font-medium">
+        👤 Ansprechpartner{" "}
+        <span className="text-muted">
+          {count > 0 ? `(${count} ausgewählt)` : "(optional)"}
+        </span>
+      </summary>
+      <div className="space-y-2 border-t border-border p-3">
+        <p className="text-xs text-muted">
+          Wird beim Termin angezeigt (mit Handynummer, falls hinterlegt) –
+          z. B. wer die Fahrt organisiert oder Fragen beantwortet.
+        </p>
+        <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+          {members.map((m) => (
+            <label
+              key={m.id}
+              className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-border/30"
+            >
+              <input
+                type="checkbox"
+                name="contact_ids"
+                value={m.id}
+                defaultChecked={selected?.has(m.id)}
+              />
+              {m.full_name || m.email}
+            </label>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function InviteePicker({
   members,
   selected,
@@ -332,6 +378,7 @@ export default async function AdminEventsPage({
                 />
               </Field>
             </div>
+            <ContactPicker members={members} />
             <InviteePicker members={members} />
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="is_public" defaultChecked />
@@ -393,6 +440,18 @@ export default async function AdminEventsPage({
                         : ""}
                       {ev.location ? ` · ${ev.location}` : ""}
                     </p>
+                    {(ev.contact_ids?.length ?? 0) > 0 && (
+                      <p className="text-sm text-muted">
+                        👤 Ansprechpartner:{" "}
+                        {(ev.contact_ids ?? [])
+                          .map(
+                            (id) =>
+                              members.find((m) => m.id === id)?.full_name,
+                          )
+                          .filter(Boolean)
+                          .join(", ")}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-4">
                     {(ev.source_uid ?? "").startsWith("comp-app:") ? (
@@ -555,6 +614,10 @@ export default async function AdminEventsPage({
                         />
                       </Field>
                     </div>
+                    <ContactPicker
+                      members={members}
+                      selected={new Set(ev.contact_ids ?? [])}
+                    />
                     <InviteePicker
                       members={members}
                       selected={inviteesByEvent.get(ev.id)}

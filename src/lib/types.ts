@@ -87,6 +87,7 @@ export interface EventRow {
   time_tbd?: boolean | null; // genaue Uhrzeit noch nicht bekannt
   feed_export?: boolean | null; // an die Competition-App übergeben (Dart-Feed)
   trainer_ids?: string[] | null; // anwesende Trainer (nur bei Trainings)
+  contact_ids?: string[] | null; // Ansprechpartner (mehrere möglich)
   source: "manual" | "nuliga";
   source_uid: string | null;
   is_public: boolean;

@@ -1098,3 +1098,15 @@ alter table public.member_invites
 alter table public.tournaments
   add column if not exists notes text not null default '';
 
+
+-- ###################### 35_termin_ansprechpartner.sql ######################
+
+-- =====================================================================
+-- Erweiterung: Ansprechpartner an Terminen (mehrere möglich)
+-- ---------------------------------------------------------------------
+-- Im Supabase SQL-Editor EINMALIG ausführen.
+-- =====================================================================
+
+alter table public.events
+  add column if not exists contact_ids uuid[] not null default '{}';
+

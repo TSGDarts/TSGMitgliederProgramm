@@ -56,6 +56,18 @@ export default async function EventDetailPage({
     trainerNames = (trainerData ?? []).map((t) => t.full_name as string);
   }
 
+  // Ansprechpartner (mit Handynummer – nur für Mitglieder sichtbar)
+  let kontakte: { full_name: string; phone: string | null }[] = [];
+  if (event.contact_ids?.length) {
+    const supabase = await createClient();
+    const { data: kontaktData } = await supabase
+      .from("profiles")
+      .select("full_name, phone")
+      .in("id", event.contact_ids)
+      .order("full_name");
+    kontakte = (kontaktData ?? []) as typeof kontakte;
+  }
+
   const byStatus = (key: RsvpStatus | "open") =>
     participants.filter((p) =>
       key === "open" ? p.status === null : p.status === key,
@@ -85,6 +97,15 @@ export default async function EventDetailPage({
       {trainerNames.length > 0 && (
         <p className="text-sm text-muted">
           💪 Trainer: {trainerNames.join(", ")}
+        </p>
+      )}
+
+      {kontakte.length > 0 && (
+        <p className="text-sm text-muted">
+          👤 Ansprechpartner:{" "}
+          {kontakte
+            .map((k) => `${k.full_name}${k.phone ? ` (📱 ${k.phone})` : ""}`)
+            .join(" · ")}
         </p>
       )}
 
