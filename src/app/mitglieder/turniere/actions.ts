@@ -47,6 +47,7 @@ export async function createTournament(formData: FormData) {
     mode,
     starts_at,
     entry_deadline,
+    doors_time: String(formData.get("doors_time") ?? "").trim(),
     location: String(formData.get("location") ?? "").trim(),
     flyer_url: String(formData.get("flyer_url") ?? "").trim(),
     register_url: String(formData.get("register_url") ?? "").trim(),

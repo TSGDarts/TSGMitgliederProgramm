@@ -54,6 +54,35 @@ export async function toggleCompetition(formData: FormData) {
   revalidatePath("/mitglieder/competitions");
 }
 
+/** Konkreten Termin unserer eigenen Competition anlegen (für den Feed). */
+export async function addCompetitionDate(formData: FormData) {
+  await assertCanManageExtras();
+  const date = String(formData.get("date") ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+  const nrRaw = Number(formData.get("nr") ?? 0);
+
+  const supabase = await createClient();
+  await supabase.from("competition_dates").upsert(
+    {
+      date,
+      event_url: String(formData.get("event_url") ?? "").trim(),
+      nr: nrRaw >= 1 ? nrRaw : null,
+    },
+    { onConflict: "date" },
+  );
+  revalidatePath("/mitglieder/competitions");
+}
+
+export async function deleteCompetitionDate(formData: FormData) {
+  await assertCanManageExtras();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const supabase = await createClient();
+  await supabase.from("competition_dates").delete().eq("id", id);
+  revalidatePath("/mitglieder/competitions");
+}
+
 export async function deleteCompetition(formData: FormData) {
   await assertCanManageExtras();
   const id = String(formData.get("id") ?? "");

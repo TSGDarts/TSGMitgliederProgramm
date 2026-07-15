@@ -116,6 +116,9 @@ export default async function TurnierePage({
                     className={inputClass}
                   />
                 </Field>
+                <Field label="Einlass ab (optional)">
+                  <input name="doors_time" type="time" className={inputClass} />
+                </Field>
                 <Field label="Anmeldeschluss (optional)">
                   <input
                     name="entry_deadline"
@@ -187,8 +190,9 @@ export default async function TurnierePage({
                         <Badge>{TOURNAMENT_MODE_LABELS[t.mode]}</Badge>
                       </div>
                       <p className="mt-1 text-sm text-muted">
-                        📅 {formatDate(t.starts_at)} · {formatTime(t.starts_at)}{" "}
-                        Uhr
+                        📅 {formatDate(t.starts_at)}
+                        {t.doors_time && <> · Einlass {t.doors_time} Uhr</>} ·
+                        Beginn {formatTime(t.starts_at)} Uhr
                         {t.entry_deadline && (
                           <>
                             {" "}

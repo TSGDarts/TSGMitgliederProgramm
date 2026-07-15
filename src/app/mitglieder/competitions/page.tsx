@@ -7,6 +7,8 @@ import {
   createCompetition,
   toggleCompetition,
   deleteCompetition,
+  addCompetitionDate,
+  deleteCompetitionDate,
 } from "./actions";
 import {
   PageHeader,
@@ -23,7 +25,9 @@ import {
   weekdayLabel,
   mapsUrl,
   type Competition,
+  type CompetitionDate,
 } from "@/lib/extras";
+import { formatDate } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Competitions im Umkreis" };
 
@@ -49,6 +53,17 @@ export default async function CompetitionsPage({
     .order("weekday")
     .order("start_time");
   const all = (data as Competition[]) ?? [];
+
+  // Konkrete Termine unserer eigenen Competition (Feed)
+  const todayStr = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Berlin",
+  }).format(new Date());
+  const { data: dateData } = await supabase
+    .from("competition_dates")
+    .select("*")
+    .gte("date", todayStr)
+    .order("date");
+  const ownDates = (dateData as CompetitionDate[]) ?? [];
   const competitions = dayFilter
     ? all.filter((c) => c.weekday === dayFilter)
     : all;
@@ -101,6 +116,98 @@ export default async function CompetitionsPage({
         >
           ← Zurück zu den aktiven Competitions
         </Link>
+      )}
+
+      {/* Unsere eigenen Competition-Termine (Feed) */}
+      {!showArchive && (
+        <Card className="bg-primary/5">
+          <CardBody className="space-y-3">
+            <div>
+              <h2 className="font-semibold">🎯 Unsere Competition-Termine</h2>
+              <p className="text-sm text-muted">
+                Konkrete Termine der TSG-Competition – sie erscheinen auch im
+                öffentlichen Dart-Feed (<code>/api/dart-feed</code>) für andere
+                Programme. Vergangene Termine verschwinden automatisch.
+              </p>
+            </div>
+
+            {ownDates.length === 0 ? (
+              <p className="text-sm text-muted">
+                Keine kommenden Termine eingetragen.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {ownDates.map((d) => (
+                  <div
+                    key={d.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-1 text-sm hover:bg-border/30"
+                  >
+                    <span>
+                      📅 <strong>{formatDate(d.date)}</strong>
+                      {d.nr ? ` · ${d.nr}. Competition` : ""}
+                      {d.event_url && (
+                        <>
+                          {" · "}
+                          <a
+                            href={d.event_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            Zur Anmeldung →
+                          </a>
+                        </>
+                      )}
+                    </span>
+                    {canManage && (
+                      <form action={deleteCompetitionDate}>
+                        <input type="hidden" name="id" value={d.id} />
+                        <button className="text-danger hover:underline">
+                          Löschen
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {canManage && (
+              <form
+                action={addCompetitionDate}
+                className="flex flex-wrap items-end gap-2 border-t border-border pt-3"
+              >
+                <Field label="Datum">
+                  <input
+                    name="date"
+                    type="date"
+                    required
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Nr. (optional)">
+                  <input
+                    name="nr"
+                    type="number"
+                    min={1}
+                    className={`${inputClass} w-24`}
+                  />
+                </Field>
+                <Field label="Anmelde-/Event-Link (optional)">
+                  <input
+                    name="event_url"
+                    type="url"
+                    placeholder="https://…"
+                    className={inputClass}
+                  />
+                </Field>
+                <Button type="submit" variant="secondary">
+                  Termin eintragen
+                </Button>
+              </form>
+            )}
+          </CardBody>
+        </Card>
       )}
 
       {/* Neue Competition (Admins + Kapitäne) */}

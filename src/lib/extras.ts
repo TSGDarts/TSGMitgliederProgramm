@@ -7,12 +7,22 @@ export interface Tournament {
   mode: "einzel" | "doppel";
   starts_at: string;
   entry_deadline: string | null;
+  doors_time?: string | null; // Einlass, z. B. "12:00"
   location: string;
   flyer_url: string;
   register_url: string;
   info_url: string;
   display_until: string;
   created_by: string | null;
+  created_at: string;
+}
+
+/** Konkreter Termin unserer eigenen Competition (für den Dart-Feed). */
+export interface CompetitionDate {
+  id: string;
+  date: string; // JJJJ-MM-TT
+  event_url: string;
+  nr: number | null;
   created_at: string;
 }
 
