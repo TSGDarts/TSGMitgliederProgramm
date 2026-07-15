@@ -38,6 +38,7 @@ export const adminNav = [
   { href: "/mitglieder/admin/mannschaften", label: "Mannschaften verwalten", icon: "shield" },
   { href: "/mitglieder/admin/gegner", label: "Gegner verwalten", icon: "shield" },
   { href: "/mitglieder/admin/termine", label: "Termine verwalten", icon: "shield" },
+  { href: "/mitglieder/admin/competition-termine", label: "Competition-Termine", icon: "shield" },
 ];
 
 // Verwaltungs-Links für die Rolle „Bearbeiter“: Termine, Gegner und
@@ -47,5 +48,6 @@ export const editorNav = adminNav.filter((item) =>
     "/mitglieder/admin/mannschaften",
     "/mitglieder/admin/gegner",
     "/mitglieder/admin/termine",
+    "/mitglieder/admin/competition-termine",
   ].includes(item.href),
 );
