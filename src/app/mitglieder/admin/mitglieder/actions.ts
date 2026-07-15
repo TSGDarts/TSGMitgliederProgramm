@@ -41,7 +41,7 @@ export async function createMember(
     .toLowerCase();
   const full_name = String(formData.get("full_name") ?? "").trim();
   const roleRaw = String(formData.get("role") ?? "player");
-  const role = ["admin", "player", "member"].includes(roleRaw)
+  const role = ["admin", "editor", "player", "member"].includes(roleRaw)
     ? roleRaw
     : "player";
   const teamIds = formData.getAll("team_ids").map(String).filter(Boolean);
@@ -55,6 +55,7 @@ export async function createMember(
     ? birthdayRaw
     : null;
   const birthday_public = formData.get("birthday_public") === "on";
+  const birthday_congrats = formData.get("birthday_congrats") === "on";
 
   // Ohne E-Mail: Name für die Selbst-Anmeldung anlegen. Die Person
   // registriert sich später über den Beitritts-Link/QR und gibt ihre
@@ -68,7 +69,14 @@ export async function createMember(
     }
     const { error } = await admin
       .from("member_invites")
-      .insert({ full_name, role, team_ids: teamIds, birthday, birthday_public });
+      .insert({
+        full_name,
+        role,
+        team_ids: teamIds,
+        birthday,
+        birthday_public,
+        birthday_congrats,
+      });
     if (error) {
       return {
         ok: false,
@@ -117,7 +125,7 @@ export async function createMember(
   // Profil vervollständigen (Trigger legt Grunddaten an).
   await admin
     .from("profiles")
-    .update({ full_name, role, email, birthday, birthday_public })
+    .update({ full_name, role, email, birthday, birthday_public, birthday_congrats })
     .eq("id", userId);
 
   // Mannschaften zuordnen.
@@ -164,7 +172,7 @@ export async function setMemberRole(formData: FormData) {
   await requireAdmin();
   const id = String(formData.get("id") ?? "");
   const roleRaw = String(formData.get("role") ?? "player");
-  const role = ["admin", "player", "member"].includes(roleRaw)
+  const role = ["admin", "editor", "player", "member"].includes(roleRaw)
     ? roleRaw
     : "player";
   if (!id) return;
@@ -194,6 +202,7 @@ export async function updateMemberData(formData: FormData) {
       phone: String(formData.get("phone") ?? "").trim(),
       birthday,
       birthday_public: formData.get("birthday_public") === "on",
+      birthday_congrats: formData.get("birthday_congrats") === "on",
     })
     .eq("id", id);
 

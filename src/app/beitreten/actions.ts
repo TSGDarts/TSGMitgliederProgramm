@@ -35,6 +35,7 @@ export async function claimMember(
     return { ok: false, message: "Bitte gib deinen Geburtstag an." };
   }
   const birthday_public = formData.get("birthday_public") === "on";
+  const birthday_congrats = formData.get("birthday_congrats") === "on";
   const phone = String(formData.get("phone") ?? "").trim();
   if (password.length < 8) {
     return { ok: false, message: "Das Passwort muss mindestens 8 Zeichen haben." };
@@ -89,6 +90,7 @@ export async function claimMember(
       phone,
       birthday,
       birthday_public,
+      birthday_congrats,
     })
     .eq("id", userId);
 

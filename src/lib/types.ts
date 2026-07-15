@@ -1,14 +1,15 @@
 // Zentrale Typen für die Datenbank-Tabellen.
 
-export type Role = "admin" | "player" | "member";
+export type Role = "admin" | "editor" | "player" | "member";
 
 export const ROLE_LABELS: Record<Role, string> = {
   admin: "Admin",
+  editor: "Bearbeiter",
   player: "Spieler (Liga)",
   member: "Mitglied (ohne Liga)",
 };
 
-export const VALID_ROLES: Role[] = ["admin", "player", "member"];
+export const VALID_ROLES: Role[] = ["admin", "editor", "player", "member"];
 export type EventType =
   | "match"
   | "pokal"
@@ -25,6 +26,7 @@ export interface Profile {
   phone: string | null;
   birthday?: string | null; // JJJJ-MM-TT
   birthday_public?: boolean | null; // im Mitglieder-Kalender anzeigen?
+  birthday_congrats?: boolean | null; // in der Mitgliedergruppe gratulieren ok?
   role: Role;
   is_active: boolean;
   created_at: string;

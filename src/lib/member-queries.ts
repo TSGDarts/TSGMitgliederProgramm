@@ -231,11 +231,11 @@ export async function getTeamRoster(teamId: string): Promise<TeamRosterEntry[]> 
     .sort((a, b) => a.profile.full_name.localeCompare(b.profile.full_name));
 }
 
-/** IDs der Teams, die der Nutzer verwalten darf (Admin = alle, sonst Kapitän/Vize). */
+/** IDs der Teams, die der Nutzer verwalten darf (Admin/Bearbeiter = alle, sonst Kapitän/Vize). */
 export async function getManageableTeamIds(
   profile: Profile,
 ): Promise<Set<string>> {
-  if (profile.role === "admin") {
+  if (profile.role === "admin" || profile.role === "editor") {
     const teams = await getAllTeams();
     return new Set(teams.map((t) => t.id));
   }

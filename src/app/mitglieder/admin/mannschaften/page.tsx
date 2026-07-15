@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { requireAdmin } from "@/lib/auth";
+import { requireEditor } from "@/lib/auth";
 import { getAllTeams } from "@/lib/member-queries";
 import { createTeam } from "./actions";
 import {
@@ -16,7 +16,7 @@ import {
 export const metadata: Metadata = { title: "Mannschaften verwalten" };
 
 export default async function AdminTeamsPage() {
-  await requireAdmin();
+  await requireEditor();
   const teams = await getAllTeams();
 
   return (

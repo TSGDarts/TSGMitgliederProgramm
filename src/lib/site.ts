@@ -39,3 +39,13 @@ export const adminNav = [
   { href: "/mitglieder/admin/gegner", label: "Gegner verwalten", icon: "shield" },
   { href: "/mitglieder/admin/termine", label: "Termine verwalten", icon: "shield" },
 ];
+
+// Verwaltungs-Links für die Rolle „Bearbeiter“: Termine, Gegner und
+// Mannschaften – keine Mitglieder-/Rollen-Verwaltung.
+export const editorNav = adminNav.filter((item) =>
+  [
+    "/mitglieder/admin/mannschaften",
+    "/mitglieder/admin/gegner",
+    "/mitglieder/admin/termine",
+  ].includes(item.href),
+);

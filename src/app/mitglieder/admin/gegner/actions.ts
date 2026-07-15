@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth";
+import { requireEditor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { composeAddress } from "@/lib/extras";
 
@@ -25,7 +25,7 @@ function readAddress(formData: FormData) {
 }
 
 export async function createOpponent(formData: FormData) {
-  await requireAdmin();
+  await requireEditor();
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
 
@@ -39,7 +39,7 @@ export async function createOpponent(formData: FormData) {
 }
 
 export async function updateOpponent(formData: FormData) {
-  await requireAdmin();
+  await requireEditor();
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   if (!id || !name) return;
@@ -57,7 +57,7 @@ export async function updateOpponent(formData: FormData) {
 }
 
 export async function deleteOpponent(formData: FormData) {
-  await requireAdmin();
+  await requireEditor();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
@@ -68,7 +68,7 @@ export async function deleteOpponent(formData: FormData) {
 
 /** Eigene Heimspielstätte (wird bei Heimterminen als Ort verwendet). */
 export async function saveHomeAddress(formData: FormData) {
-  await requireAdmin();
+  await requireEditor();
   const { street, zip, city, address } = readAddress(formData);
 
   const supabase = await createClient();

@@ -77,9 +77,13 @@ export function ClaimForm({
         <input type="checkbox" name="birthday_public" defaultChecked />
         Meinen Geburtstag im Mitglieder-Kalender anzeigen 🎂
       </label>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="birthday_congrats" defaultChecked />
+        Mir darf in der Mitgliedergruppe zum Geburtstag gratuliert werden 🎉
+      </label>
       <p className="-mt-3 text-xs text-muted">
         Nur für eingeloggte Mitglieder sichtbar – niemals öffentlich. Du kannst
-        das jederzeit in deinem Profil ändern.
+        beides jederzeit in deinem Profil ändern.
       </p>
 
       <Field label="5. Passwort festlegen" hint="Mindestens 8 Zeichen">

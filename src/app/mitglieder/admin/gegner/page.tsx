@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireAdmin } from "@/lib/auth";
+import { requireEditor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
   createOpponent,
@@ -61,7 +61,7 @@ function AddressFields({
 }
 
 export default async function AdminOpponentsPage() {
-  await requireAdmin();
+  await requireEditor();
   const supabase = await createClient();
 
   const { data: oppData } = await supabase

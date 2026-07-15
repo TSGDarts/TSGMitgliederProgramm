@@ -44,6 +44,7 @@ export default async function AdminMembersPage() {
     team_ids: string[];
     birthday?: string | null;
     birthday_public?: boolean | null;
+    birthday_congrats?: boolean | null;
   }>;
   const teamName = (id: string) => teams.find((t) => t.id === id)?.name ?? "";
 
@@ -73,6 +74,9 @@ export default async function AdminMembersPage() {
                       <span className="font-medium">{inv.full_name}</span>
                       {inv.role === "admin" && (
                         <Badge tone="primary">Admin</Badge>
+                      )}
+                      {inv.role === "editor" && (
+                        <Badge tone="primary">Bearbeiter</Badge>
                       )}
                       {inv.role === "member" && <Badge>ohne Liga</Badge>}
                       <Badge tone="warn">noch nicht angemeldet</Badge>
@@ -126,6 +130,7 @@ export default async function AdminMembersPage() {
                           >
                             <option value="player">Spieler (Liga)</option>
                             <option value="member">Mitglied (ohne Liga)</option>
+                            <option value="editor">Bearbeiter</option>
                             <option value="admin">Admin</option>
                           </select>
                         </Field>
@@ -170,6 +175,18 @@ export default async function AdminMembersPage() {
                           neu)
                         </span>
                       </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="birthday_congrats"
+                          defaultChecked={inv.birthday_congrats ?? false}
+                        />
+                        In der Mitgliedergruppe gratulieren 🎉
+                        <span className="text-xs text-muted">
+                          (entscheidet die Person bei der Registrierung selbst
+                          neu)
+                        </span>
+                      </label>
                       <Button type="submit">Änderungen speichern</Button>
                     </form>
                   </details>
@@ -209,6 +226,9 @@ export default async function AdminMembersPage() {
                       {m.full_name || "(ohne Namen)"}
                     </span>
                     {m.role === "admin" && <Badge tone="primary">Admin</Badge>}
+                    {m.role === "editor" && (
+                      <Badge tone="primary">Bearbeiter</Badge>
+                    )}
                     {m.role === "member" && <Badge>ohne Liga</Badge>}
                     {!m.is_active && <Badge tone="danger">inaktiv</Badge>}
                   </div>
@@ -216,6 +236,15 @@ export default async function AdminMembersPage() {
                     {m.email}
                     {m.phone && <> · 📱 {m.phone}</>}
                     {m.birthday && <> · 🎂 {m.birthday}</>}
+                    {m.birthday_congrats && (
+                      <>
+                        {" "}
+                        ·{" "}
+                        <span title="Darf in der Mitgliedergruppe zum Geburtstag gratuliert werden">
+                          🎉 Gratulation ok
+                        </span>
+                      </>
+                    )}
                     {!m.birthday && (
                       <>
                         {" "}
@@ -238,6 +267,7 @@ export default async function AdminMembersPage() {
                     >
                       <option value="player">Spieler (Liga)</option>
                       <option value="member">Mitglied (ohne Liga)</option>
+                      <option value="editor">Bearbeiter</option>
                       <option value="admin">Admin</option>
                     </select>
                     <button className="rounded-lg border border-border px-3 py-1 text-sm hover:bg-border/40">
@@ -297,6 +327,14 @@ export default async function AdminMembersPage() {
                       defaultChecked={m.birthday_public ?? false}
                     />
                     Geburtstag im Mitglieder-Kalender anzeigen 🎂
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name="birthday_congrats"
+                      defaultChecked={m.birthday_congrats ?? false}
+                    />
+                    In der Mitgliedergruppe gratulieren 🎉
                   </label>
                   <Button type="submit">Speichern</Button>
                 </form>

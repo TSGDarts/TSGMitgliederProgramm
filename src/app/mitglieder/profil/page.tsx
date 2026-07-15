@@ -68,6 +68,15 @@ export default async function ProfilPage() {
               Nur für eingeloggte Mitglieder sichtbar – niemals öffentlich oder
               in Datenübergaben an andere Programme.
             </p>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="birthday_congrats"
+                defaultChecked={profile.birthday_congrats ?? false}
+              />
+              Mir darf in der Mitgliedergruppe zum Geburtstag gratuliert
+              werden 🎉
+            </label>
             <Button type="submit">Speichern</Button>
           </form>
         </CardBody>

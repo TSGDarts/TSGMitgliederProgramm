@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireEditor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { berlinLocalToISO } from "@/lib/tz";
 import { romanTeamNo } from "@/lib/extras";
@@ -112,7 +112,7 @@ function revalidateEvents(id?: string) {
 }
 
 export async function createEvent(formData: FormData) {
-  const profile = await requireAdmin();
+  const profile = await requireEditor();
 
   const startsLocal = String(formData.get("starts_at") ?? "");
   const starts_at = berlinLocalToISO(startsLocal);
@@ -175,7 +175,7 @@ export async function createEvent(formData: FormData) {
 }
 
 export async function updateEvent(formData: FormData) {
-  await requireAdmin();
+  await requireEditor();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
@@ -238,7 +238,7 @@ export async function updateEvent(formData: FormData) {
 
 /** Schnell-Umschalter: Termin an die Competition-App übergeben ja/nein. */
 export async function toggleFeedExport(formData: FormData) {
-  await requireAdmin();
+  await requireEditor();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   const next = formData.get("next") === "1";
@@ -256,7 +256,7 @@ export async function toggleFeedExport(formData: FormData) {
 
 /** Archiv-Frist speichern: nach so vielen Tagen verschwinden Termine. */
 export async function saveArchiveDays(formData: FormData) {
-  await requireAdmin();
+  await requireEditor();
   const n = Math.round(Number(formData.get("archive_days") ?? 0));
   if (!Number.isFinite(n) || n < 1 || n > 365) return;
 
@@ -270,7 +270,7 @@ export async function saveArchiveDays(formData: FormData) {
 }
 
 export async function deleteEvent(formData: FormData) {
-  await requireAdmin();
+  await requireEditor();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 

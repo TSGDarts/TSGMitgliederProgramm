@@ -11,6 +11,7 @@ export async function updateProfile(formData: FormData) {
     ? birthdayRaw
     : null;
   const birthday_public = formData.get("birthday_public") === "on";
+  const birthday_congrats = formData.get("birthday_congrats") === "on";
 
   const supabase = await createClient();
   const {
@@ -20,7 +21,7 @@ export async function updateProfile(formData: FormData) {
 
   await supabase
     .from("profiles")
-    .update({ full_name, phone, birthday, birthday_public })
+    .update({ full_name, phone, birthday, birthday_public, birthday_congrats })
     .eq("id", user.id);
 
   revalidatePath("/mitglieder/profil");

@@ -49,3 +49,15 @@ export async function requireAdmin(): Promise<Profile> {
   }
   return profile;
 }
+
+/**
+ * Erzwingt Admin ODER Bearbeiter. Bearbeiter verwalten Termine (aller
+ * Mannschaften), Gegner und Mannschaften – aber keine Mitglieder/Rollen.
+ */
+export async function requireEditor(): Promise<Profile> {
+  const profile = await requireProfile("/mitglieder");
+  if (profile.role !== "admin" && profile.role !== "editor") {
+    redirect("/mitglieder");
+  }
+  return profile;
+}

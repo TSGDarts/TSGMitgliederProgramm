@@ -176,7 +176,9 @@ export default async function TurnierePage({
         <div className="space-y-3">
           {tournaments.map((t) => {
             const mayEdit =
-              profile.role === "admin" || t.created_by === profile.id;
+              profile.role === "admin" ||
+              profile.role === "editor" ||
+              t.created_by === profile.id;
             return (
               <Card key={t.id} className={showArchive ? "opacity-70" : ""}>
                 <CardBody className="space-y-3">

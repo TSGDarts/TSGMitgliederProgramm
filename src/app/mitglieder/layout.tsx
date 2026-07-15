@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
-import { memberNav, adminNav, site } from "@/lib/site";
+import { memberNav, adminNav, editorNav, site } from "@/lib/site";
 import { MemberNav } from "@/components/MemberNav";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { signOut } from "@/app/login/actions";
@@ -13,6 +13,7 @@ export default async function MemberLayout({
 }) {
   const profile = await requireProfile();
   const isAdmin = profile.role === "admin";
+  const isEditor = profile.role === "editor";
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 md:flex-row">
@@ -33,7 +34,7 @@ export default async function MemberLayout({
 
           <MemberNav
             items={memberNav}
-            adminItems={isAdmin ? adminNav : undefined}
+            adminItems={isAdmin ? adminNav : isEditor ? editorNav : undefined}
           />
 
           <div className="hidden border-t border-border pt-4 md:block">
@@ -42,6 +43,7 @@ export default async function MemberLayout({
                 {profile.full_name || profile.email}
               </span>
               {isAdmin && <Badge tone="primary">Admin</Badge>}
+              {isEditor && <Badge tone="primary">Bearbeiter</Badge>}
             </div>
             <div className="flex items-center gap-2">
               <form action={signOut} className="flex-1">

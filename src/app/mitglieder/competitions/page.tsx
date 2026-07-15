@@ -276,7 +276,9 @@ export default async function CompetitionsPage({
         <div className="space-y-3">
           {competitions.map((c) => {
             const mayEdit =
-              profile.role === "admin" || c.created_by === profile.id;
+              profile.role === "admin" ||
+              profile.role === "editor" ||
+              c.created_by === profile.id;
             return (
               <Card key={c.id} className={showArchive ? "opacity-70" : ""}>
                 <CardBody className="space-y-3">

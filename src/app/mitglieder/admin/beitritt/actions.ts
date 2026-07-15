@@ -11,6 +11,7 @@ function readInviteBirthday(formData: FormData) {
   return {
     birthday: /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null,
     birthday_public: formData.get("birthday_public") === "on",
+    birthday_congrats: formData.get("birthday_congrats") === "on",
   };
 }
 
@@ -19,7 +20,7 @@ export async function addInviteName(formData: FormData) {
   const full_name = String(formData.get("full_name") ?? "").trim();
   if (!full_name) return;
   const roleRaw = String(formData.get("role") ?? "player");
-  const role = ["admin", "player", "member"].includes(roleRaw)
+  const role = ["admin", "editor", "player", "member"].includes(roleRaw)
     ? roleRaw
     : "player";
   const team_ids = formData.getAll("team_ids").map(String).filter(Boolean);
@@ -46,7 +47,7 @@ export async function updateInvite(formData: FormData) {
   const full_name = String(formData.get("full_name") ?? "").trim();
   if (!id || !full_name) return;
   const roleRaw = String(formData.get("role") ?? "player");
-  const role = ["admin", "player", "member"].includes(roleRaw)
+  const role = ["admin", "editor", "player", "member"].includes(roleRaw)
     ? roleRaw
     : "player";
   const team_ids = formData.getAll("team_ids").map(String).filter(Boolean);

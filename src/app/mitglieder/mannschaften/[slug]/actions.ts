@@ -14,7 +14,7 @@ const VALID_TYPES: EventType[] = [
   "other",
 ];
 
-/** Prüft, ob der aktuelle Nutzer das Team verwalten darf (Admin oder Kapitän/Vize). */
+/** Prüft, ob der aktuelle Nutzer das Team verwalten darf (Admin/Bearbeiter oder Kapitän/Vize). */
 async function assertCanManage(teamId: string) {
   const supabase = await createClient();
   const {
@@ -27,7 +27,9 @@ async function assertCanManage(teamId: string) {
     .select("role")
     .eq("id", user.id)
     .single();
-  if (profile?.role === "admin") return { supabase, userId: user.id };
+  if (profile?.role === "admin" || profile?.role === "editor") {
+    return { supabase, userId: user.id };
+  }
 
   const { data: tm } = await supabase
     .from("team_members")

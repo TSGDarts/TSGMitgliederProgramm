@@ -26,6 +26,7 @@ type Invite = {
   team_ids: string[];
   birthday?: string | null;
   birthday_public?: boolean | null;
+  birthday_congrats?: boolean | null;
   claimed: boolean;
 };
 
@@ -98,6 +99,7 @@ export default async function AdminBeitrittPage({
                 <select name="role" defaultValue="player" className={inputClass}>
                   <option value="player">Spieler (Liga)</option>
                   <option value="member">Mitglied (ohne Liga)</option>
+                  <option value="editor">Bearbeiter</option>
                   <option value="admin">Admin</option>
                 </select>
               </Field>
@@ -129,6 +131,13 @@ export default async function AdminBeitrittPage({
                 </span>
               </label>
             </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="birthday_congrats" />
+              In der Mitgliedergruppe gratulieren 🎉
+              <span className="text-xs text-muted">
+                (entscheidet die Person bei der Registrierung selbst neu)
+              </span>
+            </label>
             <Button type="submit">Name hinzufügen</Button>
           </form>
         </CardBody>
@@ -155,6 +164,9 @@ export default async function AdminBeitrittPage({
                       <span className="font-medium">{inv.full_name}</span>
                       {inv.role === "admin" && (
                         <Badge tone="primary">Admin</Badge>
+                      )}
+                      {inv.role === "editor" && (
+                        <Badge tone="primary">Bearbeiter</Badge>
                       )}
                       {inv.role === "member" && <Badge>ohne Liga</Badge>}
                       {inv.team_ids?.length > 0 && (
@@ -207,6 +219,7 @@ export default async function AdminBeitrittPage({
                           >
                             <option value="player">Spieler (Liga)</option>
                             <option value="member">Mitglied (ohne Liga)</option>
+                            <option value="editor">Bearbeiter</option>
                             <option value="admin">Admin</option>
                           </select>
                         </Field>
@@ -249,6 +262,18 @@ export default async function AdminBeitrittPage({
                           Im Mitglieder-Kalender anzeigen 🎂
                         </label>
                       </div>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="birthday_congrats"
+                          defaultChecked={inv.birthday_congrats ?? false}
+                        />
+                        In der Mitgliedergruppe gratulieren 🎉
+                        <span className="text-xs text-muted">
+                          (entscheidet die Person bei der Registrierung selbst
+                          neu)
+                        </span>
+                      </label>
                       <Button type="submit">Änderungen speichern</Button>
                     </form>
                   </details>

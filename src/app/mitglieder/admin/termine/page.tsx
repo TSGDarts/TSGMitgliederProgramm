@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireAdmin } from "@/lib/auth";
+import { requireEditor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAllTeams } from "@/lib/member-queries";
 import {
@@ -161,7 +161,7 @@ export default async function AdminEventsPage({
 }: {
   searchParams: Promise<{ fehler?: string; gespeichert?: string }>;
 }) {
-  await requireAdmin();
+  await requireEditor();
   const { fehler, gespeichert } = await searchParams;
   const teams = await getAllTeams();
   const supabase = await createClient();

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth";
+import { requireEditor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/slug";
 import { parseIcal } from "@/lib/ical";
@@ -13,7 +13,7 @@ function revalidateTeams() {
 }
 
 export async function createTeam(formData: FormData) {
-  await requireAdmin();
+  await requireEditor();
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
 
@@ -41,7 +41,7 @@ export async function createTeam(formData: FormData) {
 }
 
 export async function updateTeam(formData: FormData) {
-  await requireAdmin();
+  await requireEditor();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
@@ -73,7 +73,7 @@ export async function updateTeam(formData: FormData) {
 }
 
 export async function addRosterMember(formData: FormData) {
-  await requireAdmin();
+  await requireEditor();
   const team_id = String(formData.get("team_id") ?? "");
   const profile_id = String(formData.get("profile_id") ?? "");
   if (!team_id || !profile_id) return;
@@ -86,7 +86,7 @@ export async function addRosterMember(formData: FormData) {
 }
 
 export async function removeRosterMember(formData: FormData) {
-  await requireAdmin();
+  await requireEditor();
   const team_id = String(formData.get("team_id") ?? "");
   const profile_id = String(formData.get("profile_id") ?? "");
   if (!team_id || !profile_id) return;
@@ -106,7 +106,7 @@ export async function removeRosterMember(formData: FormData) {
  * nur bei EINEM Team Kapitän bzw. Vize sein.
  */
 export async function setTeamRole(formData: FormData) {
-  await requireAdmin();
+  await requireEditor();
   const team_id = String(formData.get("team_id") ?? "");
   const profile_id = String(formData.get("profile_id") ?? "");
   const role = String(formData.get("team_role") ?? "none");
@@ -160,7 +160,7 @@ export async function importNuligaIcal(
   _prev: ImportResult | null,
   formData: FormData,
 ): Promise<ImportResult> {
-  await requireAdmin();
+  await requireEditor();
   const team_id = String(formData.get("team_id") ?? "");
   const url = String(formData.get("ical_url") ?? "").trim();
   if (!team_id || !url) {

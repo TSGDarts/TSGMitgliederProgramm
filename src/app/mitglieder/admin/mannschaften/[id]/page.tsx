@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireEditor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getTeamRoster } from "@/lib/member-queries";
 import {
@@ -27,7 +27,7 @@ export default async function AdminTeamDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  await requireAdmin();
+  await requireEditor();
   const supabase = await createClient();
 
   const { data: teamData } = await supabase
