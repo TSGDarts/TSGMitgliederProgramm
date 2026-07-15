@@ -30,6 +30,8 @@ export interface Team {
   league: string | null;
   nuliga_url: string | null;
   nuliga_ical_url: string | null;
+  home_match_weekday?: number | null; // 1 = Montag … 7 = Sonntag
+  home_match_time?: string | null; // z. B. "20:00"
   sort_order: number;
   created_at: string;
 }

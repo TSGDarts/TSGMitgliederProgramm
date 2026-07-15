@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAllTeams } from "@/lib/member-queries";
 import { toggleSurvey } from "../actions";
+import { formatHomeMatch } from "@/lib/extras";
 import { PokalPlanner } from "./PokalPlanner";
 import { TeamPlanner } from "./TeamPlanner";
 import { ArchiveButton } from "./ArchiveButton";
@@ -155,15 +156,21 @@ export default async function AdminSeasonDetailPage({
     invite_id: string | null;
   }>;
 
-  // Team-Zuordnungen der registrierten Mitglieder
+  // Team-Zuordnungen der registrierten Mitglieder (inkl. Kapitäns-Rollen)
   const { data: tmData } = await supabase
     .from("team_members")
-    .select("team_id,profile_id");
+    .select("team_id,profile_id,is_captain,is_vice_captain");
   const memberTeams = new Map<string, string[]>();
+  const teamRoleMap = new Map<string, "captain" | "vice">();
   for (const tm of tmData ?? []) {
     const list = memberTeams.get(tm.profile_id as string) ?? [];
     list.push(tm.team_id as string);
     memberTeams.set(tm.profile_id as string, list);
+    if (tm.is_captain) {
+      teamRoleMap.set(`${tm.profile_id}:${tm.team_id}`, "captain");
+    } else if (tm.is_vice_captain) {
+      teamRoleMap.set(`${tm.profile_id}:${tm.team_id}`, "vice");
+    }
   }
   const teamById = new Map(teams.map((t) => [t.id, t]));
 
@@ -588,7 +595,14 @@ export default async function AdminSeasonDetailPage({
               />
             ) : (
               <TeamPlanner
-                teams={teams.map((t) => ({ id: t.id, name: t.name }))}
+                teams={teams.map((t) => ({
+                  id: t.id,
+                  name: t.name,
+                  home: formatHomeMatch(
+                    t.home_match_weekday,
+                    t.home_match_time,
+                  ),
+                }))}
                 persons={entries.map((e) => ({
                   key: e.key,
                   name: e.name,
@@ -597,7 +611,14 @@ export default async function AdminSeasonDetailPage({
                   wishes: e.r?.team_wishes ?? "",
                 }))}
                 initialAssign={entries.flatMap((e) =>
-                  e.teamIds.map((teamId) => ({ teamId, key: e.key })),
+                  e.teamIds.map((teamId) => ({
+                    teamId,
+                    key: e.key,
+                    role:
+                      e.kind === "profile"
+                        ? (teamRoleMap.get(`${e.id}:${teamId}`) ?? null)
+                        : null,
+                  })),
                 )}
               />
             )}

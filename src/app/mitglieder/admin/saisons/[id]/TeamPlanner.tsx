@@ -7,9 +7,10 @@ import {
   addTeamMemberAction,
   removeTeamMemberAction,
   moveTeamMemberAction,
+  setTeamRoleAction,
 } from "../team-actions";
 
-export type TeamInfo = { id: string; name: string };
+export type TeamInfo = { id: string; name: string; home?: string };
 export type TeamPerson = {
   key: string; // "p:<id>" | "i:<id>"
   name: string;
@@ -17,7 +18,8 @@ export type TeamPerson = {
   captain: string; // captain_interest
   wishes: string;
 };
-export type TeamAssign = { teamId: string; key: string };
+export type TeamRole = "captain" | "vice" | null;
+export type TeamAssign = { teamId: string; key: string; role: TeamRole };
 
 type DragData = { key: string; from: string | null };
 
@@ -88,9 +90,30 @@ export function TeamPlanner({
   function add(key: string, teamId: string) {
     if (assign.some((a) => a.key === key && a.teamId === teamId)) return;
     setError("");
-    setAssign((s) => [...s, { teamId, key }]);
+    setAssign((s) => [...s, { teamId, key, role: null }]);
     startTransition(async () => {
       const res = await addTeamMemberAction(teamId, key);
+      if (!res.ok) fail(res.message);
+    });
+  }
+
+  /** Rolle durchschalten: Spieler → Kapitän → Vize → Spieler. */
+  function cycleRole(key: string, teamId: string, current: TeamRole) {
+    if (!key.startsWith("p:")) return; // nur registrierte Mitglieder
+    const next: TeamRole =
+      current === null ? "captain" : current === "captain" ? "vice" : null;
+    setError("");
+    setAssign((s) =>
+      s.map((a) => {
+        if (a.teamId !== teamId) return a;
+        if (a.key === key) return { ...a, role: next };
+        // Eindeutigkeit im Team: bisherigen Kapitän/Vize ablösen
+        if (next !== null && a.role === next) return { ...a, role: null };
+        return a;
+      }),
+    );
+    startTransition(async () => {
+      const res = await setTeamRoleAction(teamId, key, next ?? "none");
       if (!res.ok) fail(res.message);
     });
   }
@@ -111,7 +134,7 @@ export function TeamPlanner({
     setAssign((s) => {
       const without = s.filter((a) => !(a.key === key && a.teamId === from));
       if (without.some((a) => a.key === key && a.teamId === to)) return without;
-      return [...without, { teamId: to, key }];
+      return [...without, { teamId: to, key, role: null }];
     });
     startTransition(async () => {
       const res = await moveTeamMemberAction(from, to, key);
@@ -193,8 +216,9 @@ export function TeamPlanner({
     <Card>
       <CardBody className="space-y-4">
         <p className="text-sm text-muted">
-          💡 Ziehe die Namen einfach mit der Maus in die Team-Kästen (oder
-          zurück in die Liste). Auf dem Handy nimmst du die +1/+2-Knöpfe.
+          💡 Ziehe die Namen mit der Maus in die Team-Kästen (oder zurück in
+          die Liste) – auf dem Handy nimmst du die +1/+2-Knöpfe. Klick auf die
+          👑 am Chip macht jemanden zum Kapitän (nochmal = Vize, nochmal = weg).
         </p>
 
         {error && (
@@ -208,8 +232,8 @@ export function TeamPlanner({
           {teams.map((t, i) => {
             const items = assign
               .filter((a) => a.teamId === t.id)
-              .map((a) => personByKey.get(a.key))
-              .filter(Boolean) as TeamPerson[];
+              .map((a) => ({ a, p: personByKey.get(a.key) }))
+              .filter((x) => x.p) as { a: TeamAssign; p: TeamPerson }[];
             const zone = `team:${t.id}`;
             return (
               <div
@@ -227,6 +251,11 @@ export function TeamPlanner({
                       {i + 1}
                     </span>
                     {t.name}
+                    {t.home && (
+                      <span className="ml-2 text-xs font-normal text-muted">
+                        🕗 {t.home}
+                      </span>
+                    )}
                   </span>
                   <Badge>{items.length}</Badge>
                 </div>
@@ -237,8 +266,14 @@ export function TeamPlanner({
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {items
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((p) => (
+                      .sort(
+                        (x, y) =>
+                          // Kapitän zuerst, dann Vize, dann alphabetisch
+                          (x.a.role === "captain" ? 0 : x.a.role === "vice" ? 1 : 2) -
+                            (y.a.role === "captain" ? 0 : y.a.role === "vice" ? 1 : 2) ||
+                          x.p.name.localeCompare(y.p.name),
+                      )
+                      .map(({ a, p }) => (
                         <span
                           key={p.key}
                           draggable
@@ -246,10 +281,37 @@ export function TeamPlanner({
                             dragStart(e, { key: p.key, from: t.id })
                           }
                           title={`${freqTitle(p)} – ziehen zum Verschieben`}
-                          className="inline-flex cursor-grab items-center gap-1 rounded-full bg-primary/15 px-3 py-1 text-sm text-primary active:cursor-grabbing"
+                          className={`inline-flex cursor-grab items-center gap-1 rounded-full px-3 py-1 text-sm active:cursor-grabbing ${
+                            a.role === "captain"
+                              ? "bg-primary text-primary-fg"
+                              : a.role === "vice"
+                                ? "bg-primary/30 text-primary"
+                                : "bg-primary/15 text-primary"
+                          }`}
                         >
+                          {a.role === "captain" && <span title="Kapitän">👑</span>}
+                          {a.role === "vice" && (
+                            <span className="text-xs font-bold" title="Vize-Kapitän">
+                              VC
+                            </span>
+                          )}
                           {p.name}{" "}
                           <span className="opacity-70">{freqMark(p.freq)}</span>
+                          {p.key.startsWith("p:") && (
+                            <button
+                              onClick={() => cycleRole(p.key, t.id, a.role)}
+                              className="ml-0.5 opacity-60 hover:opacity-100"
+                              title={
+                                a.role === null
+                                  ? "Zum Kapitän machen"
+                                  : a.role === "captain"
+                                    ? "Zum Vize-Kapitän machen"
+                                    : "Rolle entfernen"
+                              }
+                            >
+                              👑
+                            </button>
+                          )}
                           <button
                             onClick={() => remove(p.key, t.id)}
                             className="ml-0.5 hover:opacity-70"

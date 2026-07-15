@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
 import { memberNav, adminNav, site } from "@/lib/site";
 import { MemberNav } from "@/components/MemberNav";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { signOut } from "@/app/login/actions";
 import { Badge } from "@/components/ui";
 
@@ -42,11 +43,14 @@ export default async function MemberLayout({
               </span>
               {isAdmin && <Badge tone="primary">Admin</Badge>}
             </div>
-            <form action={signOut}>
-              <button className="w-full rounded-lg px-3 py-2 text-left text-sm text-muted hover:bg-border/40 hover:text-foreground">
-                Abmelden
-              </button>
-            </form>
+            <div className="flex items-center gap-2">
+              <form action={signOut} className="flex-1">
+                <button className="w-full rounded-lg px-3 py-2 text-left text-sm text-muted hover:bg-border/40 hover:text-foreground">
+                  Abmelden
+                </button>
+              </form>
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </aside>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getAllTeams } from "@/lib/member-queries";
+import { formatHomeMatch } from "@/lib/extras";
 import { PageHeader, Card, CardBody, EmptyState, Badge } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Mannschaften" };
@@ -31,6 +32,18 @@ export default async function MemberTeamsPage() {
                   </div>
                   {team.league && (
                     <p className="mt-1 text-sm text-muted">{team.league}</p>
+                  )}
+                  {formatHomeMatch(
+                    team.home_match_weekday,
+                    team.home_match_time,
+                  ) && (
+                    <p className="mt-1 text-sm text-muted">
+                      🕗 Heim:{" "}
+                      {formatHomeMatch(
+                        team.home_match_weekday,
+                        team.home_match_time,
+                      )}
+                    </p>
                   )}
                 </CardBody>
               </Card>

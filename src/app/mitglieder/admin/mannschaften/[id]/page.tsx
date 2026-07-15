@@ -90,6 +90,35 @@ export default async function AdminTeamDetailPage({
                 className={inputClass}
               />
             </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Heimspieltag"
+                hint="Für die Mannschaftsmeldung (Heimspielzeiten)"
+              >
+                <select
+                  name="home_match_weekday"
+                  defaultValue={team.home_match_weekday ?? ""}
+                  className={inputClass}
+                >
+                  <option value="">– kein fester Tag –</option>
+                  <option value="1">Montag</option>
+                  <option value="2">Dienstag</option>
+                  <option value="3">Mittwoch</option>
+                  <option value="4">Donnerstag</option>
+                  <option value="5">Freitag</option>
+                  <option value="6">Samstag</option>
+                  <option value="7">Sonntag</option>
+                </select>
+              </Field>
+              <Field label="Heimspielbeginn">
+                <input
+                  name="home_match_time"
+                  type="time"
+                  defaultValue={team.home_match_time ?? ""}
+                  className={inputClass}
+                />
+              </Field>
+            </div>
             <Field
               label="nuLiga-Adresse (Tabelle/Spielplan)"
               hint="Link zur öffentlichen nuLiga-Seite dieser Mannschaft"

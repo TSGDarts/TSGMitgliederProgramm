@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { publicNav, site } from "@/lib/site";
 import { ButtonLink } from "@/components/ui";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function SiteHeader() {
   return (
@@ -30,9 +31,12 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        <ButtonLink href="/mitglieder" variant="primary" className="shrink-0">
-          Mitglieder-Login
-        </ButtonLink>
+        <div className="flex shrink-0 items-center gap-2">
+          <ThemeToggle />
+          <ButtonLink href="/mitglieder" variant="primary">
+            Mitglieder-Login
+          </ButtonLink>
+        </div>
       </div>
 
       <nav className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 sm:hidden">

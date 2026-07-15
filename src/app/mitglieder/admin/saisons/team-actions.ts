@@ -46,6 +46,67 @@ export async function addTeamMemberAction(
   return { ok: true };
 }
 
+/**
+ * Team-Rolle setzen: 'captain', 'vice' oder 'none'.
+ * Regeln: pro Team nur EIN Kapitän / EIN Vize; eine Person nur bei
+ * EINEM Team Kapitän bzw. Vize. Nur für registrierte Mitglieder.
+ */
+export async function setTeamRoleAction(
+  teamId: string,
+  target: string,
+  role: "captain" | "vice" | "none",
+): Promise<Res> {
+  await requireAdmin();
+  const [t, id] = target.split(":");
+  if (t !== "p" || !id || !teamId) {
+    return {
+      ok: false,
+      message: "Kapitän geht erst, wenn die Person registriert ist.",
+    };
+  }
+
+  const supabase = await createClient();
+  if (role === "captain") {
+    await supabase
+      .from("team_members")
+      .update({ is_captain: false })
+      .eq("profile_id", id);
+    await supabase
+      .from("team_members")
+      .update({ is_captain: false })
+      .eq("team_id", teamId);
+    const { error } = await supabase
+      .from("team_members")
+      .update({ is_captain: true, is_vice_captain: false })
+      .eq("team_id", teamId)
+      .eq("profile_id", id);
+    if (error) return { ok: false, message: error.message };
+  } else if (role === "vice") {
+    await supabase
+      .from("team_members")
+      .update({ is_vice_captain: false })
+      .eq("profile_id", id);
+    await supabase
+      .from("team_members")
+      .update({ is_vice_captain: false })
+      .eq("team_id", teamId);
+    const { error } = await supabase
+      .from("team_members")
+      .update({ is_vice_captain: true, is_captain: false })
+      .eq("team_id", teamId)
+      .eq("profile_id", id);
+    if (error) return { ok: false, message: error.message };
+  } else {
+    const { error } = await supabase
+      .from("team_members")
+      .update({ is_captain: false, is_vice_captain: false })
+      .eq("team_id", teamId)
+      .eq("profile_id", id);
+    if (error) return { ok: false, message: error.message };
+  }
+  return { ok: true };
+}
+
 /** Person von einem Team in ein anderes verschieben (Drag & Drop). */
 export async function moveTeamMemberAction(
   fromTeamId: string | null,

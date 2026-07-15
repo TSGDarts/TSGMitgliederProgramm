@@ -29,8 +29,9 @@
   --font-sans: var(--font-geist-sans);
 }
 
+/* Dunkel nach Systemeinstellung – außer der Nutzer hat "hell" gewählt */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --background: #0e0f13;
     --surface: #17181d;
     --foreground: #ededed;
@@ -39,6 +40,17 @@
     --primary: #ef2743;
     --accent: #f3f4f6;
   }
+}
+
+/* Vom Nutzer per Umschalter erzwungenes Dunkel */
+:root[data-theme="dark"] {
+  --background: #0e0f13;
+  --surface: #17181d;
+  --foreground: #ededed;
+  --muted: #9ca3af;
+  --border: #2a2c33;
+  --primary: #ef2743;
+  --accent: #f3f4f6;
 }
 
 body {

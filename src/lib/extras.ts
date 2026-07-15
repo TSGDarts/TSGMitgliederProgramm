@@ -58,6 +58,16 @@ export function weekdayLabel(value: number): string {
   return WEEKDAYS.find((w) => w.value === value)?.label ?? "?";
 }
 
+/** "Freitags, 20:00 Uhr" aus Wochentag + Uhrzeit einer Mannschaft. */
+export function formatHomeMatch(
+  weekday?: number | null,
+  time?: string | null,
+): string {
+  if (!weekday) return "";
+  const day = weekdayLabel(weekday);
+  return time ? `${day}s, ${time} Uhr` : `${day}s`;
+}
+
 export function mapsUrl(address: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }

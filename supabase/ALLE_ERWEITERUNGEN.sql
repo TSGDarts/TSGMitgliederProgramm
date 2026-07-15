@@ -1,7 +1,7 @@
 -- =====================================================================
 -- SAMMEL-SKRIPT: Alle Datenbank-Erweiterungen in einem Rutsch
 -- ---------------------------------------------------------------------
--- Führt die Skripte 02 bis 11 zusammen aus. Kann GEFAHRLOS mehrfach
+-- Führt die Skripte 02 bis 12 zusammen aus. Kann GEFAHRLOS mehrfach
 -- ausgeführt werden - bestehende Tabellen/Regeln bleiben erhalten,
 -- Rahmentermine werden nur aktualisiert, nie doppelt angelegt.
 -- (Voraussetzung: schema.sql wurde einmal ausgeführt.)
@@ -491,3 +491,18 @@ alter table public.seasons
   add column if not exists pokal_ku_teams int not null default 1;
 alter table public.seasons
   add column if not exists pokal_8er_teams int not null default 1;
+
+-- ###################### 12_heimspielzeiten.sql ######################
+
+-- =====================================================================
+-- Erweiterung: Heimspielzeiten je Mannschaft (für die Mannschaftsmeldung)
+-- ---------------------------------------------------------------------
+-- Im Supabase SQL-Editor EINMALIG ausführen.
+-- =====================================================================
+
+alter table public.teams
+  add column if not exists home_match_weekday int
+  check (home_match_weekday between 1 and 7);  -- 1 = Montag … 7 = Sonntag
+
+alter table public.teams
+  add column if not exists home_match_time text not null default ''; -- z. B. "20:00"

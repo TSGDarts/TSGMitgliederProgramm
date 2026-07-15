@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createTeamEvent, updateTeamEvent, deleteTeamEvent } from "./actions";
 import { berlinISOToLocalInput } from "@/lib/tz";
 import { NuLigaEmbed } from "@/components/NuLigaEmbed";
+import { formatHomeMatch } from "@/lib/extras";
 import {
   PageHeader,
   Card,
@@ -55,6 +56,15 @@ export default async function MemberTeamDetailPage({
         ← Alle Mannschaften
       </Link>
       <PageHeader title={team.name} subtitle={team.league ?? undefined} />
+
+      {formatHomeMatch(team.home_match_weekday, team.home_match_time) && (
+        <Card className="bg-primary/5">
+          <CardBody className="py-3 text-sm">
+            🕗 <strong>Heimspiele:</strong>{" "}
+            {formatHomeMatch(team.home_match_weekday, team.home_match_time)}
+          </CardBody>
+        </Card>
+      )}
 
       {/* Kader */}
       <section>
