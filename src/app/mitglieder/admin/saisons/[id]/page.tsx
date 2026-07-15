@@ -9,10 +9,8 @@ import {
   unassignTeam,
   assignInviteTeam,
   unassignInviteTeam,
-  addPokal,
-  removePokal,
-  autoFillPokal,
 } from "../actions";
+import { PokalPlanner } from "./PokalPlanner";
 import { ArchiveButton } from "./ArchiveButton";
 import { AdminSurveyForm } from "./AdminSurveyForm";
 import {
@@ -153,11 +151,12 @@ export default async function AdminSeasonDetailPage({
   // Pokal-Kader dieser Saison
   const { data: squadData } = await supabase
     .from("pokal_squads")
-    .select("id, kind, profile_id, invite_id")
+    .select("id, kind, team_no, profile_id, invite_id")
     .eq("season_id", id);
   const squads = (squadData ?? []) as Array<{
     id: string;
     kind: string;
+    team_no: number;
     profile_id: string | null;
     invite_id: string | null;
   }>;
@@ -263,10 +262,7 @@ export default async function AdminSeasonDetailPage({
   const activeFilter = FILTERS.find((f) => f.key === zeige) ?? null;
   const visible = activeFilter ? sorted.filter(activeFilter.test) : sorted;
 
-  // Pokal-Planung: Bereitschaft aus der Abfrage + aktuelle Kader
-  const entryByKey = new Map(entries.map((e) => [e.key, e]));
-  const pokalRank = (v: string) =>
-    v === "yes" ? 0 : v === "if_needed" ? 1 : v === "no" ? 3 : v ? 2 : 4;
+  // Pokal-Planung
   const POKALS = [
     {
       kind: "ku",
@@ -547,170 +543,38 @@ export default async function AdminSeasonDetailPage({
           <section className="space-y-3">
             <h2 className="text-lg font-bold">Pokal-Planung</h2>
             <p className="text-sm text-muted">
-              Die Auswahl zeigt die Bereitschaft aus der Saisonabfrage – wer
-              „Ja“ gesagt hat, steht oben.
+              Stelle pro Pokal die Anzahl der Mannschaften ein (−/+) und
+              übernimm die Leute aus den aufklappbaren Listen – ✓ = Ja,
+              ~ = wenn nötig, ? = keine Antwort.
             </p>
             <div className="grid gap-4 lg:grid-cols-2">
-              {POKALS.map((pokal) => {
-                const assigned = squads.filter((s) => s.kind === pokal.kind);
-                const assignedKeys = new Set(
-                  assigned.map((s) =>
-                    s.profile_id ? `p:${s.profile_id}` : `i:${s.invite_id}`,
-                  ),
-                );
-                const candidates = entries
-                  .filter((e) => !assignedKeys.has(e.key))
-                  .sort(
-                    (a, b) =>
-                      pokalRank(a.r?.[pokal.field] ?? "") -
-                        pokalRank(b.r?.[pokal.field] ?? "") ||
-                      a.name.localeCompare(b.name),
-                  );
-                const openYes = candidates.filter(
-                  (e) => e.r?.[pokal.field] === "yes",
-                ).length;
-                const openIfNeeded = candidates.filter(
-                  (e) => e.r?.[pokal.field] === "if_needed",
-                ).length;
-                return (
-                  <Card key={pokal.kind}>
-                    <CardBody className="space-y-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <span className="font-semibold">{pokal.title}</span>
-                          <p className="text-sm text-muted">{pokal.hint}</p>
-                        </div>
-                        <Badge
-                          tone={
-                            assigned.length >= pokal.size ? "ok" : "neutral"
-                          }
-                        >
-                          {assigned.length}/{pokal.size}
-                        </Badge>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        {assigned.length === 0 && (
-                          <span className="text-sm text-muted">
-                            Noch niemand zugeordnet.
-                          </span>
-                        )}
-                        {assigned.map((s) => {
-                          const key = s.profile_id
-                            ? `p:${s.profile_id}`
-                            : `i:${s.invite_id}`;
-                          const person = entryByKey.get(key);
-                          return (
-                            <form
-                              key={s.id}
-                              action={removePokal}
-                              className="inline-flex"
-                            >
-                              <input
-                                type="hidden"
-                                name="season_id"
-                                value={season.id}
-                              />
-                              <input type="hidden" name="id" value={s.id} />
-                              <button
-                                className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-3 py-1 text-sm text-primary hover:bg-primary/25"
-                                title="Aus Pokal-Kader entfernen"
-                              >
-                                {person?.name ?? "(unbekannt)"} ✕
-                              </button>
-                            </form>
-                          );
-                        })}
-                      </div>
-
-                      {/* Automatisch aus der Abfrage übernehmen */}
-                      {(openYes > 0 || openIfNeeded > 0) && (
-                        <div className="flex flex-wrap gap-2">
-                          {openYes > 0 && (
-                            <form action={autoFillPokal}>
-                              <input
-                                type="hidden"
-                                name="season_id"
-                                value={season.id}
-                              />
-                              <input
-                                type="hidden"
-                                name="kind"
-                                value={pokal.kind}
-                              />
-                              <input type="hidden" name="level" value="yes" />
-                              <button className="inline-flex items-center rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg hover:opacity-90">
-                                ⚡ Alle „Ja“ übernehmen ({openYes})
-                              </button>
-                            </form>
-                          )}
-                          {openIfNeeded > 0 && (
-                            <form action={autoFillPokal}>
-                              <input
-                                type="hidden"
-                                name="season_id"
-                                value={season.id}
-                              />
-                              <input
-                                type="hidden"
-                                name="kind"
-                                value={pokal.kind}
-                              />
-                              <input
-                                type="hidden"
-                                name="level"
-                                value="if_needed"
-                              />
-                              <button className="inline-flex items-center rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-border/40">
-                                + „Wenn nötig“ dazu ({openIfNeeded})
-                              </button>
-                            </form>
-                          )}
-                        </div>
-                      )}
-
-                      {candidates.length > 0 && (
-                        <form
-                          action={addPokal}
-                          className="flex items-center gap-1"
-                        >
-                          <input
-                            type="hidden"
-                            name="season_id"
-                            value={season.id}
-                          />
-                          <input type="hidden" name="kind" value={pokal.kind} />
-                          <select
-                            name="target"
-                            className={`${inputClass} w-auto py-1 text-sm`}
-                            defaultValue=""
-                            required
-                          >
-                            <option value="" disabled>
-                              + Person zuordnen …
-                            </option>
-                            {candidates.map((e) => {
-                              const answer = e.r?.[pokal.field] ?? "";
-                              return (
-                                <option
-                                  key={e.key}
-                                  value={`${e.kind === "profile" ? "p" : "i"}:${e.id}`}
-                                >
-                                  {e.name}
-                                  {answer ? ` – ${shortLabel(answer)}` : " – ?"}
-                                </option>
-                              );
-                            })}
-                          </select>
-                          <button className="rounded-lg border border-border px-2 py-1 text-sm hover:bg-border/40">
-                            OK
-                          </button>
-                        </form>
-                      )}
-                    </CardBody>
-                  </Card>
-                );
-              })}
+              {POKALS.map((pokal) => (
+                <PokalPlanner
+                  key={pokal.kind}
+                  seasonId={season.id}
+                  kind={pokal.kind}
+                  title={pokal.title}
+                  hint={pokal.hint}
+                  size={pokal.size}
+                  initialTeams={
+                    (pokal.kind === "ku"
+                      ? season.pokal_ku_teams
+                      : season.pokal_8er_teams) ?? 1
+                  }
+                  persons={entries.map((e) => ({
+                    key: e.key,
+                    name: e.name,
+                    answer: e.r?.[pokal.field] ?? "",
+                  }))}
+                  initialSquad={squads
+                    .filter((s) => s.kind === pokal.kind)
+                    .map((s) => ({
+                      id: s.id,
+                      teamNo: s.team_no,
+                      key: s.profile_id ? `p:${s.profile_id}` : `i:${s.invite_id}`,
+                    }))}
+                />
+              ))}
             </div>
           </section>
 

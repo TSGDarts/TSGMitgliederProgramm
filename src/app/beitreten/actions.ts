@@ -122,13 +122,14 @@ export async function claimMember(
   // Pokal-Zuordnungen vom angelegten Namen aufs neue Konto übertragen.
   const { data: pokalRows } = await admin
     .from("pokal_squads")
-    .select("id, season_id, kind")
+    .select("id, season_id, kind, team_no")
     .eq("invite_id", inviteId);
   if (pokalRows && pokalRows.length > 0) {
     for (const row of pokalRows) {
       await admin.from("pokal_squads").insert({
         season_id: row.season_id,
         kind: row.kind,
+        team_no: row.team_no ?? 1,
         profile_id: userId,
       }); // Duplikate scheitern still
     }

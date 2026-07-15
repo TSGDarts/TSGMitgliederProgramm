@@ -1,7 +1,7 @@
 -- =====================================================================
 -- SAMMEL-SKRIPT: Alle Datenbank-Erweiterungen in einem Rutsch
 -- ---------------------------------------------------------------------
--- Führt die Skripte 02 bis 10 zusammen aus. Kann GEFAHRLOS mehrfach
+-- Führt die Skripte 02 bis 11 zusammen aus. Kann GEFAHRLOS mehrfach
 -- ausgeführt werden - bestehende Tabellen/Regeln bleiben erhalten,
 -- Rahmentermine werden nur aktualisiert, nie doppelt angelegt.
 -- (Voraussetzung: schema.sql wurde einmal ausgeführt.)
@@ -475,3 +475,19 @@ create policy "pokal_read" on public.pokal_squads
 drop policy if exists "pokal_admin" on public.pokal_squads;
 create policy "pokal_admin" on public.pokal_squads
   for all using (public.is_admin()) with check (public.is_admin());
+
+-- ###################### 11_pokal_teams.sql ######################
+
+-- =====================================================================
+-- Erweiterung: Mehrere Pokal-Mannschaften pro Pokal
+-- ---------------------------------------------------------------------
+-- Im Supabase SQL-Editor EINMALIG ausführen.
+-- =====================================================================
+
+alter table public.pokal_squads
+  add column if not exists team_no int not null default 1;
+
+alter table public.seasons
+  add column if not exists pokal_ku_teams int not null default 1;
+alter table public.seasons
+  add column if not exists pokal_8er_teams int not null default 1;

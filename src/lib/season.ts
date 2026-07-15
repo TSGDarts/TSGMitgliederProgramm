@@ -9,6 +9,8 @@ export interface Season {
   ends_on: string | null;
   status: "active" | "archived";
   survey_open: boolean;
+  pokal_ku_teams?: number | null;
+  pokal_8er_teams?: number | null;
   created_at: string;
 }
 

@@ -58,114 +58,6 @@ export async function adminSaveSurvey(
   return { ok: true, message: "Antworten gespeichert." };
 }
 
-/** Person (Mitglied oder angelegter Name) einem Pokal-Kader zuordnen. */
-export async function addPokal(formData: FormData) {
-  await requireAdmin();
-  const season_id = String(formData.get("season_id") ?? "");
-  const kindRaw = String(formData.get("kind") ?? "");
-  const kind = ["ku", "8er"].includes(kindRaw) ? kindRaw : "";
-  const target = String(formData.get("target") ?? ""); // "p:<id>" oder "i:<id>"
-  const [t, id] = target.split(":");
-  if (!season_id || !kind || !id || (t !== "p" && t !== "i")) return;
-
-  const row = {
-    season_id,
-    kind,
-    profile_id: t === "p" ? id : null,
-    invite_id: t === "i" ? id : null,
-  };
-
-  const supabase = await createClient();
-  await supabase.from("pokal_squads").insert(row); // Duplikate scheitern still
-  revalidatePath(`/mitglieder/admin/saisons/${season_id}`);
-}
-
-/**
- * Befüllt einen Pokal-Kader automatisch aus der Saisonabfrage:
- * level "yes" übernimmt alle mit "Ja", level "if_needed" alle mit
- * "Ja, wenn ihr jemanden braucht". Bereits Zugeordnete bleiben unberührt.
- */
-export async function autoFillPokal(formData: FormData) {
-  await requireAdmin();
-  const season_id = String(formData.get("season_id") ?? "");
-  const kindRaw = String(formData.get("kind") ?? "");
-  const kind = ["ku", "8er"].includes(kindRaw) ? kindRaw : "";
-  const levelRaw = String(formData.get("level") ?? "");
-  const level = ["yes", "if_needed"].includes(levelRaw) ? levelRaw : "";
-  if (!season_id || !kind || !level) return;
-
-  const field = kind === "ku" ? "pokal_ku" : "pokal_8er";
-  const supabase = await createClient();
-
-  // Gültige Personen (aktive Liga-Spieler/Admins bzw. offene Namen)
-  const [{ data: profs }, { data: invs }, { data: resp }, { data: invResp }] =
-    await Promise.all([
-      supabase.from("profiles").select("id, role, is_active"),
-      supabase.from("member_invites").select("id, role, claimed"),
-      supabase.from("survey_responses").select("*").eq("season_id", season_id),
-      supabase
-        .from("survey_responses_invites")
-        .select("*")
-        .eq("season_id", season_id),
-    ]);
-
-  const validProfiles = new Set(
-    (profs ?? [])
-      .filter((p) => p.is_active && p.role !== "member")
-      .map((p) => p.id as string),
-  );
-  const validInvites = new Set(
-    (invs ?? [])
-      .filter((i) => !i.claimed && i.role !== "member")
-      .map((i) => i.id as string),
-  );
-
-  const rows: Array<{
-    season_id: string;
-    kind: string;
-    profile_id: string | null;
-    invite_id: string | null;
-  }> = [];
-  for (const r of resp ?? []) {
-    if (r[field] === level && validProfiles.has(r.profile_id as string)) {
-      rows.push({
-        season_id,
-        kind,
-        profile_id: r.profile_id as string,
-        invite_id: null,
-      });
-    }
-  }
-  for (const r of invResp ?? []) {
-    if (r[field] === level && validInvites.has(r.invite_id as string)) {
-      rows.push({
-        season_id,
-        kind,
-        profile_id: null,
-        invite_id: r.invite_id as string,
-      });
-    }
-  }
-
-  // Einzeln einfügen – bereits Zugeordnete (Duplikate) scheitern still.
-  for (const row of rows) {
-    await supabase.from("pokal_squads").insert(row);
-  }
-
-  revalidatePath(`/mitglieder/admin/saisons/${season_id}`);
-}
-
-export async function removePokal(formData: FormData) {
-  await requireAdmin();
-  const season_id = String(formData.get("season_id") ?? "");
-  const id = String(formData.get("id") ?? "");
-  if (!id) return;
-
-  const supabase = await createClient();
-  await supabase.from("pokal_squads").delete().eq("id", id);
-  revalidatePath(`/mitglieder/admin/saisons/${season_id}`);
-}
-
 /** Team-Zuordnung für vorab angelegte (noch nicht registrierte) Namen. */
 export async function assignInviteTeam(formData: FormData) {
   await requireAdmin();
@@ -379,35 +271,44 @@ export async function archiveSeason(formData: FormData) {
     });
   }
 
-  // Pokal-Kader ebenfalls ins Archiv übernehmen
+  // Pokal-Kader ebenfalls ins Archiv übernehmen (je Team ein Eintrag)
   const { data: squadRows } = await supabase
     .from("pokal_squads")
-    .select("kind, profiles(full_name), member_invites(full_name)")
+    .select("kind, team_no, profiles(full_name), member_invites(full_name)")
     .eq("season_id", id);
   const pokalNames: Record<string, string> = {
     ku: "Klaus Unterberg Pokal (4er)",
     "8er": "8ter Cup (BDV)",
   };
   for (const kind of ["ku", "8er"]) {
-    const roster = (squadRows ?? [])
-      .filter((r) => r.kind === kind)
-      .map((r) => {
-        const p = r.profiles as unknown as { full_name: string } | null;
-        const i = r.member_invites as unknown as { full_name: string } | null;
-        return {
-          name: p?.full_name || i?.full_name || "?",
-          captain: false,
-          vice: false,
-        };
-      });
-    if (roster.length) {
-      await supabase.from("season_team_archive").insert({
-        season_id: id,
-        team_name: pokalNames[kind],
-        league: "Pokal",
-        roster,
-        stats: {},
-      });
+    const kindRows = (squadRows ?? []).filter((r) => r.kind === kind);
+    const teamNos = [...new Set(kindRows.map((r) => r.team_no as number))].sort(
+      (a, b) => a - b,
+    );
+    for (const no of teamNos) {
+      const roster = kindRows
+        .filter((r) => r.team_no === no)
+        .map((r) => {
+          const p = r.profiles as unknown as { full_name: string } | null;
+          const i = r.member_invites as unknown as { full_name: string } | null;
+          return {
+            name: p?.full_name || i?.full_name || "?",
+            captain: false,
+            vice: false,
+          };
+        });
+      if (roster.length) {
+        await supabase.from("season_team_archive").insert({
+          season_id: id,
+          team_name:
+            teamNos.length > 1
+              ? `${pokalNames[kind]} – Team ${no}`
+              : pokalNames[kind],
+          league: "Pokal",
+          roster,
+          stats: {},
+        });
+      }
     }
   }
 
