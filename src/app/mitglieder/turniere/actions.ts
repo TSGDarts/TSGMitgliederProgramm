@@ -36,17 +36,26 @@ function fertigMitErfolg(): never {
 /** Liest die gemeinsamen Turnier-Felder aus dem Formular. */
 function readTournamentFields(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
-  const starts_at = berlinLocalToISO(String(formData.get("starts_at") ?? ""));
-  if (!title || !starts_at) {
-    abbruchMitFehler("Bitte Turniername und Turnierbeginn angeben.");
+  const datum = String(formData.get("starts_date") ?? "").trim();
+  if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(datum)) {
+    abbruchMitFehler("Bitte Turniername und Turniertag angeben.");
   }
+  // Uhrzeit ist optional: leer = 00:00 (wird überall als „ohne Uhrzeit“ behandelt)
+  const zeitRaw = String(formData.get("starts_time") ?? "").trim();
+  const zeit = /^\d{2}:\d{2}$/.test(zeitRaw) ? zeitRaw : "00:00";
+  const starts_at = berlinLocalToISO(`${datum}T${zeit}`)!;
 
   const deadlineRaw = String(formData.get("entry_deadline") ?? "");
   const entry_deadline = deadlineRaw ? berlinLocalToISO(deadlineRaw) : null;
 
-  const ends_at = berlinLocalToISO(String(formData.get("ends_at") ?? ""));
-  if (ends_at && new Date(ends_at) <= new Date(starts_at)) {
-    abbruchMitFehler("Das Turnierende muss nach dem Turnierbeginn liegen.");
+  // Letzter Turniertag (nur Datum): gleicher Tag = kein Zeitraum
+  const endDatum = String(formData.get("ends_date") ?? "").trim();
+  let ends_at: string | null = null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(endDatum)) {
+    if (endDatum < datum) {
+      abbruchMitFehler("Der letzte Turniertag darf nicht vor dem Turniertag liegen.");
+    }
+    if (endDatum > datum) ends_at = berlinLocalToISO(`${endDatum}T00:00`);
   }
 
   const kindRaw = String(formData.get("kind") ?? "frei");

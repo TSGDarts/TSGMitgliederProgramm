@@ -75,27 +75,45 @@ function TournamentFields({ defaults }: { defaults?: Tournament }) {
             <option value="doppel">Doppelturnier</option>
           </select>
         </Field>
-        <Field label="Turnierbeginn">
+        <Field label="Turniertag">
           <input
-            name="starts_at"
-            type="datetime-local"
+            name="starts_date"
+            type="date"
             required
             defaultValue={
-              defaults ? berlinISOToLocalInput(defaults.starts_at) : undefined
+              defaults
+                ? berlinISOToLocalInput(defaults.starts_at).slice(0, 10)
+                : undefined
             }
             className={inputClass}
           />
         </Field>
         <Field
-          label="Turnierende (optional)"
+          label="Beginn (optional)"
+          hint="Uhrzeit – leer lassen, wenn sie noch nicht feststeht"
+        >
+          <input
+            name="starts_time"
+            type="time"
+            defaultValue={
+              defaults &&
+              berlinISOToLocalInput(defaults.starts_at).slice(11) !== "00:00"
+                ? berlinISOToLocalInput(defaults.starts_at).slice(11)
+                : ""
+            }
+            className={inputClass}
+          />
+        </Field>
+        <Field
+          label="Letzter Turniertag (optional)"
           hint="Für mehrtägige Turniere – z. B. ein Ranglisten-Wochenende"
         >
           <input
-            name="ends_at"
-            type="datetime-local"
+            name="ends_date"
+            type="date"
             defaultValue={
               defaults?.ends_at
-                ? berlinISOToLocalInput(defaults.ends_at)
+                ? berlinISOToLocalInput(defaults.ends_at).slice(0, 10)
                 : undefined
             }
             className={inputClass}
@@ -309,8 +327,10 @@ export default async function TurnierePage({
                           </>
                         ) : (
                           <>
-                            {t.doors_time && <> · Einlass {t.doors_time} Uhr</>}{" "}
-                            · Beginn {formatTime(t.starts_at)} Uhr
+                            {t.doors_time && <> · Einlass {t.doors_time} Uhr</>}
+                            {formatTime(t.starts_at) !== "00:00" && (
+                              <> · Beginn {formatTime(t.starts_at)} Uhr</>
+                            )}
                             {t.entry_deadline && (
                               <>
                                 {" "}
