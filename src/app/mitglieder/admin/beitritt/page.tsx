@@ -24,6 +24,8 @@ type Invite = {
   full_name: string;
   role: string;
   team_ids: string[];
+  birthday?: string | null;
+  birthday_public?: boolean | null;
   claimed: boolean;
 };
 
@@ -41,7 +43,7 @@ export default async function AdminBeitrittPage({
   const supabase = await createClient();
   const { data, error: dbError } = await supabase
     .from("member_invites")
-    .select("id, full_name, role, team_ids, claimed")
+    .select("*")
     .order("claimed")
     .order("full_name");
   const invites = (data as Invite[]) ?? [];
@@ -112,6 +114,21 @@ export default async function AdminBeitrittPage({
                 </div>
               </Field>
             )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Geburtstag (optional)"
+                hint="Für die Liga-Meldung – falls schon bekannt"
+              >
+                <input name="birthday" type="date" className={inputClass} />
+              </Field>
+              <label className="flex items-center gap-2 self-end pb-2 text-sm">
+                <input type="checkbox" name="birthday_public" />
+                Im Mitglieder-Kalender anzeigen 🎂
+                <span className="text-xs text-muted">
+                  (entscheidet die Person bei der Registrierung selbst neu)
+                </span>
+              </label>
+            </div>
             <Button type="submit">Name hinzufügen</Button>
           </form>
         </CardBody>
@@ -143,6 +160,15 @@ export default async function AdminBeitrittPage({
                       {inv.team_ids?.length > 0 && (
                         <span className="ml-2 text-sm text-muted">
                           {inv.team_ids.map(teamName).filter(Boolean).join(", ")}
+                        </span>
+                      )}
+                      {inv.birthday ? (
+                        <span className="ml-2 text-sm text-muted">
+                          🎂 {inv.birthday}
+                        </span>
+                      ) : (
+                        <span className="ml-2 text-sm text-warn">
+                          Geburtstag fehlt
                         </span>
                       )}
                     </div>
@@ -205,6 +231,24 @@ export default async function AdminBeitrittPage({
                           </div>
                         </Field>
                       )}
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Geburtstag" hint="Für die Liga-Meldung">
+                          <input
+                            name="birthday"
+                            type="date"
+                            defaultValue={inv.birthday ?? ""}
+                            className={inputClass}
+                          />
+                        </Field>
+                        <label className="flex items-center gap-2 self-end pb-2 text-sm">
+                          <input
+                            type="checkbox"
+                            name="birthday_public"
+                            defaultChecked={inv.birthday_public ?? false}
+                          />
+                          Im Mitglieder-Kalender anzeigen 🎂
+                        </label>
+                      </div>
                       <Button type="submit">Änderungen speichern</Button>
                     </form>
                   </details>

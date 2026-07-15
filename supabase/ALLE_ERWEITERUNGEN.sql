@@ -1,7 +1,7 @@
 -- =====================================================================
 -- SAMMEL-SKRIPT: Alle Datenbank-Erweiterungen in einem Rutsch
 -- ---------------------------------------------------------------------
--- Führt die Skripte 02 bis 22 zusammen aus (OHNE 06_rahmentermine -
+-- Führt die Skripte 02 bis 23 zusammen aus (OHNE 06_rahmentermine -
 -- die Rahmentermine wurden auf Wunsch entfernt). Kann GEFAHRLOS
 -- mehrfach ausgeführt werden.
 -- (Voraussetzung: schema.sql wurde einmal ausgeführt.)
@@ -755,3 +755,16 @@ on conflict (name) do nothing;
 
 alter table public.opponents
   add column if not exists boards int;
+
+-- ###################### 23_invite_geburtstag.sql ######################
+
+-- =====================================================================
+-- Erweiterung: Geburtstag bei vorab angelegten Namen
+-- ---------------------------------------------------------------------
+-- Im Supabase SQL-Editor EINMALIG ausführen.
+-- =====================================================================
+
+alter table public.member_invites
+  add column if not exists birthday date;
+alter table public.member_invites
+  add column if not exists birthday_public boolean not null default false;

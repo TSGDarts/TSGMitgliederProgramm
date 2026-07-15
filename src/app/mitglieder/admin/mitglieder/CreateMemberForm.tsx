@@ -44,13 +44,28 @@ export function CreateMemberForm({ teams }: { teams: Team[] }) {
             </Field>
           </div>
 
-          <Field label="Rolle">
-            <select name="role" className={inputClass} defaultValue="player">
-              <option value="player">Spieler (Liga)</option>
-              <option value="member">Mitglied (ohne Liga)</option>
-              <option value="admin">Admin</option>
-            </select>
-          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Rolle">
+              <select name="role" className={inputClass} defaultValue="player">
+                <option value="player">Spieler (Liga)</option>
+                <option value="member">Mitglied (ohne Liga)</option>
+                <option value="admin">Admin</option>
+              </select>
+            </Field>
+            <Field
+              label="Geburtstag (optional)"
+              hint="Für die Liga-Meldung – falls schon bekannt"
+            >
+              <input name="birthday" type="date" className={inputClass} />
+            </Field>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="birthday_public" />
+            Geburtstag im Mitglieder-Kalender anzeigen 🎂
+            <span className="text-xs text-muted">
+              (entscheidet die Person später selbst)
+            </span>
+          </label>
 
           {teams.length > 0 && (
             <Field label="Mannschaften (optional)">

@@ -6,6 +6,14 @@ import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { regenerateJoinToken } from "@/lib/invites";
 
+function readInviteBirthday(formData: FormData) {
+  const raw = String(formData.get("birthday") ?? "");
+  return {
+    birthday: /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null,
+    birthday_public: formData.get("birthday_public") === "on",
+  };
+}
+
 export async function addInviteName(formData: FormData) {
   await requireAdmin();
   const full_name = String(formData.get("full_name") ?? "").trim();
@@ -19,7 +27,7 @@ export async function addInviteName(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("member_invites")
-    .insert({ full_name, role, team_ids });
+    .insert({ full_name, role, team_ids, ...readInviteBirthday(formData) });
 
   if (error) {
     // Fehler sichtbar machen statt still zu scheitern.
@@ -46,7 +54,7 @@ export async function updateInvite(formData: FormData) {
   const supabase = await createClient();
   await supabase
     .from("member_invites")
-    .update({ full_name, role, team_ids })
+    .update({ full_name, role, team_ids, ...readInviteBirthday(formData) })
     .eq("id", id);
   revalidatePath("/mitglieder/admin/beitritt");
   revalidatePath("/mitglieder/admin/mitglieder");

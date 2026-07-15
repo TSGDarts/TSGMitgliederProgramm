@@ -7,7 +7,7 @@ import { CreateMemberForm } from "./CreateMemberForm";
 import { RegenerateLink } from "./RegenerateLink";
 import { MemberActionButtons } from "./MemberActionButtons";
 import { setMemberRole, updateMemberData } from "./actions";
-import { deleteInvite } from "../beitritt/actions";
+import { deleteInvite, updateInvite } from "../beitritt/actions";
 import {
   PageHeader,
   Card,
@@ -34,7 +34,7 @@ export default async function AdminMembersPage() {
   // Vorab angelegte Namen, die noch auf die Selbst-Anmeldung warten
   const { data: invitesData } = await supabase
     .from("member_invites")
-    .select("id, full_name, role, team_ids")
+    .select("*")
     .eq("claimed", false)
     .order("full_name");
   const openInvites = (invitesData ?? []) as Array<{
@@ -42,6 +42,8 @@ export default async function AdminMembersPage() {
     full_name: string;
     role: string;
     team_ids: string[];
+    birthday?: string | null;
+    birthday_public?: boolean | null;
   }>;
   const teamName = (id: string) => teams.find((t) => t.id === id)?.name ?? "";
 
@@ -65,24 +67,112 @@ export default async function AdminMembersPage() {
           <div className="space-y-2">
             {openInvites.map((inv) => (
               <Card key={inv.id} className="border-dashed">
-                <CardBody className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{inv.full_name}</span>
-                    {inv.role === "admin" && <Badge tone="primary">Admin</Badge>}
-                    {inv.role === "member" && <Badge>ohne Liga</Badge>}
-                    <Badge tone="warn">noch nicht angemeldet</Badge>
-                    {inv.team_ids?.length > 0 && (
-                      <span className="text-sm text-muted">
-                        {inv.team_ids.map(teamName).filter(Boolean).join(", ")}
-                      </span>
-                    )}
+                <CardBody className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{inv.full_name}</span>
+                      {inv.role === "admin" && (
+                        <Badge tone="primary">Admin</Badge>
+                      )}
+                      {inv.role === "member" && <Badge>ohne Liga</Badge>}
+                      <Badge tone="warn">noch nicht angemeldet</Badge>
+                      {inv.team_ids?.length > 0 && (
+                        <span className="text-sm text-muted">
+                          {inv.team_ids.map(teamName).filter(Boolean).join(", ")}
+                        </span>
+                      )}
+                      {inv.birthday ? (
+                        <span className="text-sm text-muted">
+                          🎂 {inv.birthday}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-warn">
+                          Geburtstag fehlt (für Liga nötig)
+                        </span>
+                      )}
+                    </div>
+                    <form action={deleteInvite}>
+                      <input type="hidden" name="id" value={inv.id} />
+                      <button className="text-sm text-danger hover:underline">
+                        Entfernen
+                      </button>
+                    </form>
                   </div>
-                  <form action={deleteInvite}>
-                    <input type="hidden" name="id" value={inv.id} />
-                    <button className="text-sm text-danger hover:underline">
-                      Entfernen
-                    </button>
-                  </form>
+
+                  {/* Bearbeiten */}
+                  <details className="rounded-lg border border-border">
+                    <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-primary">
+                      ✏️ Bearbeiten
+                    </summary>
+                    <form
+                      action={updateInvite}
+                      className="space-y-4 border-t border-border p-4"
+                    >
+                      <input type="hidden" name="id" value={inv.id} />
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <Field label="Name">
+                          <input
+                            name="full_name"
+                            required
+                            defaultValue={inv.full_name}
+                            className={inputClass}
+                          />
+                        </Field>
+                        <Field label="Rolle">
+                          <select
+                            name="role"
+                            defaultValue={inv.role}
+                            className={inputClass}
+                          >
+                            <option value="player">Spieler (Liga)</option>
+                            <option value="member">Mitglied (ohne Liga)</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                        </Field>
+                        <Field label="Geburtstag" hint="Für die Liga-Meldung">
+                          <input
+                            name="birthday"
+                            type="date"
+                            defaultValue={inv.birthday ?? ""}
+                            className={inputClass}
+                          />
+                        </Field>
+                      </div>
+                      {teams.length > 0 && (
+                        <Field label="Mannschaften">
+                          <div className="flex flex-wrap gap-3">
+                            {teams.map((t) => (
+                              <label
+                                key={t.id}
+                                className="flex items-center gap-2 text-sm"
+                              >
+                                <input
+                                  type="checkbox"
+                                  name="team_ids"
+                                  value={t.id}
+                                  defaultChecked={inv.team_ids?.includes(t.id)}
+                                />
+                                {t.name}
+                              </label>
+                            ))}
+                          </div>
+                        </Field>
+                      )}
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="birthday_public"
+                          defaultChecked={inv.birthday_public ?? false}
+                        />
+                        Geburtstag im Mitglieder-Kalender anzeigen 🎂
+                        <span className="text-xs text-muted">
+                          (entscheidet die Person bei der Registrierung selbst
+                          neu)
+                        </span>
+                      </label>
+                      <Button type="submit">Änderungen speichern</Button>
+                    </form>
+                  </details>
                 </CardBody>
               </Card>
             ))}

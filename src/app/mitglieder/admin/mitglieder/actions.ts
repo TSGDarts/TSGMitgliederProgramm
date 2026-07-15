@@ -50,6 +50,12 @@ export async function createMember(
     return { ok: false, message: "Bitte einen Namen angeben." };
   }
 
+  const birthdayRaw = String(formData.get("birthday") ?? "");
+  const birthday = /^\d{4}-\d{2}-\d{2}$/.test(birthdayRaw)
+    ? birthdayRaw
+    : null;
+  const birthday_public = formData.get("birthday_public") === "on";
+
   // Ohne E-Mail: Name für die Selbst-Anmeldung anlegen. Die Person
   // registriert sich später über den Beitritts-Link/QR und gibt ihre
   // E-Mail dabei selbst an.
@@ -62,7 +68,7 @@ export async function createMember(
     }
     const { error } = await admin
       .from("member_invites")
-      .insert({ full_name, role, team_ids: teamIds });
+      .insert({ full_name, role, team_ids: teamIds, birthday, birthday_public });
     if (error) {
       return {
         ok: false,
@@ -111,7 +117,7 @@ export async function createMember(
   // Profil vervollständigen (Trigger legt Grunddaten an).
   await admin
     .from("profiles")
-    .update({ full_name, role, email })
+    .update({ full_name, role, email, birthday, birthday_public })
     .eq("id", userId);
 
   // Mannschaften zuordnen.
