@@ -80,6 +80,81 @@ export async function addPokal(formData: FormData) {
   revalidatePath(`/mitglieder/admin/saisons/${season_id}`);
 }
 
+/**
+ * Befüllt einen Pokal-Kader automatisch aus der Saisonabfrage:
+ * level "yes" übernimmt alle mit "Ja", level "if_needed" alle mit
+ * "Ja, wenn ihr jemanden braucht". Bereits Zugeordnete bleiben unberührt.
+ */
+export async function autoFillPokal(formData: FormData) {
+  await requireAdmin();
+  const season_id = String(formData.get("season_id") ?? "");
+  const kindRaw = String(formData.get("kind") ?? "");
+  const kind = ["ku", "8er"].includes(kindRaw) ? kindRaw : "";
+  const levelRaw = String(formData.get("level") ?? "");
+  const level = ["yes", "if_needed"].includes(levelRaw) ? levelRaw : "";
+  if (!season_id || !kind || !level) return;
+
+  const field = kind === "ku" ? "pokal_ku" : "pokal_8er";
+  const supabase = await createClient();
+
+  // Gültige Personen (aktive Liga-Spieler/Admins bzw. offene Namen)
+  const [{ data: profs }, { data: invs }, { data: resp }, { data: invResp }] =
+    await Promise.all([
+      supabase.from("profiles").select("id, role, is_active"),
+      supabase.from("member_invites").select("id, role, claimed"),
+      supabase.from("survey_responses").select("*").eq("season_id", season_id),
+      supabase
+        .from("survey_responses_invites")
+        .select("*")
+        .eq("season_id", season_id),
+    ]);
+
+  const validProfiles = new Set(
+    (profs ?? [])
+      .filter((p) => p.is_active && p.role !== "member")
+      .map((p) => p.id as string),
+  );
+  const validInvites = new Set(
+    (invs ?? [])
+      .filter((i) => !i.claimed && i.role !== "member")
+      .map((i) => i.id as string),
+  );
+
+  const rows: Array<{
+    season_id: string;
+    kind: string;
+    profile_id: string | null;
+    invite_id: string | null;
+  }> = [];
+  for (const r of resp ?? []) {
+    if (r[field] === level && validProfiles.has(r.profile_id as string)) {
+      rows.push({
+        season_id,
+        kind,
+        profile_id: r.profile_id as string,
+        invite_id: null,
+      });
+    }
+  }
+  for (const r of invResp ?? []) {
+    if (r[field] === level && validInvites.has(r.invite_id as string)) {
+      rows.push({
+        season_id,
+        kind,
+        profile_id: null,
+        invite_id: r.invite_id as string,
+      });
+    }
+  }
+
+  // Einzeln einfügen – bereits Zugeordnete (Duplikate) scheitern still.
+  for (const row of rows) {
+    await supabase.from("pokal_squads").insert(row);
+  }
+
+  revalidatePath(`/mitglieder/admin/saisons/${season_id}`);
+}
+
 export async function removePokal(formData: FormData) {
   await requireAdmin();
   const season_id = String(formData.get("season_id") ?? "");

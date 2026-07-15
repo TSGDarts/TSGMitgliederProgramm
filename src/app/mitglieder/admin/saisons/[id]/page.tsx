@@ -11,6 +11,7 @@ import {
   unassignInviteTeam,
   addPokal,
   removePokal,
+  autoFillPokal,
 } from "../actions";
 import { ArchiveButton } from "./ArchiveButton";
 import { AdminSurveyForm } from "./AdminSurveyForm";
@@ -565,6 +566,12 @@ export default async function AdminSeasonDetailPage({
                         pokalRank(b.r?.[pokal.field] ?? "") ||
                       a.name.localeCompare(b.name),
                   );
+                const openYes = candidates.filter(
+                  (e) => e.r?.[pokal.field] === "yes",
+                ).length;
+                const openIfNeeded = candidates.filter(
+                  (e) => e.r?.[pokal.field] === "if_needed",
+                ).length;
                 return (
                   <Card key={pokal.kind}>
                     <CardBody className="space-y-3">
@@ -615,6 +622,52 @@ export default async function AdminSeasonDetailPage({
                           );
                         })}
                       </div>
+
+                      {/* Automatisch aus der Abfrage übernehmen */}
+                      {(openYes > 0 || openIfNeeded > 0) && (
+                        <div className="flex flex-wrap gap-2">
+                          {openYes > 0 && (
+                            <form action={autoFillPokal}>
+                              <input
+                                type="hidden"
+                                name="season_id"
+                                value={season.id}
+                              />
+                              <input
+                                type="hidden"
+                                name="kind"
+                                value={pokal.kind}
+                              />
+                              <input type="hidden" name="level" value="yes" />
+                              <button className="inline-flex items-center rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg hover:opacity-90">
+                                ⚡ Alle „Ja“ übernehmen ({openYes})
+                              </button>
+                            </form>
+                          )}
+                          {openIfNeeded > 0 && (
+                            <form action={autoFillPokal}>
+                              <input
+                                type="hidden"
+                                name="season_id"
+                                value={season.id}
+                              />
+                              <input
+                                type="hidden"
+                                name="kind"
+                                value={pokal.kind}
+                              />
+                              <input
+                                type="hidden"
+                                name="level"
+                                value="if_needed"
+                              />
+                              <button className="inline-flex items-center rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-border/40">
+                                + „Wenn nötig“ dazu ({openIfNeeded})
+                              </button>
+                            </form>
+                          )}
+                        </div>
+                      )}
 
                       {candidates.length > 0 && (
                         <form
