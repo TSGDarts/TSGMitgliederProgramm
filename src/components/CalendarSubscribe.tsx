@@ -8,7 +8,7 @@ const ARTEN: {
   teamwahl?: boolean;
   standard?: boolean; // false = im Abo standardmäßig abgewählt
 }[] = [
-  { key: "punktspiele", label: "🎯 Punktspiele (Liga)" },
+  { key: "punktspiele", label: "🎯 Punktspiele (Liga)", teamwahl: true },
   { key: "pokal", label: "🏆 Pokalspiele", teamwahl: true },
   { key: "freundschaft", label: "🤝 Freundschaftsspiele", teamwahl: true },
   { key: "training", label: "💪 Training", teamwahl: true },
@@ -38,6 +38,9 @@ export function CalendarSubscribe({
   );
   // Kategorien, die trotz Mannschafts-Filter von ALLEN Mannschaften kommen
   const [trotzTeam, setTrotzTeam] = useState<Set<string>>(new Set());
+  // Turnierarten: BDV/DDV lassen sich abwählen (Bezirk + freie sind immer dabei)
+  const [mitBdv, setMitBdv] = useState(true);
+  const [mitDdv, setMitDdv] = useState(true);
 
   const url = useMemo(() => {
     const params = new URLSearchParams();
@@ -61,9 +64,17 @@ export function CalendarSubscribe({
       );
       if (alle.length) params.set("alle", alle.join(","));
     }
+    if (arten.has("turniere") && (!mitBdv || !mitDdv)) {
+      params.set(
+        "turnierarten",
+        ["bezirk", "frei", mitBdv ? "bdv" : "", mitDdv ? "ddv" : ""]
+          .filter(Boolean)
+          .join(","),
+      );
+    }
     const qs = params.toString();
     return qs ? `${icsUrl}?${qs}` : icsUrl;
-  }, [icsUrl, team, arten, trotzTeam]);
+  }, [icsUrl, team, arten, trotzTeam, mitBdv, mitDdv]);
 
   const webcalUrl = url.replace(/^https?:\/\//i, "webcal://");
 
@@ -127,6 +138,26 @@ export function CalendarSubscribe({
                     <option value="team">nur gewählte Mannschaft</option>
                     <option value="alle">alle Mannschaften</option>
                   </select>
+                )}
+                {a.key === "turniere" && arten.has("turniere") && (
+                  <span className="flex items-center gap-2 text-xs text-muted">
+                    <label className="flex items-center gap-1">
+                      <input
+                        type="checkbox"
+                        checked={mitBdv}
+                        onChange={(e) => setMitBdv(e.target.checked)}
+                      />
+                      inkl. BDV
+                    </label>
+                    <label className="flex items-center gap-1">
+                      <input
+                        type="checkbox"
+                        checked={mitDdv}
+                        onChange={(e) => setMitDdv(e.target.checked)}
+                      />
+                      inkl. DDV
+                    </label>
+                  </span>
                 )}
               </div>
             ))}

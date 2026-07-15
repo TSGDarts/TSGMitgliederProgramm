@@ -15,6 +15,7 @@ import type { Tournament } from "@/lib/extras";
 //                         training, verein, turniere, competitions
 //   ?alle=pokal,…         diese Kategorien trotz Mannschafts-Filter von ALLEN
 //                         Mannschaften liefern (z. B. alle Pokalspiele)
+//   ?turnierarten=a,b     nur diese Turnierarten: ddv, bdv, bezirk, frei
 // Ohne Parameter: alles (bestehende Abos laufen unverändert weiter).
 export const dynamic = "force-dynamic";
 
@@ -122,6 +123,14 @@ export async function GET(request: Request) {
   const trotzTeam = new Set(
     (params.get("alle") ?? "").split(",").filter(Boolean),
   );
+  // Gewählte Turnierarten (fehlt der Parameter: alle Arten)
+  const TURNIER_ARTEN = ["ddv", "bdv", "bezirk", "frei"];
+  const turnierartenRaw = (params.get("turnierarten") ?? "").trim();
+  const turnierarten = new Set(
+    turnierartenRaw
+      ? turnierartenRaw.split(",").filter((a) => TURNIER_ARTEN.includes(a))
+      : TURNIER_ARTEN,
+  );
 
   // Kalendername: bei Mannschafts-Filter den Teamnamen mit aufnehmen
   let kalName = "TSG 08 Roth Dart";
@@ -216,6 +225,8 @@ export async function GET(request: Request) {
   }
 
   for (const t of arten.has("turniere") ? ((tourData as Tournament[]) ?? []) : []) {
+    // Nur gewählte Turnierarten (z. B. ohne DDV-Turniere)
+    if (!turnierarten.has(t.kind)) continue;
     // Von Hand archivierte Turniere („Anzeigen bis“ vor dem Turniertag) auslassen
     const startKey = berlinDay.format(new Date(t.starts_at));
     if (t.display_until && t.display_until < startKey) continue;
