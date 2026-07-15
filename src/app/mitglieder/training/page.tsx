@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { requireProfile, canManageTrainings } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { getMemberEvents, getAllTeams } from "@/lib/member-queries";
 import { createTraining, updateTraining, deleteTraining } from "./actions";
 import { EventCard } from "@/components/EventCard";
@@ -19,12 +20,18 @@ import type { EventWithStatus } from "@/lib/member-queries";
 
 export const metadata: Metadata = { title: "Training" };
 
+type TrainerInfo = { id: string; full_name: string };
+
 /** Gemeinsame Formularfelder für Anlegen UND Bearbeiten (vorausgefüllt). */
 function TrainingFields({
   teams,
+  trainer,
+  selfId,
   defaults,
 }: {
   teams: Team[];
+  trainer: TrainerInfo[];
+  selfId: string;
   defaults?: EventWithStatus;
 }) {
   return (
@@ -89,6 +96,27 @@ function TrainingFields({
           />
         </Field>
       </div>
+      {trainer.length > 0 && (
+        <Field label="Anwesende Trainer 💪" hint="Wer leitet das Training? (mehrere möglich)">
+          <div className="flex flex-wrap gap-3">
+            {trainer.map((t) => (
+              <label key={t.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="trainer_ids"
+                  value={t.id}
+                  defaultChecked={
+                    defaults
+                      ? (defaults.trainer_ids ?? []).includes(t.id)
+                      : t.id === selfId
+                  }
+                />
+                {t.full_name}
+              </label>
+            ))}
+          </div>
+        </Field>
+      )}
       <label className="flex items-center gap-2 text-sm">
         <input
           type="checkbox"
@@ -117,6 +145,21 @@ export default async function TrainingPage({
   ]);
   const upcoming = upcomingAll.filter((e) => e.type === "training");
   const past = pastAll.filter((e) => e.type === "training");
+
+  // Alle Trainer (für die Auswahl im Formular und die Anzeige an der Karte)
+  const supabase = await createClient();
+  const { data: trainerData } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .eq("is_trainer", true)
+    .eq("is_active", true)
+    .order("full_name");
+  const trainer = (trainerData as TrainerInfo[]) ?? [];
+  const trainerName = new Map(trainer.map((t) => [t.id, t.full_name]));
+  const namenFuer = (e: EventWithStatus) =>
+    (e.trainer_ids ?? [])
+      .map((id) => trainerName.get(id))
+      .filter((n): n is string => !!n);
 
   return (
     <div className="space-y-6">
@@ -154,7 +197,7 @@ export default async function TrainingPage({
             action={createTraining}
             className="space-y-4"
           >
-            <TrainingFields teams={teams} />
+            <TrainingFields teams={teams} trainer={trainer} selfId={profile.id} />
             <Button type="submit">Training eintragen</Button>
           </form>
         </Einklappbar>
@@ -174,7 +217,7 @@ export default async function TrainingPage({
         ) : (
           upcoming.map((event) => (
             <div key={event.id} className="space-y-2">
-              <EventCard event={event} />
+              <EventCard event={event} trainerNames={namenFuer(event)} />
               {darfPflegen && (
                 <div className="flex items-center justify-end gap-3 px-1">
                   <form action={deleteTraining}>
@@ -198,7 +241,12 @@ export default async function TrainingPage({
                     className="space-y-4 border-t border-border p-4"
                   >
                     <input type="hidden" name="id" value={event.id} />
-                    <TrainingFields teams={teams} defaults={event} />
+                    <TrainingFields
+                      teams={teams}
+                      trainer={trainer}
+                      selfId={profile.id}
+                      defaults={event}
+                    />
                     <Button type="submit">Änderungen speichern</Button>
                   </form>
                 </details>
@@ -216,7 +264,11 @@ export default async function TrainingPage({
         >
           <div className="space-y-3 opacity-70">
             {past.map((event) => (
-              <EventCard key={event.id} event={event} />
+              <EventCard
+                key={event.id}
+                event={event}
+                trainerNames={namenFuer(event)}
+              />
             ))}
           </div>
         </Einklappbar>

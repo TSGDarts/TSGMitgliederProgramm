@@ -135,9 +135,20 @@ export async function EventsCalendar({
     if (t.default_rsvp) defaultByTeam.set(t.id, t.default_rsvp as RsvpStatus);
   }
   const statusMap = new Map<string, RsvpStatus>();
+  let trainingDefault: RsvpStatus | null = null;
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (user) {
+    // Persönliche Vorbelegung für Trainings (aus dem Profil)
+    const { data: me } = await supabase
+      .from("profiles")
+      .select("training_default_rsvp")
+      .eq("id", user.id)
+      .maybeSingle();
+    trainingDefault = ((me?.training_default_rsvp as string) ||
+      null) as RsvpStatus | null;
+  }
   if (user && events.length) {
     const { data: rsvps } = await supabase
       .from("rsvps")
@@ -374,9 +385,11 @@ export async function EventsCalendar({
                         chipClass={eventChipClass[ev.type]}
                         myStatus={
                           statusMap.get(ev.id) ??
-                          (ev.team_id
-                            ? (defaultByTeam.get(ev.team_id) ?? null)
-                            : null)
+                          (ev.type === "training" && trainingDefault
+                            ? trainingDefault
+                            : ev.team_id
+                              ? (defaultByTeam.get(ev.team_id) ?? null)
+                              : null)
                         }
                       />
                     ))}

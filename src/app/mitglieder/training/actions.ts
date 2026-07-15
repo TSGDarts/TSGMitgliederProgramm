@@ -48,6 +48,7 @@ function readFields(formData: FormData) {
     location: String(formData.get("location") ?? "").trim(),
     description: String(formData.get("description") ?? "").trim(),
     is_public: formData.get("is_public") === "on",
+    trainer_ids: formData.getAll("trainer_ids").map(String).filter(Boolean),
   };
 }
 

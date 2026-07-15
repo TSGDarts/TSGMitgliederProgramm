@@ -29,6 +29,7 @@ export interface Profile {
   birthday_congrats?: boolean | null; // in der Mitgliedergruppe gratulieren ok?
   role: Role;
   is_trainer?: boolean | null; // darf Trainings eintragen (Haken vom Admin)
+  training_default_rsvp?: string | null; // ''|yes|maybe|no – Vorbelegung für Trainings
   is_active: boolean;
   created_at: string;
 }
@@ -85,6 +86,7 @@ export interface EventRow {
   ends_at: string | null;
   time_tbd?: boolean | null; // genaue Uhrzeit noch nicht bekannt
   feed_export?: boolean | null; // an die Competition-App übergeben (Dart-Feed)
+  trainer_ids?: string[] | null; // anwesende Trainer (nur bei Trainings)
   source: "manual" | "nuliga";
   source_uid: string | null;
   is_public: boolean;

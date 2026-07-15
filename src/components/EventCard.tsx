@@ -6,7 +6,13 @@ import { EVENT_TYPE_LABELS } from "@/lib/types";
 import type { EventWithStatus } from "@/lib/member-queries";
 import { formatDate, formatTime, formatUntil } from "@/lib/format";
 
-export function EventCard({ event }: { event: EventWithStatus }) {
+export function EventCard({
+  event,
+  trainerNames,
+}: {
+  event: EventWithStatus;
+  trainerNames?: string[];
+}) {
   return (
     <Card>
       <CardBody className="space-y-3">
@@ -44,6 +50,11 @@ export function EventCard({ event }: { event: EventWithStatus }) {
                 <> · {formatUntil(event.starts_at, event.ends_at)}</>
               )}
             </p>
+            {trainerNames && trainerNames.length > 0 && (
+              <p className="mt-0.5 text-sm text-muted">
+                💪 Trainer: {trainerNames.join(", ")}
+              </p>
+            )}
             {(event.meet_home_time || event.meet_venue_time) && (
               <p className="mt-0.5 text-sm text-muted">
                 {event.meet_home_time && (

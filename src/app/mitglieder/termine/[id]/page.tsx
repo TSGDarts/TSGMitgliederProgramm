@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import {
   getEvent,
   getEventParticipants,
@@ -42,6 +43,18 @@ export default async function EventDetailPage({
     participants.find((p) => p.profile.id === profile.id)?.status ?? null;
   const teamName = event.team_id ? teams.get(event.team_id)?.name : null;
 
+  // Anwesende Trainer (bei Trainings)
+  let trainerNames: string[] = [];
+  if (event.trainer_ids?.length) {
+    const supabase = await createClient();
+    const { data: trainerData } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .in("id", event.trainer_ids)
+      .order("full_name");
+    trainerNames = (trainerData ?? []).map((t) => t.full_name as string);
+  }
+
   const byStatus = (key: RsvpStatus | "open") =>
     participants.filter((p) =>
       key === "open" ? p.status === null : p.status === key,
@@ -67,6 +80,12 @@ export default async function EventDetailPage({
             : "")
         }
       />
+
+      {trainerNames.length > 0 && (
+        <p className="text-sm text-muted">
+          💪 Trainer: {trainerNames.join(", ")}
+        </p>
+      )}
 
       {event.location && (
         <AddressLine address={event.location} className="text-sm" />

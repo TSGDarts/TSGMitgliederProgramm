@@ -77,6 +77,21 @@ export default async function ProfilPage() {
               Mir darf in der Mitgliedergruppe zum Geburtstag gratuliert
               werden 🎉
             </label>
+            <Field
+              label="Standard-Antwort für Trainings 💪"
+              hint="Gilt automatisch, solange du bei einem Training nicht selbst geantwortet hast – z. B. „standardmäßig absagen“ und nur zusagen, wenn du kannst."
+            >
+              <select
+                name="training_default_rsvp"
+                defaultValue={profile.training_default_rsvp ?? ""}
+                className={inputClass}
+              >
+                <option value="">keine Vorbelegung</option>
+                <option value="yes">standardmäßig zusagen</option>
+                <option value="maybe">standardmäßig „vielleicht“</option>
+                <option value="no">standardmäßig absagen</option>
+              </select>
+            </Field>
             <Button type="submit">Speichern</Button>
           </form>
         </CardBody>

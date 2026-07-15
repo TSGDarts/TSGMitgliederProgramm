@@ -83,14 +83,26 @@ export async function getMemberEvents(
     });
   }
 
+  // Persönliche Vorbelegung für Trainings (aus dem Profil)
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("training_default_rsvp")
+    .eq("id", userId)
+    .maybeSingle();
+  const trainingDefault = ((me?.training_default_rsvp as string) ||
+    null) as RsvpStatus | null;
+
   const teams = await getTeamsMap();
   return limited.map((e) => {
     const team = e.team_id ? teams.get(e.team_id) : undefined;
-    // Ohne eigene Antwort greift die Standard-Rückmeldung der Mannschaft.
+    // Ohne eigene Antwort greift bei Trainings die persönliche Vorbelegung,
+    // sonst die Standard-Rückmeldung der Mannschaft.
     const teamDefault = (team?.default_rsvp || null) as RsvpStatus | null;
+    const fallback =
+      e.type === "training" && trainingDefault ? trainingDefault : teamDefault;
     return {
       ...e,
-      myStatus: rsvpMap.get(e.id) ?? teamDefault,
+      myStatus: rsvpMap.get(e.id) ?? fallback,
       myComment: commentMap.get(e.id) ?? "",
       teamName: team?.name ?? null,
     };
@@ -188,10 +200,16 @@ export async function getEventParticipants(
   return profiles
     .map((p) => {
       const own = rsvpMap.get(p.id) ?? null;
+      // Bei Trainings hat die persönliche Vorbelegung der Person Vorrang
+      const persoenlich =
+        event.type === "training"
+          ? (((p.training_default_rsvp as string) || null) as RsvpStatus | null)
+          : null;
+      const standard = persoenlich ?? teamDefault;
       return {
         profile: p,
-        status: own ?? teamDefault,
-        isDefault: own === null && teamDefault !== null,
+        status: own ?? standard,
+        isDefault: own === null && standard !== null,
         comment: commentMap.get(p.id) ?? "",
         isCaptain: captainIds.has(p.id),
         isViceCaptain: viceIds.has(p.id),
