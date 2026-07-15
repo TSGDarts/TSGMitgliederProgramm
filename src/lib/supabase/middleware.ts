@@ -43,12 +43,14 @@ export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // Ohne Login erreichbar sind nur: Login, Selbst-Anmeldung (Beitritts-Link),
-  // die Auth-Callbacks, das Passwort-Setzen und der öffentliche Dart-Feed.
+  // die Auth-Callbacks, das Passwort-Setzen, der öffentliche Dart-Feed und
+  // der Competition-Import (Vercel-Cron; idempotent, importiert nur öffentliche Daten).
   const openPaths = [
     "/login",
     "/beitreten",
     "/passwort-setzen",
     "/api/dart-feed",
+    "/api/comp-import",
   ];
   const isOpen =
     openPaths.some((p) => path === p || path.startsWith(p + "/")) ||
