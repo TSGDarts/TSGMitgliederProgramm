@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { requireProfile } from "@/lib/auth";
 import { getManageableTeamIds } from "@/lib/member-queries";
 import {
@@ -6,7 +7,6 @@ import {
   adminNav,
   editorNav,
   locabooNavItem,
-  site,
 } from "@/lib/site";
 import { MemberNav } from "@/components/MemberNav";
 import { MobileMenu } from "@/components/MobileMenu";
@@ -65,11 +65,15 @@ export default async function MemberLayout({
         <div className="space-y-4 md:sticky md:top-6">
           <div className="flex items-center justify-between gap-2">
             <Link href="/" className="flex items-center gap-2 font-bold">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-fg">
-                🎯
-              </span>
+              <Image
+                src="/icons/icon-192.png"
+                alt="TSG 08 Roth Darts"
+                width={36}
+                height={36}
+                className="h-9 w-9 rounded-lg"
+              />
               <span className="leading-tight">
-                {site.clubName}
+                TSG 08 Roth Darts
                 <span className="block text-xs font-normal text-muted">
                   Mitglieder
                 </span>
