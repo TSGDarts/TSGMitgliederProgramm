@@ -7,16 +7,9 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
   const [mode, setMode] = useState<"light" | "dark" | null>(null);
 
   useEffect(() => {
+    // Standard ist hell – dunkel nur bei ausdrücklicher Wahl
     const saved = document.documentElement.dataset.theme;
-    if (saved === "light" || saved === "dark") {
-      setMode(saved);
-    } else {
-      setMode(
-        window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light",
-      );
-    }
+    setMode(saved === "dark" ? "dark" : "light");
   }, []);
 
   function toggle() {
