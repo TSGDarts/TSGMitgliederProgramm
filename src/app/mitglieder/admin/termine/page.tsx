@@ -139,8 +139,13 @@ function InviteePicker({
   );
 }
 
-export default async function AdminEventsPage() {
+export default async function AdminEventsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ fehler?: string }>;
+}) {
   await requireAdmin();
+  const { fehler } = await searchParams;
   const teams = await getAllTeams();
   const supabase = await createClient();
 
@@ -192,6 +197,17 @@ export default async function AdminEventsPage() {
         title="Termine verwalten"
         subtitle="Termine für den Verein oder einzelne Mannschaften anlegen"
       />
+
+      {fehler ? (
+        <Card className="border-danger/40 bg-danger/10">
+          <CardBody>
+            <p className="font-semibold text-danger">
+              ⚠️ Speichern fehlgeschlagen
+            </p>
+            <p className="mt-1 text-sm">{fehler}</p>
+          </CardBody>
+        </Card>
+      ) : null}
 
       {/* Archiv-Einstellung */}
       <Card className="bg-primary/5">

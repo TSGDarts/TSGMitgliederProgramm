@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { berlinLocalToISO } from "@/lib/tz";
@@ -77,6 +78,20 @@ const VALID_TYPES: EventType[] = [
   "other",
 ];
 
+/**
+ * Bricht ab und zeigt die Fehlermeldung oben auf der Seite an –
+ * stilles Scheitern hat schon einmal für Verwirrung gesorgt.
+ */
+function abbruchMitFehler(msg: string): never {
+  let text = msg;
+  if (/column|schema cache/i.test(msg)) {
+    text =
+      "In der Datenbank fehlt eine Spalte. Bitte das Skript ALLE_ERWEITERUNGEN.sql " +
+      `im Supabase SQL-Editor ausführen und erneut speichern. (Technisch: ${msg})`;
+  }
+  redirect(`/mitglieder/admin/termine?fehler=${encodeURIComponent(text)}`);
+}
+
 function revalidateEvents(id?: string) {
   revalidatePath("/mitglieder/admin/termine");
   revalidatePath("/mitglieder/termine");
@@ -91,7 +106,7 @@ export async function createEvent(formData: FormData) {
 
   const startsLocal = String(formData.get("starts_at") ?? "");
   const starts_at = berlinLocalToISO(startsLocal);
-  if (!starts_at) return;
+  if (!starts_at) abbruchMitFehler("Bitte Datum und Startzeit angeben.");
 
   const typeRaw = String(formData.get("type") ?? "other") as EventType;
   const type = VALID_TYPES.includes(typeRaw) ? typeRaw : "other";
@@ -105,9 +120,9 @@ export async function createEvent(formData: FormData) {
       String(formData.get("title") ?? "").trim(),
       String(formData.get("location") ?? "").trim(),
     );
-  if (!title) return; // weder Titel noch Gegner angegeben
+  if (!title) abbruchMitFehler("Bitte einen Titel angeben oder einen Gegner wählen.");
 
-  const { data: created } = await supabase
+  const { data: created, error: createError } = await supabase
     .from("events")
     .insert({
       title,
@@ -129,13 +144,15 @@ export async function createEvent(formData: FormData) {
     })
     .select("id")
     .single();
+  if (createError) abbruchMitFehler(createError.message);
 
   // Optionale Einladungsliste: nur die Angehakten sehen den Termin.
   const invitees = formData.getAll("invitees").map(String).filter(Boolean);
   if (created?.id && invitees.length) {
-    await supabase.from("event_invitees").insert(
+    const { error: invError } = await supabase.from("event_invitees").insert(
       invitees.map((profile_id) => ({ event_id: created.id, profile_id })),
     );
+    if (invError) abbruchMitFehler(invError.message);
   }
 
   revalidateEvents();
@@ -147,7 +164,7 @@ export async function updateEvent(formData: FormData) {
   if (!id) return;
 
   const starts_at = berlinLocalToISO(String(formData.get("starts_at") ?? ""));
-  if (!starts_at) return;
+  if (!starts_at) abbruchMitFehler("Bitte Datum und Startzeit angeben.");
 
   const typeRaw = String(formData.get("type") ?? "other") as EventType;
   const type = VALID_TYPES.includes(typeRaw) ? typeRaw : "other";
@@ -161,9 +178,9 @@ export async function updateEvent(formData: FormData) {
       String(formData.get("title") ?? "").trim(),
       String(formData.get("location") ?? "").trim(),
     );
-  if (!title) return;
+  if (!title) abbruchMitFehler("Bitte einen Titel angeben oder einen Gegner wählen.");
 
-  await supabase
+  const { error: updateError } = await supabase
     .from("events")
     .update({
       title,
@@ -182,14 +199,16 @@ export async function updateEvent(formData: FormData) {
       time_tbd: formData.get("time_tbd") === "on",
     })
     .eq("id", id);
+  if (updateError) abbruchMitFehler(updateError.message);
 
   // Einladungsliste sauber ersetzen (hinzufügen UND entfernen greifen sofort)
   const invitees = formData.getAll("invitees").map(String).filter(Boolean);
   await supabase.from("event_invitees").delete().eq("event_id", id);
   if (invitees.length) {
-    await supabase.from("event_invitees").insert(
+    const { error: invError } = await supabase.from("event_invitees").insert(
       invitees.map((profile_id) => ({ event_id: id, profile_id })),
     );
+    if (invError) abbruchMitFehler(invError.message);
   }
 
   revalidateEvents(id);
