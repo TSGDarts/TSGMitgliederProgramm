@@ -32,8 +32,19 @@ export function EventCard({ event }: { event: EventWithStatus }) {
               {event.title}
             </Link>
             <p className="mt-0.5 text-sm text-muted">
-              {formatDate(event.starts_at)} · {formatTime(event.starts_at)} Uhr
+              {formatDate(event.starts_at)} · Start {formatTime(event.starts_at)} Uhr
             </p>
+            {(event.meet_home_time || event.meet_venue_time) && (
+              <p className="mt-0.5 text-sm text-muted">
+                {event.meet_home_time && (
+                  <>🚌 Treffpunkt TSG {event.meet_home_time} Uhr</>
+                )}
+                {event.meet_home_time && event.meet_venue_time && " · "}
+                {event.meet_venue_time && (
+                  <>🤝 Treffpunkt vor Ort {event.meet_venue_time} Uhr</>
+                )}
+              </p>
+            )}
             {event.location && (
               <AddressLine address={event.location} className="mt-0.5 text-sm" />
             )}

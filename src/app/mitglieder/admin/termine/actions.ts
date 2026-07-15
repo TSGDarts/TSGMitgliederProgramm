@@ -19,13 +19,14 @@ async function resolveOpponentFields(
   location: string,
 ) {
   const opponent_id = String(formData.get("opponent_id") ?? "") || null;
-  const teamNoRaw = Number(formData.get("opponent_team_no") ?? 0);
+  const teamNoRaw = Math.round(Number(formData.get("opponent_team_no") ?? 0));
   const opponent_team_no =
-    opponent_id && teamNoRaw >= 1 && teamNoRaw <= 10 ? teamNoRaw : null;
+    opponent_id && teamNoRaw >= 1 && teamNoRaw <= 99 ? teamNoRaw : null;
   const homeAwayRaw = String(formData.get("home_away") ?? "");
   const home_away = ["heim", "auswaerts"].includes(homeAwayRaw)
     ? homeAwayRaw
     : "";
+  const noStyle = String(formData.get("team_no_style") ?? "roemisch");
 
   if (opponent_id) {
     const { data: opp } = await supabase
@@ -34,7 +35,12 @@ async function resolveOpponentFields(
       .eq("id", opponent_id)
       .maybeSingle();
     if (opp) {
-      const suffix = romanTeamNo(opponent_team_no);
+      const suffix =
+        noStyle === "zahl"
+          ? opponent_team_no && opponent_team_no > 1
+            ? String(opponent_team_no)
+            : ""
+          : romanTeamNo(opponent_team_no);
       const oppName = `${opp.name}${suffix ? ` ${suffix}` : ""}`;
       if (!title) {
         title =
@@ -114,6 +120,8 @@ export async function createEvent(formData: FormData) {
       home_away,
       description: String(formData.get("description") ?? "").trim(),
       meeting_url: String(formData.get("meeting_url") ?? "").trim(),
+      meet_home_time: String(formData.get("meet_home_time") ?? "").trim(),
+      meet_venue_time: String(formData.get("meet_venue_time") ?? "").trim(),
       is_public: formData.get("is_public") === "on",
       source: "manual",
       created_by: profile.id,
@@ -167,6 +175,8 @@ export async function updateEvent(formData: FormData) {
       home_away,
       description: String(formData.get("description") ?? "").trim(),
       meeting_url: String(formData.get("meeting_url") ?? "").trim(),
+      meet_home_time: String(formData.get("meet_home_time") ?? "").trim(),
+      meet_venue_time: String(formData.get("meet_venue_time") ?? "").trim(),
       is_public: formData.get("is_public") === "on",
     })
     .eq("id", id);

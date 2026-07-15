@@ -145,6 +145,7 @@ export default async function CompetitionsPage({
                     <span>
                       📅 <strong>{formatDate(d.date)}</strong>
                       {d.nr ? ` · ${d.nr}. Competition` : ""}
+                      {d.boards ? ` · ${d.boards} Boards` : ""}
                       {d.event_url && (
                         <>
                           {" · "}
@@ -188,6 +189,14 @@ export default async function CompetitionsPage({
                 <Field label="Nr. (optional)">
                   <input
                     name="nr"
+                    type="number"
+                    min={1}
+                    className={`${inputClass} w-24`}
+                  />
+                </Field>
+                <Field label="Boards (optional)">
+                  <input
+                    name="boards"
                     type="number"
                     min={1}
                     className={`${inputClass} w-24`}

@@ -23,6 +23,7 @@ export interface CompetitionDate {
   date: string; // JJJJ-MM-TT
   event_url: string;
   nr: number | null;
+  boards?: number | null; // Anzahl Dartboards
   created_at: string;
 }
 
@@ -84,7 +85,29 @@ export function mapsUrl(address: string): string {
 
 /** Römische Mannschafts-Nummer: 1 → "" (erste Mannschaft ohne Zusatz). */
 export function romanTeamNo(no?: number | null): string {
-  const ROMAN = ["", "", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
   if (!no || no <= 1) return "";
-  return ROMAN[no] ?? String(no);
+  const steps: [number, string][] = [
+    [1000, "M"], [900, "CM"], [500, "D"], [400, "CD"],
+    [100, "C"], [90, "XC"], [50, "L"], [40, "XL"],
+    [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"],
+  ];
+  let n = Math.round(no);
+  let out = "";
+  for (const [value, symbol] of steps) {
+    while (n >= value) {
+      out += symbol;
+      n -= value;
+    }
+  }
+  return out;
+}
+
+/** "Ostring 28, 91154 Roth" aus Straße / PLZ / Ort. */
+export function composeAddress(
+  street?: string | null,
+  zip?: string | null,
+  city?: string | null,
+): string {
+  const line2 = [zip, city].filter(Boolean).join(" ");
+  return [street, line2].filter(Boolean).join(", ");
 }

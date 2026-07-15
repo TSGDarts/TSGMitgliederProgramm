@@ -65,6 +65,18 @@ export default async function EventDetailPage({
         <AddressLine address={event.location} className="text-sm" />
       )}
 
+      {(event.meet_home_time || event.meet_venue_time) && (
+        <p className="text-sm text-muted">
+          {event.meet_home_time && (
+            <>🚌 Treffpunkt bei der TSG: {event.meet_home_time} Uhr</>
+          )}
+          {event.meet_home_time && event.meet_venue_time && " · "}
+          {event.meet_venue_time && (
+            <>🤝 Treffpunkt vor Ort: {event.meet_venue_time} Uhr</>
+          )}
+        </p>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone="primary">{EVENT_TYPE_LABELS[event.type]}</Badge>
         <Badge>{teamName ?? "Gesamter Verein"}</Badge>

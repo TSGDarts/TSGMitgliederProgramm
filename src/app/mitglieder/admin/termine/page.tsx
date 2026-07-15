@@ -55,17 +55,25 @@ function OpponentFields({
           ))}
         </select>
       </Field>
-      <Field label="Gegner-Mannschaft" hint="Die wievielte Mannschaft des Gegners">
-        <select
+      <Field
+        label="Gegner-Mannschaft (Nr.)"
+        hint="Die wievielte Mannschaft des Gegners – beliebige Zahl"
+      >
+        <input
           name="opponent_team_no"
-          defaultValue={String(defaults?.opponent_team_no ?? 1)}
+          type="number"
+          min={1}
+          defaultValue={defaults?.opponent_team_no ?? 1}
           className={inputClass}
-        >
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-            <option key={n} value={n}>
-              {n === 1 ? "1. Mannschaft" : `${n}. Mannschaft (${["", "", "II", "III", "IV", "V", "VI", "VII", "VIII"][n]})`}
-            </option>
-          ))}
+        />
+      </Field>
+      <Field
+        label="Nummern-Anzeige"
+        hint="Wie die Nummer im Titel erscheint, z. B. „DC Schwabach II“ oder „DC Schwabach 2“"
+      >
+        <select name="team_no_style" defaultValue="roemisch" className={inputClass}>
+          <option value="roemisch">Römisch (II, III, …)</option>
+          <option value="zahl">Zahl (2, 3, …)</option>
         </select>
       </Field>
       <Field label="Heim oder Auswärts">
@@ -200,13 +208,19 @@ export default async function AdminEventsPage() {
                   ))}
                 </select>
               </Field>
-              <Field label="Datum & Uhrzeit">
+              <Field label="Datum & Startzeit">
                 <input
                   name="starts_at"
                   type="datetime-local"
                   required
                   className={inputClass}
                 />
+              </Field>
+              <Field label="Treffpunkt bei der TSG (optional)" hint="z. B. zum gemeinsamen Fahren">
+                <input name="meet_home_time" type="time" className={inputClass} />
+              </Field>
+              <Field label="Treffpunkt vor Ort (optional)">
+                <input name="meet_venue_time" type="time" className={inputClass} />
               </Field>
               <Field label="Mannschaft">
                 <select name="team_id" className={inputClass}>
@@ -320,12 +334,28 @@ export default async function AdminEventsPage() {
                           ))}
                         </select>
                       </Field>
-                      <Field label="Datum & Uhrzeit">
+                      <Field label="Datum & Startzeit">
                         <input
                           name="starts_at"
                           type="datetime-local"
                           required
                           defaultValue={berlinISOToLocalInput(ev.starts_at)}
+                          className={inputClass}
+                        />
+                      </Field>
+                      <Field label="Treffpunkt bei der TSG (optional)">
+                        <input
+                          name="meet_home_time"
+                          type="time"
+                          defaultValue={ev.meet_home_time ?? ""}
+                          className={inputClass}
+                        />
+                      </Field>
+                      <Field label="Treffpunkt vor Ort (optional)">
+                        <input
+                          name="meet_venue_time"
+                          type="time"
+                          defaultValue={ev.meet_venue_time ?? ""}
                           className={inputClass}
                         />
                       </Field>

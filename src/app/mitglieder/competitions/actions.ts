@@ -60,6 +60,7 @@ export async function addCompetitionDate(formData: FormData) {
   const date = String(formData.get("date") ?? "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
   const nrRaw = Number(formData.get("nr") ?? 0);
+  const boardsRaw = Number(formData.get("boards") ?? 0);
 
   const supabase = await createClient();
   await supabase.from("competition_dates").upsert(
@@ -67,6 +68,7 @@ export async function addCompetitionDate(formData: FormData) {
       date,
       event_url: String(formData.get("event_url") ?? "").trim(),
       nr: nrRaw >= 1 ? nrRaw : null,
+      boards: boardsRaw >= 1 ? boardsRaw : null,
     },
     { onConflict: "date" },
   );

@@ -53,7 +53,10 @@ export interface TeamMember {
 export interface Opponent {
   id: string;
   name: string;
-  address: string;
+  address: string; // zusammengesetzt aus Straße/PLZ/Ort
+  street?: string | null;
+  zip?: string | null;
+  city?: string | null;
   notes: string;
   created_at: string;
 }
@@ -65,6 +68,8 @@ export interface EventRow {
   description: string | null;
   location: string | null;
   meeting_url?: string | null; // Online-Link (Teams, Meet, …)
+  meet_home_time?: string | null; // Treffpunkt bei der TSG, z. B. "18:30"
+  meet_venue_time?: string | null; // Treffpunkt vor Ort
   opponent_id?: string | null;
   opponent_team_no?: number | null;
   home_away?: "" | "heim" | "auswaerts" | null;

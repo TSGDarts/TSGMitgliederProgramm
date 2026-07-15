@@ -44,7 +44,7 @@ export async function GET() {
   const [{ data: compData }, { data: tourData }] = await Promise.all([
     admin
       .from("competition_dates")
-      .select("date, event_url, nr")
+      .select("date, event_url, nr, boards")
       .gte("date", today)
       .order("date", { ascending: true }),
     admin
@@ -58,6 +58,7 @@ export async function GET() {
     const out: Record<string, unknown> = { datum: c.date as string };
     if (c.event_url) out.eventUrl = c.event_url;
     if (c.nr !== null && c.nr !== undefined) out.nr = c.nr;
+    if (c.boards !== null && c.boards !== undefined) out.boards = c.boards;
     return out;
   });
 

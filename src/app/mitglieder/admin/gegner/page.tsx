@@ -21,6 +21,45 @@ import type { Opponent } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Gegner verwalten" };
 
+/** Straße / PLZ / Ort nebeneinander. */
+function AddressFields({
+  defaults,
+}: {
+  defaults?: { street?: string | null; zip?: string | null; city?: string | null };
+}) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-4">
+      <div className="sm:col-span-2">
+        <Field label="Straße & Hausnummer">
+          <input
+            name="street"
+            defaultValue={defaults?.street ?? ""}
+            placeholder="Ostring 28"
+            className={inputClass}
+          />
+        </Field>
+      </div>
+      <Field label="PLZ">
+        <input
+          name="zip"
+          defaultValue={defaults?.zip ?? ""}
+          placeholder="91154"
+          inputMode="numeric"
+          className={inputClass}
+        />
+      </Field>
+      <Field label="Ort">
+        <input
+          name="city"
+          defaultValue={defaults?.city ?? ""}
+          placeholder="Roth"
+          className={inputClass}
+        />
+      </Field>
+    </div>
+  );
+}
+
 export default async function AdminOpponentsPage() {
   await requireAdmin();
   const supabase = await createClient();
@@ -31,12 +70,15 @@ export default async function AdminOpponentsPage() {
     .order("name");
   const opponents = (oppData as Opponent[]) ?? [];
 
-  const { data: homeData } = await supabase
+  // Heimspielstätte (getrennte Felder + zusammengesetzte Adresse)
+  const { data: settingsData } = await supabase
     .from("app_settings")
-    .select("value")
-    .eq("key", "home_address")
-    .maybeSingle();
-  const homeAddress = (homeData?.value as string) ?? "";
+    .select("key, value")
+    .in("key", ["home_street", "home_zip", "home_city", "home_address"]);
+  const settings = new Map(
+    (settingsData ?? []).map((s) => [s.key as string, s.value as string]),
+  );
+  const homeAddress = settings.get("home_address") ?? "";
 
   return (
     <div className="space-y-8">
@@ -55,18 +97,21 @@ export default async function AdminOpponentsPage() {
               eingetragen.
             </p>
           </div>
-          <form action={saveHomeAddress} className="flex flex-wrap gap-2">
-            <input
-              name="address"
-              defaultValue={homeAddress}
-              placeholder="z. B. Ostring 28, 91154 Roth"
-              className={`${inputClass} max-w-md flex-1`}
+          <form action={saveHomeAddress} className="space-y-3">
+            <AddressFields
+              defaults={{
+                street: settings.get("home_street") ?? "",
+                zip: settings.get("home_zip") ?? "",
+                city: settings.get("home_city") ?? "",
+              }}
             />
             <Button type="submit" variant="secondary">
               Speichern
             </Button>
           </form>
-          {homeAddress && <AddressLine address={homeAddress} className="text-sm" />}
+          {homeAddress && (
+            <AddressLine address={homeAddress} className="text-sm" />
+          )}
         </CardBody>
       </Card>
 
@@ -75,19 +120,17 @@ export default async function AdminOpponentsPage() {
         <CardBody>
           <form action={createOpponent} className="space-y-4">
             <h2 className="font-semibold">Neuer Gegner</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Vereinsname" hint="z. B. DC Schwabach – die Mannschafts-Nr. (I, II, …) wählst du beim Termin">
-                <input name="name" required className={inputClass} />
-              </Field>
-              <Field label="Adresse (Spielstätte)">
-                <input
-                  name="address"
-                  placeholder="Straße Nr., PLZ Ort"
-                  className={inputClass}
-                />
-              </Field>
-            </div>
-            <Field label="Notiz (optional)" hint="z. B. Parken hinterm Haus, Eingang über den Hof …">
+            <Field
+              label="Vereinsname"
+              hint="z. B. DC Schwabach – die Mannschafts-Nr. wählst du beim Termin"
+            >
+              <input name="name" required className={inputClass} />
+            </Field>
+            <AddressFields />
+            <Field
+              label="Notiz (optional)"
+              hint="z. B. Parken hinterm Haus, Eingang über den Hof …"
+            >
               <input name="notes" className={inputClass} />
             </Field>
             <Button type="submit">Gegner anlegen</Button>
@@ -118,7 +161,9 @@ export default async function AdminOpponentsPage() {
                     {o.address ? (
                       <AddressLine address={o.address} className="text-sm" />
                     ) : (
-                      <p className="text-sm text-muted">Keine Adresse hinterlegt</p>
+                      <p className="text-sm text-muted">
+                        Keine Adresse hinterlegt
+                      </p>
                     )}
                     {o.notes && (
                       <p className="mt-1 text-sm text-muted">💡 {o.notes}</p>
@@ -141,23 +186,21 @@ export default async function AdminOpponentsPage() {
                     className="space-y-4 border-t border-border p-4"
                   >
                     <input type="hidden" name="id" value={o.id} />
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field label="Vereinsname">
-                        <input
-                          name="name"
-                          required
-                          defaultValue={o.name}
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field label="Adresse">
-                        <input
-                          name="address"
-                          defaultValue={o.address}
-                          className={inputClass}
-                        />
-                      </Field>
-                    </div>
+                    <Field label="Vereinsname">
+                      <input
+                        name="name"
+                        required
+                        defaultValue={o.name}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <AddressFields
+                      defaults={{
+                        street: o.street ?? "",
+                        zip: o.zip ?? "",
+                        city: o.city ?? "",
+                      }}
+                    />
                     <Field label="Notiz (optional)">
                       <input
                         name="notes"
