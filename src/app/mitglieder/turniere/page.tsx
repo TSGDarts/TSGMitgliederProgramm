@@ -4,7 +4,7 @@ import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getManageableTeamIds } from "@/lib/member-queries";
 import { createTournament, archiveTournament, deleteTournament } from "./actions";
-import { FlyerUpload } from "./FlyerUpload";
+import { FlyerUpload } from "@/components/FlyerUpload";
 import {
   PageHeader,
   Card,

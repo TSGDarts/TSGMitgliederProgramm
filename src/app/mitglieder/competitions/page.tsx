@@ -5,11 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import { getManageableTeamIds } from "@/lib/member-queries";
 import {
   createCompetition,
+  updateCompetition,
   toggleCompetition,
   deleteCompetition,
-  addCompetitionDate,
-  deleteCompetitionDate,
 } from "./actions";
+import { FlyerUpload } from "@/components/FlyerUpload";
 import {
   PageHeader,
   Card,
@@ -25,11 +25,140 @@ import {
   weekdayLabel,
   mapsUrl,
   type Competition,
-  type CompetitionDate,
 } from "@/lib/extras";
-import { formatDate } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Competitions im Umkreis" };
+
+/** Modus: Vorlage wählen ODER neuen Modus eintippen (wird gespeichert). */
+function ModeFields({
+  modes,
+  current = "",
+}: {
+  modes: string[];
+  current?: string;
+}) {
+  const options = [...new Set([...modes, current].filter(Boolean))];
+  return (
+    <>
+      <Field label="Modus (Vorlage wählen)">
+        <select name="mode_select" defaultValue={current} className={inputClass}>
+          <option value="">– kein Modus –</option>
+          {options.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field
+        label="… oder neuen Modus eintragen"
+        hint="Wird als Vorlage gespeichert und ist beim nächsten Mal auswählbar"
+      >
+        <input name="mode_new" className={inputClass} />
+      </Field>
+    </>
+  );
+}
+
+/** Alle Formularfelder einer Competition (für Anlegen und Bearbeiten). */
+function CompetitionFields({
+  modes,
+  c,
+}: {
+  modes: string[];
+  c?: Competition;
+}) {
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Name">
+          <input
+            name="title"
+            required
+            defaultValue={c?.title ?? ""}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Wochentag">
+          <select
+            name="weekday"
+            required
+            defaultValue={c?.weekday ?? 1}
+            className={inputClass}
+          >
+            {WEEKDAYS.map((w) => (
+              <option key={w.value} value={w.value}>
+                {w.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <ModeFields modes={modes} current={c?.mode ?? ""} />
+        <Field label="Adresse" hint="Öffnet für alle die Karte">
+          <input
+            name="address"
+            defaultValue={c?.address ?? ""}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Anzahl Boards (optional)">
+          <input
+            name="boards"
+            type="number"
+            min={1}
+            defaultValue={c?.boards ?? ""}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Einlass ab (optional)">
+          <input
+            name="doors_time"
+            type="time"
+            defaultValue={c?.doors_time ?? ""}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Beginn">
+          <input
+            name="start_time"
+            type="time"
+            required
+            defaultValue={c?.start_time ?? "19:00"}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Anmelden bis (optional)">
+          <input
+            name="signup_until"
+            type="time"
+            defaultValue={c?.signup_until ?? ""}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Anmeldelink (optional)">
+          <input
+            name="register_url"
+            type="url"
+            placeholder="https://…"
+            defaultValue={c?.register_url ?? ""}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Flyer (Bild oder PDF, optional)">
+          <FlyerUpload initial={c?.flyer_url ?? ""} />
+        </Field>
+      </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          name="onsite_signup"
+          defaultChecked={c ? c.onsite_signup : true}
+        />
+        Anmeldung vor Ort möglich
+      </label>
+    </>
+  );
+}
 
 export default async function CompetitionsPage({
   searchParams,
@@ -53,20 +182,16 @@ export default async function CompetitionsPage({
     .order("weekday")
     .order("start_time");
   const all = (data as Competition[]) ?? [];
-
-  // Konkrete Termine unserer eigenen Competition (Feed)
-  const todayStr = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Europe/Berlin",
-  }).format(new Date());
-  const { data: dateData } = await supabase
-    .from("competition_dates")
-    .select("*")
-    .gte("date", todayStr)
-    .order("date");
-  const ownDates = (dateData as CompetitionDate[]) ?? [];
   const competitions = dayFilter
     ? all.filter((c) => c.weekday === dayFilter)
     : all;
+
+  // Gespeicherte Modus-Vorlagen
+  const { data: modeData } = await supabase
+    .from("competition_modes")
+    .select("name")
+    .order("name");
+  const modes = (modeData ?? []).map((m) => m.name as string);
 
   const chip = (active: boolean) =>
     `rounded-full px-4 py-1.5 text-sm font-medium ${
@@ -118,107 +243,6 @@ export default async function CompetitionsPage({
         </Link>
       )}
 
-      {/* Unsere eigenen Competition-Termine (Feed) */}
-      {!showArchive && (
-        <Card className="bg-primary/5">
-          <CardBody className="space-y-3">
-            <div>
-              <h2 className="font-semibold">🎯 Unsere Competition-Termine</h2>
-              <p className="text-sm text-muted">
-                Konkrete Termine der TSG-Competition – sie erscheinen auch im
-                öffentlichen Dart-Feed (<code>/api/dart-feed</code>) für andere
-                Programme. Vergangene Termine verschwinden automatisch.
-              </p>
-            </div>
-
-            {ownDates.length === 0 ? (
-              <p className="text-sm text-muted">
-                Keine kommenden Termine eingetragen.
-              </p>
-            ) : (
-              <div className="space-y-1">
-                {ownDates.map((d) => (
-                  <div
-                    key={d.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-1 text-sm hover:bg-border/30"
-                  >
-                    <span>
-                      📅 <strong>{formatDate(d.date)}</strong>
-                      {d.nr ? ` · ${d.nr}. Competition` : ""}
-                      {d.boards ? ` · ${d.boards} Boards` : ""}
-                      {d.event_url && (
-                        <>
-                          {" · "}
-                          <a
-                            href={d.event_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-primary hover:underline"
-                          >
-                            Zur Anmeldung →
-                          </a>
-                        </>
-                      )}
-                    </span>
-                    {canManage && (
-                      <form action={deleteCompetitionDate}>
-                        <input type="hidden" name="id" value={d.id} />
-                        <button className="text-danger hover:underline">
-                          Löschen
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {canManage && (
-              <form
-                action={addCompetitionDate}
-                className="flex flex-wrap items-end gap-2 border-t border-border pt-3"
-              >
-                <Field label="Datum">
-                  <input
-                    name="date"
-                    type="date"
-                    required
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Nr. (optional)">
-                  <input
-                    name="nr"
-                    type="number"
-                    min={1}
-                    className={`${inputClass} w-24`}
-                  />
-                </Field>
-                <Field label="Boards (optional)">
-                  <input
-                    name="boards"
-                    type="number"
-                    min={1}
-                    className={`${inputClass} w-24`}
-                  />
-                </Field>
-                <Field label="Anmelde-/Event-Link (optional)">
-                  <input
-                    name="event_url"
-                    type="url"
-                    placeholder="https://…"
-                    className={inputClass}
-                  />
-                </Field>
-                <Button type="submit" variant="secondary">
-                  Termin eintragen
-                </Button>
-              </form>
-            )}
-          </CardBody>
-        </Card>
-      )}
-
       {/* Neue Competition (Admins + Kapitäne) */}
       {canManage && !showArchive && (
         <details className="group rounded-xl border border-border bg-surface">
@@ -227,61 +251,7 @@ export default async function CompetitionsPage({
           </summary>
           <div className="border-t border-border p-5">
             <form action={createCompetition} className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Name">
-                  <input name="title" required className={inputClass} />
-                </Field>
-                <Field label="Wochentag">
-                  <select name="weekday" required className={inputClass}>
-                    {WEEKDAYS.map((w) => (
-                      <option key={w.value} value={w.value}>
-                        {w.label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Modus (optional)" hint="z. B. Schweizer System + KO, Doppel-KO, Nur Gruppenphase">
-                  <input name="mode" className={inputClass} />
-                </Field>
-                <Field label="Adresse" hint="Öffnet für alle die Karte">
-                  <input name="address" className={inputClass} />
-                </Field>
-                <Field label="Einlass ab (optional)">
-                  <input name="doors_time" type="time" className={inputClass} />
-                </Field>
-                <Field label="Beginn">
-                  <input
-                    name="start_time"
-                    type="time"
-                    required
-                    defaultValue="19:00"
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Anmelden bis (optional)">
-                  <input name="signup_until" type="time" className={inputClass} />
-                </Field>
-                <Field label="Anzahl Boards (optional)">
-                  <input
-                    name="boards"
-                    type="number"
-                    min={1}
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Anmeldelink (optional)">
-                  <input
-                    name="register_url"
-                    type="url"
-                    placeholder="https://…"
-                    className={inputClass}
-                  />
-                </Field>
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="onsite_signup" defaultChecked />
-                Anmeldung vor Ort möglich
-              </label>
+              <CompetitionFields modes={modes} />
               <Button type="submit">Competition eintragen</Button>
             </form>
           </div>
@@ -348,6 +318,16 @@ export default async function CompetitionsPage({
                         📝 Zur Anmeldung
                       </a>
                     )}
+                    {c.flyer_url && (
+                      <a
+                        href={c.flyer_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center rounded-lg border border-border px-4 py-1.5 text-sm font-medium hover:bg-border/40"
+                      >
+                        🖼️ Flyer
+                      </a>
+                    )}
                     {c.onsite_signup && (
                       <Badge tone="ok">🖐 Anmeldung vor Ort möglich</Badge>
                     )}
@@ -378,6 +358,23 @@ export default async function CompetitionsPage({
                       </span>
                     )}
                   </div>
+
+                  {/* Bearbeiten */}
+                  {mayEdit && (
+                    <details className="rounded-lg border border-border">
+                      <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-primary">
+                        ✏️ Bearbeiten
+                      </summary>
+                      <form
+                        action={updateCompetition}
+                        className="space-y-4 border-t border-border p-4"
+                      >
+                        <input type="hidden" name="id" value={c.id} />
+                        <CompetitionFields modes={modes} c={c} />
+                        <Button type="submit">Änderungen speichern</Button>
+                      </form>
+                    </details>
+                  )}
                 </CardBody>
               </Card>
             );

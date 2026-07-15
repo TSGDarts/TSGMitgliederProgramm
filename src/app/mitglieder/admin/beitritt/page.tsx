@@ -5,7 +5,7 @@ import { getAllTeams } from "@/lib/member-queries";
 import { getOrCreateJoinToken } from "@/lib/invites";
 import { siteUrl } from "@/lib/supabase/config";
 import { JoinLinkCard } from "./JoinLinkCard";
-import { addInviteName, deleteInvite } from "./actions";
+import { addInviteName, updateInvite, deleteInvite } from "./actions";
 import {
   PageHeader,
   Card,
@@ -132,25 +132,82 @@ export default async function AdminBeitrittPage({
           <div className="space-y-2">
             {open.map((inv) => (
               <Card key={inv.id}>
-                <CardBody className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <span className="font-medium">{inv.full_name}</span>
-                    {inv.role === "admin" && (
-                      <Badge tone="primary">Admin</Badge>
-                    )}
-                    {inv.role === "member" && <Badge>ohne Liga</Badge>}
-                    {inv.team_ids?.length > 0 && (
-                      <span className="ml-2 text-sm text-muted">
-                        {inv.team_ids.map(teamName).filter(Boolean).join(", ")}
-                      </span>
-                    )}
+                <CardBody className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <span className="font-medium">{inv.full_name}</span>
+                      {inv.role === "admin" && (
+                        <Badge tone="primary">Admin</Badge>
+                      )}
+                      {inv.role === "member" && <Badge>ohne Liga</Badge>}
+                      {inv.team_ids?.length > 0 && (
+                        <span className="ml-2 text-sm text-muted">
+                          {inv.team_ids.map(teamName).filter(Boolean).join(", ")}
+                        </span>
+                      )}
+                    </div>
+                    <form action={deleteInvite}>
+                      <input type="hidden" name="id" value={inv.id} />
+                      <button className="text-sm text-danger hover:underline">
+                        Entfernen
+                      </button>
+                    </form>
                   </div>
-                  <form action={deleteInvite}>
-                    <input type="hidden" name="id" value={inv.id} />
-                    <button className="text-sm text-danger hover:underline">
-                      Entfernen
-                    </button>
-                  </form>
+
+                  {/* Bearbeiten */}
+                  <details className="rounded-lg border border-border">
+                    <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-primary">
+                      ✏️ Bearbeiten
+                    </summary>
+                    <form
+                      action={updateInvite}
+                      className="space-y-4 border-t border-border p-4"
+                    >
+                      <input type="hidden" name="id" value={inv.id} />
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Name">
+                          <input
+                            name="full_name"
+                            required
+                            defaultValue={inv.full_name}
+                            className={inputClass}
+                          />
+                        </Field>
+                        <Field label="Rolle">
+                          <select
+                            name="role"
+                            defaultValue={inv.role}
+                            className={inputClass}
+                          >
+                            <option value="player">Spieler (Liga)</option>
+                            <option value="member">Mitglied (ohne Liga)</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                        </Field>
+                      </div>
+                      {teams.length > 0 && (
+                        <Field label="Mannschaften">
+                          <div className="flex flex-wrap gap-3">
+                            {teams.map((t) => (
+                              <label
+                                key={t.id}
+                                className="flex items-center gap-2 text-sm"
+                              >
+                                <input
+                                  type="checkbox"
+                                  name="team_ids"
+                                  value={t.id}
+                                  defaultChecked={inv.team_ids?.includes(t.id)}
+                                />
+                                {t.name}
+                              </label>
+                            ))}
+                          </div>
+                        </Field>
+                      )}
+                      <Button type="submit">Änderungen speichern</Button>
+                    </form>
+                  </details>
                 </CardBody>
               </Card>
             ))}

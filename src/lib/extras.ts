@@ -37,6 +37,7 @@ export interface Competition {
   signup_until: string;
   address: string;
   register_url: string;
+  flyer_url?: string | null;
   onsite_signup: boolean;
   boards?: number | null; // Anzahl Dartboards
   is_active: boolean;

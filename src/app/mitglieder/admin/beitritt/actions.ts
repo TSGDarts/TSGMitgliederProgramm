@@ -32,6 +32,26 @@ export async function addInviteName(formData: FormData) {
   revalidatePath("/mitglieder/admin/mitglieder");
 }
 
+export async function updateInvite(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const full_name = String(formData.get("full_name") ?? "").trim();
+  if (!id || !full_name) return;
+  const roleRaw = String(formData.get("role") ?? "player");
+  const role = ["admin", "player", "member"].includes(roleRaw)
+    ? roleRaw
+    : "player";
+  const team_ids = formData.getAll("team_ids").map(String).filter(Boolean);
+
+  const supabase = await createClient();
+  await supabase
+    .from("member_invites")
+    .update({ full_name, role, team_ids })
+    .eq("id", id);
+  revalidatePath("/mitglieder/admin/beitritt");
+  revalidatePath("/mitglieder/admin/mitglieder");
+}
+
 export async function deleteInvite(formData: FormData) {
   await requireAdmin();
   const id = String(formData.get("id") ?? "");

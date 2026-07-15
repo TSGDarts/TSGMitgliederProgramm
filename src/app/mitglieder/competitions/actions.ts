@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { getManageableTeamIds } from "@/lib/member-queries";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 async function assertCanManageExtras() {
   const profile = await requireProfile();
@@ -15,6 +16,43 @@ async function assertCanManageExtras() {
   return profile;
 }
 
+/**
+ * Modus aus dem Formular: entweder aus den Vorlagen gewählt oder neu
+ * eingetippt – neue Modi werden als Vorlage gespeichert.
+ */
+async function resolveMode(
+  supabase: SupabaseClient,
+  formData: FormData,
+): Promise<string> {
+  const newMode = String(formData.get("mode_new") ?? "").trim();
+  if (newMode) {
+    await supabase
+      .from("competition_modes")
+      .upsert({ name: newMode }, { onConflict: "name" });
+    return newMode;
+  }
+  return String(formData.get("mode_select") ?? "").trim();
+}
+
+/** Gemeinsame Felder aus dem Competition-Formular lesen. */
+async function readCompetitionFields(
+  supabase: SupabaseClient,
+  formData: FormData,
+) {
+  const boardsRaw = Number(formData.get("boards") ?? 0);
+  return {
+    mode: await resolveMode(supabase, formData),
+    doors_time: String(formData.get("doors_time") ?? "").trim(),
+    start_time: String(formData.get("start_time") ?? "").trim() || "19:00",
+    signup_until: String(formData.get("signup_until") ?? "").trim(),
+    address: String(formData.get("address") ?? "").trim(),
+    register_url: String(formData.get("register_url") ?? "").trim(),
+    flyer_url: String(formData.get("flyer_url") ?? "").trim(),
+    onsite_signup: formData.get("onsite_signup") === "on",
+    boards: boardsRaw >= 1 ? boardsRaw : null,
+  };
+}
+
 export async function createCompetition(formData: FormData) {
   const profile = await assertCanManageExtras();
 
@@ -22,22 +60,34 @@ export async function createCompetition(formData: FormData) {
   const weekday = Number(formData.get("weekday") ?? 0);
   if (!title || weekday < 1 || weekday > 7) return;
 
-  const boardsRaw = Number(formData.get("boards") ?? 0);
-
   const supabase = await createClient();
   await supabase.from("competitions").insert({
     title,
     weekday,
-    boards: boardsRaw >= 1 ? boardsRaw : null,
-    mode: String(formData.get("mode") ?? "").trim(),
-    doors_time: String(formData.get("doors_time") ?? "").trim(),
-    start_time: String(formData.get("start_time") ?? "").trim() || "19:00",
-    signup_until: String(formData.get("signup_until") ?? "").trim(),
-    address: String(formData.get("address") ?? "").trim(),
-    register_url: String(formData.get("register_url") ?? "").trim(),
-    onsite_signup: formData.get("onsite_signup") === "on",
+    ...(await readCompetitionFields(supabase, formData)),
     created_by: profile.id,
   });
+
+  revalidatePath("/mitglieder/competitions");
+}
+
+export async function updateCompetition(formData: FormData) {
+  await assertCanManageExtras();
+
+  const id = String(formData.get("id") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  const weekday = Number(formData.get("weekday") ?? 0);
+  if (!id || !title || weekday < 1 || weekday > 7) return;
+
+  const supabase = await createClient();
+  await supabase
+    .from("competitions")
+    .update({
+      title,
+      weekday,
+      ...(await readCompetitionFields(supabase, formData)),
+    })
+    .eq("id", id);
 
   revalidatePath("/mitglieder/competitions");
 }
@@ -54,37 +104,6 @@ export async function toggleCompetition(formData: FormData) {
     .from("competitions")
     .update({ is_active: !active })
     .eq("id", id);
-  revalidatePath("/mitglieder/competitions");
-}
-
-/** Konkreten Termin unserer eigenen Competition anlegen (für den Feed). */
-export async function addCompetitionDate(formData: FormData) {
-  await assertCanManageExtras();
-  const date = String(formData.get("date") ?? "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-  const nrRaw = Number(formData.get("nr") ?? 0);
-  const boardsRaw = Number(formData.get("boards") ?? 0);
-
-  const supabase = await createClient();
-  await supabase.from("competition_dates").upsert(
-    {
-      date,
-      event_url: String(formData.get("event_url") ?? "").trim(),
-      nr: nrRaw >= 1 ? nrRaw : null,
-      boards: boardsRaw >= 1 ? boardsRaw : null,
-    },
-    { onConflict: "date" },
-  );
-  revalidatePath("/mitglieder/competitions");
-}
-
-export async function deleteCompetitionDate(formData: FormData) {
-  await assertCanManageExtras();
-  const id = String(formData.get("id") ?? "");
-  if (!id) return;
-
-  const supabase = await createClient();
-  await supabase.from("competition_dates").delete().eq("id", id);
   revalidatePath("/mitglieder/competitions");
 }
 
