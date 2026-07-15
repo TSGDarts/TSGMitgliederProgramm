@@ -11,6 +11,7 @@ import {
 } from "./actions";
 import { berlinISOToLocalInput } from "@/lib/tz";
 import { FlyerUpload } from "@/components/FlyerUpload";
+import { Einklappbar } from "@/components/Einklappbar";
 import {
   PageHeader,
   Card,
@@ -244,21 +245,20 @@ export default async function TurnierePage({
 
       {/* Neues Turnier (Admins + Kapitäne) */}
       {canManage && !showArchive && (
-        <details className="group rounded-xl border border-border bg-surface">
-          <summary className="cursor-pointer px-5 py-4 font-semibold">
-            ➕ Turnier eintragen
-          </summary>
-          <div className="border-t border-border p-5">
-            <form
-              key={gespeichert ?? "neu"}
-              action={createTournament}
-              className="space-y-4"
-            >
-              <TournamentFields />
-              <Button type="submit">Turnier eintragen</Button>
-            </form>
-          </div>
-        </details>
+        <Einklappbar
+          id="turnier-eintragen"
+          title="➕ Turnier eintragen"
+          defaultOpen={false}
+        >
+          <form
+            key={gespeichert ?? "neu"}
+            action={createTournament}
+            className="space-y-4"
+          >
+            <TournamentFields />
+            <Button type="submit">Turnier eintragen</Button>
+          </form>
+        </Einklappbar>
       )}
 
       {/* Liste */}

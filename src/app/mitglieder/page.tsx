@@ -3,6 +3,7 @@ import { getMemberEvents } from "@/lib/member-queries";
 import { createClient } from "@/lib/supabase/server";
 import { EventCard } from "@/components/EventCard";
 import { EventsCalendar } from "@/components/EventsCalendar";
+import { Einklappbar } from "@/components/Einklappbar";
 import {
   PageHeader,
   EmptyState,
@@ -85,10 +86,9 @@ export default async function DashboardPage({
         </Card>
       )}
 
-      <section>
-        <h2 className="mb-4 text-lg font-bold">Kalender</h2>
+      <Einklappbar id="uebersicht-kalender" title="Kalender">
         <EventsCalendar base="/mitglieder" monat={monat} team={team} />
-      </section>
+      </Einklappbar>
 
       <section>
         <div className="mb-4 flex items-end justify-between">

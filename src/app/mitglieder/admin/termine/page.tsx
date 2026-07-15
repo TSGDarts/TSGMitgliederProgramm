@@ -21,6 +21,7 @@ import {
   Badge,
   EmptyState,
 } from "@/components/ui";
+import { Einklappbar } from "@/components/Einklappbar";
 import {
   EVENT_TYPE_LABELS,
   type EventRow,
@@ -233,42 +234,39 @@ export default async function AdminEventsPage({
       ) : null}
 
       {/* Archiv-Einstellung */}
-      <Card className="bg-primary/5">
-        <CardBody className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="font-semibold">🗄️ Automatisches Archiv</p>
-            <p className="text-sm text-muted">
-              Vergangene Termine werden im Kalender grau angezeigt und
-              verschwinden nach dieser Frist aus Listen und Kalender
-              (bleiben aber gespeichert; der Dart-Feed ist nicht betroffen).
-            </p>
-          </div>
-          <form action={saveArchiveDays} className="flex items-center gap-2">
-            <input
-              name="archive_days"
-              type="number"
-              min={1}
-              max={365}
-              defaultValue={archiveDays}
-              className={`${inputClass} w-24`}
-            />
-            <span className="text-sm text-muted">Tage</span>
-            <Button type="submit" variant="secondary">
-              Speichern
-            </Button>
-          </form>
-        </CardBody>
-      </Card>
+      <Einklappbar
+        id="admin-termin-archiv"
+        title="🗄️ Automatisches Archiv"
+        defaultOpen={false}
+      >
+        <p className="text-sm text-muted">
+          Vergangene Termine werden im Kalender grau angezeigt und
+          verschwinden nach dieser Frist aus Listen und Kalender (bleiben
+          aber gespeichert; der Dart-Feed ist nicht betroffen).
+        </p>
+        <form action={saveArchiveDays} className="mt-3 flex items-center gap-2">
+          <input
+            name="archive_days"
+            type="number"
+            min={1}
+            max={365}
+            defaultValue={archiveDays}
+            className={`${inputClass} w-24`}
+          />
+          <span className="text-sm text-muted">Tage</span>
+          <Button type="submit" variant="secondary">
+            Speichern
+          </Button>
+        </form>
+      </Einklappbar>
 
-      <Card>
-        <CardBody>
-          {/* Schlüssel wechselt nach dem Speichern → Formular wird geleert */}
-          <form
-            key={gespeichert ?? "neu"}
-            action={createEvent}
-            className="space-y-4"
-          >
-            <h2 className="font-semibold">Neuer Termin</h2>
+      <Einklappbar id="admin-termin-anlegen" title="➕ Neuer Termin">
+        {/* Schlüssel wechselt nach dem Speichern → Formular wird geleert */}
+        <form
+          key={gespeichert ?? "neu"}
+          action={createEvent}
+          className="space-y-4"
+        >
             <div className="grid gap-4 sm:grid-cols-2">
               <Field
                 label="Titel (optional bei Gegner)"
@@ -358,8 +356,7 @@ export default async function AdminEventsPage({
             </label>
             <Button type="submit">Termin anlegen</Button>
           </form>
-        </CardBody>
-      </Card>
+      </Einklappbar>
 
       <section className="space-y-3">
         <h2 className="text-lg font-bold">Kommende Termine</h2>

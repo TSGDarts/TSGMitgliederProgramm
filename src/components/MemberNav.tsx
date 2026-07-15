@@ -34,11 +34,11 @@ export function MemberNav({
   );
 
   return (
-    <nav className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible">
+    <nav className="flex flex-col gap-1">
       {items.map(link)}
       {adminItems && adminItems.length > 0 && (
         <>
-          <div className="my-2 hidden px-3 text-xs font-semibold uppercase tracking-wide text-muted md:block">
+          <div className="my-2 px-3 text-xs font-semibold uppercase tracking-wide text-muted">
             Verwaltung
           </div>
           {adminItems.map(link)}

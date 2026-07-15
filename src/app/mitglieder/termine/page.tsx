@@ -6,7 +6,8 @@ import { siteUrl } from "@/lib/supabase/config";
 import { EventCard } from "@/components/EventCard";
 import { EventsCalendar } from "@/components/EventsCalendar";
 import { CalendarSubscribe } from "@/components/CalendarSubscribe";
-import { PageHeader, EmptyState, Card, CardBody } from "@/components/ui";
+import { Einklappbar } from "@/components/Einklappbar";
+import { PageHeader, EmptyState } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Termine & Zusagen" };
 
@@ -46,42 +47,42 @@ export default async function MemberTerminePage({
         </Link>
       </div>
 
-      <Card className="bg-primary/5">
-        <CardBody className="flex flex-wrap items-center justify-between gap-3">
-          <div className="max-w-xl">
-            <p className="font-semibold">📅 Kalender-Abo fürs Handy</p>
-            <p className="text-sm text-muted">
-              Einmal abonnieren – neue und geänderte Termine kommen dann
-              automatisch in deinen Handy-Kalender. Enthalten sind alle
-              öffentlichen Vereins- und Spieltermine sowie Turniere;
-              Geburtstage und interne Termine bleiben außen vor. Klappt der
-              Knopf nicht, kopiere die Adresse und trage sie in deiner
-              Kalender-App als Abo-Kalender ein.
-            </p>
-          </div>
+      <Einklappbar
+        id="termine-kalender-abo"
+        title="📅 Kalender-Abo fürs Handy"
+        defaultOpen={false}
+      >
+        <p className="text-sm text-muted">
+          Einmal abonnieren – neue und geänderte Termine kommen dann
+          automatisch in deinen Handy-Kalender. Enthalten sind alle
+          öffentlichen Vereins- und Spieltermine sowie Turniere; Geburtstage
+          und interne Termine bleiben außen vor. Klappt der Knopf nicht,
+          kopiere die Adresse und trage sie in deiner Kalender-App als
+          Abo-Kalender ein.
+        </p>
+        <div className="mt-3">
           <CalendarSubscribe icsUrl={`${siteUrl}/api/kalender`} />
-        </CardBody>
-      </Card>
+        </div>
+      </Einklappbar>
 
-      <Card className="bg-primary/5">
-        <CardBody className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="font-semibold">📄 Rahmenterminplan 2026/27 & 2027/28</p>
-            <p className="text-sm text-muted">
-              Der offizielle Rahmenterminplan (Mittelfranken / BDV / DDV) als
-              PDF – die Spielwochen stehen auch unten im Kalender.
-            </p>
-          </div>
-          <a
-            href="/rahmenterminplan.pdf"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-border/40"
-          >
-            PDF öffnen
-          </a>
-        </CardBody>
-      </Card>
+      <Einklappbar
+        id="termine-rahmenterminplan"
+        title="📄 Rahmenterminplan 2026/27 & 2027/28"
+        defaultOpen={false}
+      >
+        <p className="text-sm text-muted">
+          Der offizielle Rahmenterminplan (Mittelfranken / BDV / DDV) als PDF
+          – die Spielwochen stehen auch unten im Kalender.
+        </p>
+        <a
+          href="/rahmenterminplan.pdf"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-border/40"
+        >
+          PDF öffnen
+        </a>
+      </Einklappbar>
 
       {isCalendar ? (
         <EventsCalendar
@@ -118,14 +119,17 @@ async function ListView({ profileId }: { profileId: string }) {
       </section>
 
       {past.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-lg font-bold text-muted">Vergangen</h2>
+        <Einklappbar
+          id="termine-vergangen"
+          title={`Vergangene Termine (${past.length})`}
+          defaultOpen={false}
+        >
           <div className="space-y-3 opacity-70">
             {past.map((event) => (
               <EventCard key={event.id} event={event} />
             ))}
           </div>
-        </section>
+        </Einklappbar>
       )}
     </>
   );

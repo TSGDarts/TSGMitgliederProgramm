@@ -10,6 +10,7 @@ import {
   deleteCompetition,
 } from "./actions";
 import { FlyerUpload } from "@/components/FlyerUpload";
+import { Einklappbar } from "@/components/Einklappbar";
 import {
   PageHeader,
   Card,
@@ -245,17 +246,16 @@ export default async function CompetitionsPage({
 
       {/* Neue Competition (Admins + Kapitäne) */}
       {canManage && !showArchive && (
-        <details className="group rounded-xl border border-border bg-surface">
-          <summary className="cursor-pointer px-5 py-4 font-semibold">
-            ➕ Competition eintragen
-          </summary>
-          <div className="border-t border-border p-5">
-            <form action={createCompetition} className="space-y-4">
-              <CompetitionFields modes={modes} />
-              <Button type="submit">Competition eintragen</Button>
-            </form>
-          </div>
-        </details>
+        <Einklappbar
+          id="competition-eintragen"
+          title="➕ Competition eintragen"
+          defaultOpen={false}
+        >
+          <form action={createCompetition} className="space-y-4">
+            <CompetitionFields modes={modes} />
+            <Button type="submit">Competition eintragen</Button>
+          </form>
+        </Einklappbar>
       )}
 
       {/* Liste */}
