@@ -14,6 +14,17 @@ import {
 
 export const metadata: Metadata = { title: "Mein Profil" };
 
+// Erinnerungen: je Termin-Art wählbare Vorlaufzeiten (in Tagen)
+const ERINNERUNG_ARTEN: { key: string; label: string }[] = [
+  { key: "punktspiele", label: "🎯 Punktspiele (Liga)" },
+  { key: "pokal", label: "🏆 Pokalspiele" },
+  { key: "freundschaft", label: "🤝 Freundschaftsspiele" },
+  { key: "training", label: "💪 Training" },
+  { key: "verein", label: "🏠 Vereinstermine" },
+  { key: "turniere", label: "🏟 Turniere" },
+];
+const ERINNERUNG_TAGE = [1, 2, 3, 7, 14];
+
 export default async function ProfilPage() {
   const profile = await requireProfile();
 
@@ -101,23 +112,38 @@ export default async function ProfilPage() {
               />
               ✉️ Mich zusätzlich per E-Mail benachrichtigen
             </label>
-            <Field
-              label="🏟 Erinnerung vor Turnieren"
-              hint="So viele Tage vor einem Turnier bekommst du eine Erinnerung (Push/E-Mail) – „aus“ = keine."
-            >
-              <select
-                name="notify_turnier_tage"
-                defaultValue={String(profile.notify_turnier_tage ?? 0)}
-                className={inputClass}
-              >
-                <option value="0">aus</option>
-                {[1, 2, 3, 4, 5, 6, 7, 10, 14].map((n) => (
-                  <option key={n} value={n}>
-                    {n === 1 ? "1 Tag vorher" : `${n} Tage vorher`}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">⏰ Erinnerungen vor Terminen</p>
+              <p className="text-xs text-muted">
+                Je Termin-Art anhaken, wie viele Tage vorher du erinnert
+                werden willst – auch mehrfach (z. B. 14, 7 und 1 Tag vorher).
+                Nichts angehakt = keine Erinnerung.
+              </p>
+              <div className="space-y-1.5">
+                {ERINNERUNG_ARTEN.map((art) => {
+                  const gewaehlt =
+                    (profile.notify_erinnerungen ?? {})[art.key] ?? [];
+                  return (
+                    <div
+                      key={art.key}
+                      className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm"
+                    >
+                      <span className="w-44">{art.label}</span>
+                      {ERINNERUNG_TAGE.map((tag) => (
+                        <label key={tag} className="flex items-center gap-1 text-xs">
+                          <input
+                            type="checkbox"
+                            name={`erinnerung_${art.key}_${tag}`}
+                            defaultChecked={gewaehlt.includes(tag)}
+                          />
+                          {tag === 1 ? "1 Tag" : `${tag} Tage`}
+                        </label>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
             <Button type="submit">Speichern</Button>
           </form>
         </CardBody>

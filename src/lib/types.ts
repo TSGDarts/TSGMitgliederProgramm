@@ -32,7 +32,8 @@ export interface Profile {
   training_default_rsvp?: string | null; // ''|yes|maybe|no – Vorbelegung für Trainings
   notify_email?: boolean | null; // Benachrichtigungen zusätzlich per E-Mail
   notify_turnier_woche?: boolean | null; // (alt) Erinnerung 1 Woche vor Turnieren
-  notify_turnier_tage?: number | null; // Erinnerung X Tage vor Turnieren (0 = aus)
+  notify_turnier_tage?: number | null; // (alt) Erinnerung X Tage vor Turnieren
+  notify_erinnerungen?: Record<string, number[]> | null; // z. B. {"turniere":[14,7,1]}
   is_active: boolean;
   created_at: string;
 }
@@ -106,6 +107,25 @@ export interface EventRow {
  */
 export function isCompSpiegel(ev: { source_uid?: string | null }): boolean {
   return (ev.source_uid ?? "").startsWith("comp-app:cd-");
+}
+
+/**
+ * Ordnet einen Termin einer Kategorie zu (für Kalender-Abo und
+ * Erinnerungen): punktspiele, pokal, freundschaft, training,
+ * competitions (gespiegelte Competition-Abende) oder verein.
+ */
+export function eventKategorie(
+  ev: Pick<EventRow, "team_id" | "type" | "source_uid">,
+): string {
+  if (isCompSpiegel(ev)) return "competitions";
+  if (ev.team_id) {
+    if (ev.type === "match") return "punktspiele";
+    if (ev.type === "pokal") return "pokal";
+    if (ev.type === "friendly") return "freundschaft";
+    if (ev.type === "training") return "training";
+  }
+  if (ev.type === "training") return "training";
+  return "verein";
 }
 
 export interface Rsvp {

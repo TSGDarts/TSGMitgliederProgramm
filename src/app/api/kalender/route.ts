@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { formatDate, formatTime } from "@/lib/format";
 import { feiertageBayern } from "@/lib/feiertage";
+import { eventKategorie } from "@/lib/types";
 import type { EventRow } from "@/lib/types";
 import type { Tournament } from "@/lib/extras";
 
@@ -35,19 +36,7 @@ const ALLE_ARTEN = [
 // Feiertage muss man bewusst mit abonnieren.
 const GUELTIGE_ARTEN = [...ALLE_ARTEN, "feiertage"];
 
-/** Ordnet einen Termin einer Abo-Kategorie zu. */
-function eventKategorie(ev: EventRow): string {
-  // Aus der Competition-App gespiegelte Competition-Abende
-  if ((ev.source_uid ?? "").startsWith("comp-app:cd-")) return "competitions";
-  if (ev.team_id) {
-    if (ev.type === "match") return "punktspiele";
-    if (ev.type === "pokal") return "pokal";
-    if (ev.type === "friendly") return "freundschaft";
-    if (ev.type === "training") return "training";
-  }
-  // Vereinsweite Termine + Team-Besprechungen/Sonstiges
-  return "verein";
-}
+// Kategorie-Zuordnung: gemeinsame Funktion eventKategorie aus lib/types
 
 const berlinDay = new Intl.DateTimeFormat("sv-SE", {
   timeZone: "Europe/Berlin",

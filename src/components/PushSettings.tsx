@@ -157,7 +157,7 @@ export function PushSettings() {
       <p className="text-xs text-muted">
         Gilt pro Gerät – Handy und PC also einzeln aktivieren. Benachrichtigt
         wird bei neuen Terminen/Trainings, freigegebenen Aufstellungen und –
-        falls oben eingestellt – vor Turnieren.
+        wie oben eingestellt – als Erinnerung vor Terminen und Turnieren.
       </p>
     </div>
   );

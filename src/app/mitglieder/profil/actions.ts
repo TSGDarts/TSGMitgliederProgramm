@@ -33,10 +33,26 @@ export async function updateProfile(formData: FormData) {
       birthday_congrats,
       training_default_rsvp,
       notify_email: formData.get("notify_email") === "on",
-      notify_turnier_tage: Math.max(
-        0,
-        Math.min(30, Math.round(Number(formData.get("notify_turnier_tage")) || 0)),
-      ),
+      notify_erinnerungen: (() => {
+        // Aus den Checkboxen erinnerung_<art>_<tage> ein Objekt bauen
+        const arten = [
+          "punktspiele",
+          "pokal",
+          "freundschaft",
+          "training",
+          "verein",
+          "turniere",
+        ];
+        const tage = [1, 2, 3, 7, 14];
+        const erinnerungen: Record<string, number[]> = {};
+        for (const art of arten) {
+          const liste = tage.filter(
+            (t) => formData.get(`erinnerung_${art}_${t}`) === "on",
+          );
+          if (liste.length) erinnerungen[art] = liste;
+        }
+        return erinnerungen;
+      })(),
     })
     .eq("id", user.id);
 
