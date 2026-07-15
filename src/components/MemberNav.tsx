@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-type Item = { href: string; label: string };
+type Item = { href: string; label: string; external?: boolean };
 
 function isActive(pathname: string, href: string) {
   if (href === "/mitglieder") return pathname === "/mitglieder";
@@ -19,19 +19,30 @@ export function MemberNav({
 }) {
   const pathname = usePathname();
 
-  const link = (item: Item) => (
-    <Link
-      key={item.href}
-      href={item.href}
-      className={`block whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${
-        isActive(pathname, item.href)
-          ? "bg-primary text-primary-fg"
-          : "text-muted hover:bg-border/40 hover:text-foreground"
-      }`}
-    >
-      {item.label}
-    </Link>
-  );
+  const link = (item: Item) =>
+    item.external ? (
+      <a
+        key={item.href}
+        href={item.href}
+        target="_blank"
+        rel="noreferrer"
+        className="block whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-muted transition hover:bg-border/40 hover:text-foreground"
+      >
+        {item.label} ↗
+      </a>
+    ) : (
+      <Link
+        key={item.href}
+        href={item.href}
+        className={`block whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${
+          isActive(pathname, item.href)
+            ? "bg-primary text-primary-fg"
+            : "text-muted hover:bg-border/40 hover:text-foreground"
+        }`}
+      >
+        {item.label}
+      </Link>
+    );
 
   return (
     <nav className="flex flex-col gap-1">

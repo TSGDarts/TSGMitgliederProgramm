@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-type Item = { href: string; label: string };
+type Item = { href: string; label: string; external?: boolean };
 
 /**
  * Handy-Navigation: ☰-Knopf öffnet eine seitliche Schublade mit allen
@@ -41,20 +41,32 @@ export function MobileMenu({
       ? pathname === "/mitglieder"
       : pathname === href || pathname.startsWith(href + "/");
 
-  const link = (item: Item) => (
-    <Link
-      key={item.href}
-      href={item.href}
-      onClick={() => setOpen(false)}
-      className={`block rounded-lg px-3 py-2.5 text-sm font-medium ${
-        isActive(item.href)
-          ? "bg-primary text-primary-fg"
-          : "text-muted hover:bg-border/40 hover:text-foreground"
-      }`}
-    >
-      {item.label}
-    </Link>
-  );
+  const link = (item: Item) =>
+    item.external ? (
+      <a
+        key={item.href}
+        href={item.href}
+        target="_blank"
+        rel="noreferrer"
+        onClick={() => setOpen(false)}
+        className="block rounded-lg px-3 py-2.5 text-sm font-medium text-muted hover:bg-border/40 hover:text-foreground"
+      >
+        {item.label} ↗
+      </a>
+    ) : (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={() => setOpen(false)}
+        className={`block rounded-lg px-3 py-2.5 text-sm font-medium ${
+          isActive(item.href)
+            ? "bg-primary text-primary-fg"
+            : "text-muted hover:bg-border/40 hover:text-foreground"
+        }`}
+      >
+        {item.label}
+      </Link>
+    );
 
   return (
     <div className="md:hidden">

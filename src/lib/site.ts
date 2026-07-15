@@ -32,6 +32,15 @@ export const memberNav = [
   { href: "/mitglieder/profil", label: "Mein Profil", icon: "user" },
 ];
 
+// Raumbelegung des Hauptvereins (Locaboo) – Reiter nur für
+// Kapitäne/Vize/Bearbeiter/Admins, öffnet direkt die Buchungsseite.
+export const locabooNavItem = {
+  href: "https://booking.locaboo.com/de/tsg-08-roth-e-v/seminarraum",
+  label: "Raumbelegung (Locaboo)",
+  icon: "building",
+  external: true,
+};
+
 export const adminNav = [
   { href: "/mitglieder/admin/saisons", label: "Saisonplanung", icon: "shield" },
   { href: "/mitglieder/admin/beitritt", label: "Selbst-Anmeldung (Link/QR)", icon: "shield" },
