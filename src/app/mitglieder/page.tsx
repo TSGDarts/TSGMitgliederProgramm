@@ -86,6 +86,11 @@ export default async function DashboardPage({
       )}
 
       <section>
+        <h2 className="mb-4 text-lg font-bold">Kalender</h2>
+        <EventsCalendar base="/mitglieder" monat={monat} team={team} />
+      </section>
+
+      <section>
         <div className="mb-4 flex items-end justify-between">
           <h2 className="text-lg font-bold">Nächste Termine</h2>
           <Link
@@ -107,11 +112,6 @@ export default async function DashboardPage({
             ))}
           </div>
         )}
-      </section>
-
-      <section>
-        <h2 className="mb-4 text-lg font-bold">Kalender</h2>
-        <EventsCalendar base="/mitglieder" monat={monat} team={team} />
       </section>
     </div>
   );

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getAllTeams } from "@/lib/member-queries";
 import { formatTime } from "@/lib/format";
-import type { EventRow, EventType } from "@/lib/types";
+import { CalendarEventChip } from "@/components/CalendarEventChip";
+import type { EventRow, EventType, RsvpStatus } from "@/lib/types";
 
 // Monats-Kalender mit Mannschafts-Filter. Wiederverwendbar:
 // "base" ist die Seite, auf der er eingebettet ist (Links bleiben dort).
@@ -93,6 +94,22 @@ export async function EventsCalendar({
     const list = byDay.get(key) ?? [];
     list.push(ev);
     byDay.set(key, list);
+  }
+
+  // Eigene Zu-/Absagen für die angezeigten Termine
+  const statusMap = new Map<string, RsvpStatus>();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user && events.length) {
+    const { data: rsvps } = await supabase
+      .from("rsvps")
+      .select("event_id,status")
+      .eq("profile_id", user.id)
+      .in("event_id", events.map((e) => e.id));
+    for (const r of rsvps ?? []) {
+      statusMap.set(r.event_id as string, r.status as RsvpStatus);
+    }
   }
 
   const todayKey = berlinDay.format(new Date());
@@ -196,23 +213,19 @@ export async function EventsCalendar({
                   </div>
                   <div className="space-y-1">
                     {dayEvents.map((ev) => (
-                      <Link
+                      <CalendarEventChip
                         key={ev.id}
-                        href={`/mitglieder/termine/${ev.id}`}
-                        title={`${formatTime(ev.starts_at)} Uhr – ${ev.title}${
-                          ev.location ? ` (${ev.location})` : ""
-                        }`}
-                        className={`block truncate rounded px-1.5 py-0.5 text-xs hover:opacity-80 ${
-                          eventChipClass[ev.type]
-                        }`}
-                      >
-                        {formatTime(ev.starts_at) !== "00:00" && (
-                          <span className="font-semibold">
-                            {formatTime(ev.starts_at)}{" "}
-                          </span>
-                        )}
-                        {ev.title}
-                      </Link>
+                        eventId={ev.id}
+                        title={ev.title}
+                        time={
+                          formatTime(ev.starts_at) !== "00:00"
+                            ? formatTime(ev.starts_at)
+                            : ""
+                        }
+                        location={ev.location ?? ""}
+                        chipClass={eventChipClass[ev.type]}
+                        myStatus={statusMap.get(ev.id) ?? null}
+                      />
                     ))}
                   </div>
                 </div>
@@ -234,7 +247,8 @@ export async function EventsCalendar({
           Training
         </span>{" "}
         <span className="rounded bg-border/70 px-1.5 py-0.5">Sonstiges</span> ·
-        Termin antippen für Details & Zu-/Absage.
+        Termin antippen für Zu-/Absage direkt im Kalender · ✓/~/✗ = deine
+        Antwort.
       </p>
     </section>
   );
