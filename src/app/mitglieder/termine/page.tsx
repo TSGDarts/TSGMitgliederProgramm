@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
 import { getMemberEvents } from "@/lib/member-queries";
+import { siteUrl } from "@/lib/supabase/config";
 import { EventCard } from "@/components/EventCard";
 import { EventsCalendar } from "@/components/EventsCalendar";
+import { CalendarSubscribe } from "@/components/CalendarSubscribe";
 import { PageHeader, EmptyState, Card, CardBody } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Termine & Zusagen" };
@@ -43,6 +45,23 @@ export default async function MemberTerminePage({
           🗓️ Kalender
         </Link>
       </div>
+
+      <Card className="bg-primary/5">
+        <CardBody className="flex flex-wrap items-center justify-between gap-3">
+          <div className="max-w-xl">
+            <p className="font-semibold">📅 Kalender-Abo fürs Handy</p>
+            <p className="text-sm text-muted">
+              Einmal abonnieren – neue und geänderte Termine kommen dann
+              automatisch in deinen Handy-Kalender. Enthalten sind alle
+              öffentlichen Vereins- und Spieltermine sowie Turniere;
+              Geburtstage und interne Termine bleiben außen vor. Klappt der
+              Knopf nicht, kopiere die Adresse und trage sie in deiner
+              Kalender-App als Abo-Kalender ein.
+            </p>
+          </div>
+          <CalendarSubscribe icsUrl={`${siteUrl}/api/kalender`} />
+        </CardBody>
+      </Card>
 
       <Card className="bg-primary/5">
         <CardBody className="flex flex-wrap items-center justify-between gap-3">

@@ -1,0 +1,183 @@
+import { NextResponse } from "next/server";
+import { createAdminSupabase } from "@/lib/supabase/admin";
+import { formatDate, formatTime } from "@/lib/format";
+import type { EventRow } from "@/lib/types";
+import type { Tournament } from "@/lib/extras";
+
+// Öffentlicher Abo-Kalender (ICS, ohne Login abrufbar): alle ÖFFENTLICHEN
+// Vereins- und Mannschaftstermine plus Turniere. Enthält bewusst KEINE
+// Geburtstage und keine internen Termine – die Adresse kann geteilt werden.
+export const dynamic = "force-dynamic";
+
+const berlinDay = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: "Europe/Berlin",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+const berlinTime = new Intl.DateTimeFormat("de-DE", {
+  timeZone: "Europe/Berlin",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function icsEscape(s: string): string {
+  return s
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\r?\n/g, "\\n");
+}
+
+/** ISO-Zeitpunkt als ICS-UTC-Stempel, z. B. 20260918T173000Z */
+function utcStamp(iso: string): string {
+  return new Date(iso)
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z$/, "Z");
+}
+
+/** Berliner Kalendertag als ICS-Datum, z. B. 20260918 */
+function dayStamp(iso: string): string {
+  return berlinDay.format(new Date(iso)).replace(/-/g, "");
+}
+
+/** Folgetag (für DTEND ganztägiger Termine; +36h ist sicher über DST-Wechsel) */
+function nextDayStamp(iso: string): string {
+  return berlinDay
+    .format(new Date(new Date(iso).getTime() + 36 * 3600e3))
+    .replace(/-/g, "");
+}
+
+/** RFC 5545: lange Zeilen falten (Fortsetzungszeilen beginnen mit Leerzeichen) */
+function fold(line: string): string {
+  let out = "";
+  let rest = line;
+  while (rest.length > 74) {
+    out += rest.slice(0, 74) + "\r\n ";
+    rest = rest.slice(74);
+  }
+  return out + rest;
+}
+
+export async function GET() {
+  let admin;
+  try {
+    admin = createAdminSupabase();
+  } catch {
+    return NextResponse.json(
+      { error: "Kalender nicht konfiguriert." },
+      { status: 503 },
+    );
+  }
+
+  // Ein Jahr zurück, damit Abo-Kalender auch die jüngere Vergangenheit zeigen
+  const seit = new Date(Date.now() - 366 * 864e5).toISOString();
+
+  const [{ data: eventData }, { data: tourData }] = await Promise.all([
+    admin
+      .from("events")
+      .select("*")
+      .eq("is_public", true)
+      .gte("starts_at", seit)
+      .order("starts_at"),
+    admin
+      .from("tournaments")
+      .select("*")
+      .gte("starts_at", seit)
+      .order("starts_at"),
+  ]);
+
+  const stamp = utcStamp(new Date().toISOString());
+  const lines: string[] = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//TSG 08 Roth Dart//Mitglieder-App//DE",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "X-WR-CALNAME:TSG 08 Roth Dart",
+    "X-WR-TIMEZONE:Europe/Berlin",
+  ];
+
+  function pushEvent(o: {
+    uid: string;
+    start: string;
+    end?: string | null;
+    allDay: boolean;
+    summary: string;
+    location?: string | null;
+    description?: string;
+  }) {
+    lines.push("BEGIN:VEVENT", `UID:${o.uid}`, `DTSTAMP:${stamp}`);
+    if (o.allDay) {
+      lines.push(`DTSTART;VALUE=DATE:${dayStamp(o.start)}`);
+      lines.push(`DTEND;VALUE=DATE:${nextDayStamp(o.end ?? o.start)}`);
+    } else {
+      lines.push(`DTSTART:${utcStamp(o.start)}`);
+      if (o.end) lines.push(`DTEND:${utcStamp(o.end)}`);
+    }
+    lines.push(`SUMMARY:${icsEscape(o.summary)}`);
+    if (o.location) lines.push(`LOCATION:${icsEscape(o.location)}`);
+    if (o.description) lines.push(`DESCRIPTION:${icsEscape(o.description)}`);
+    lines.push("END:VEVENT");
+  }
+
+  for (const ev of ((eventData as EventRow[]) ?? [])) {
+    const allDay =
+      !!ev.time_tbd || berlinTime.format(new Date(ev.starts_at)) === "00:00";
+    const description = [
+      ev.time_tbd ? "⏳ Genaue Uhrzeit folgt noch" : "",
+      ev.description ?? "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    pushEvent({
+      uid: `event-${ev.id}@tsg08roth-dart`,
+      start: ev.starts_at,
+      end: ev.ends_at,
+      allDay,
+      summary: ev.title,
+      location: ev.location,
+      description,
+    });
+  }
+
+  for (const t of ((tourData as Tournament[]) ?? [])) {
+    // Von Hand archivierte Turniere („Anzeigen bis“ vor dem Turniertag) auslassen
+    const startKey = berlinDay.format(new Date(t.starts_at));
+    if (t.display_until && t.display_until < startKey) continue;
+    const allDay =
+      !!t.details_tbd || berlinTime.format(new Date(t.starts_at)) === "00:00";
+    const description = t.details_tbd
+      ? "⏳ Details folgen"
+      : [
+          t.doors_time ? `Einlass ab ${t.doors_time} Uhr` : "",
+          t.entry_deadline
+            ? `Meldeschluss: ${formatDate(t.entry_deadline)}, ${formatTime(t.entry_deadline)} Uhr`
+            : "",
+          t.register_url ? `Anmeldung: ${t.register_url}` : "",
+        ]
+        .filter(Boolean)
+        .join("\n");
+    pushEvent({
+      uid: `tournament-${t.id}@tsg08roth-dart`,
+      start: t.starts_at,
+      end: t.ends_at,
+      allDay,
+      summary: `🏟 ${t.title}`,
+      location: t.location,
+      description,
+    });
+  }
+
+  lines.push("END:VCALENDAR");
+
+  return new NextResponse(lines.map(fold).join("\r\n") + "\r\n", {
+    headers: {
+      "Content-Type": "text/calendar; charset=utf-8",
+      "Content-Disposition": 'inline; filename="tsg-dart-termine.ics"',
+      "Cache-Control": "public, max-age=300",
+    },
+  });
+}
