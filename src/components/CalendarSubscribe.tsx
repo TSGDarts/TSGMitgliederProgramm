@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from "react";
 
-const ARTEN: { key: string; label: string; teamwahl?: boolean }[] = [
+const ARTEN: {
+  key: string;
+  label: string;
+  teamwahl?: boolean;
+  standard?: boolean; // false = im Abo standardmäßig abgewählt
+}[] = [
   { key: "punktspiele", label: "🎯 Punktspiele (Liga)" },
   { key: "pokal", label: "🏆 Pokalspiele", teamwahl: true },
   { key: "freundschaft", label: "🤝 Freundschaftsspiele", teamwahl: true },
@@ -10,6 +15,7 @@ const ARTEN: { key: string; label: string; teamwahl?: boolean }[] = [
   { key: "verein", label: "🏠 Vereinstermine (Feste, Besprechungen …)" },
   { key: "turniere", label: "🏟 Turniere im Umkreis" },
   { key: "competitions", label: "🎯 Unsere Competition-Abende" },
+  { key: "feiertage", label: "⭐ Feiertage in Bayern", standard: false },
 ];
 
 /**
@@ -28,16 +34,27 @@ export function CalendarSubscribe({
   const [copied, setCopied] = useState(false);
   const [team, setTeam] = useState("");
   const [arten, setArten] = useState<Set<string>>(
-    new Set(ARTEN.map((a) => a.key)),
+    new Set(ARTEN.filter((a) => a.standard !== false).map((a) => a.key)),
   );
   // Kategorien, die trotz Mannschafts-Filter von ALLEN Mannschaften kommen
   const [trotzTeam, setTrotzTeam] = useState<Set<string>>(new Set());
 
-  const alleGewaehlt = arten.size === ARTEN.length;
   const url = useMemo(() => {
     const params = new URLSearchParams();
     if (team) params.set("team", team);
-    if (!alleGewaehlt) params.set("arten", ARTEN.map((a) => a.key).filter((k) => arten.has(k)).join(","));
+    // Nur mitschicken, wenn die Auswahl vom Standard abweicht
+    const standardKeys = ARTEN.filter((a) => a.standard !== false).map(
+      (a) => a.key,
+    );
+    const istStandard =
+      arten.size === standardKeys.length &&
+      standardKeys.every((k) => arten.has(k));
+    if (!istStandard) {
+      params.set(
+        "arten",
+        ARTEN.map((a) => a.key).filter((k) => arten.has(k)).join(","),
+      );
+    }
     if (team) {
       const alle = ARTEN.map((a) => a.key).filter(
         (k) => trotzTeam.has(k) && arten.has(k),
@@ -46,7 +63,7 @@ export function CalendarSubscribe({
     }
     const qs = params.toString();
     return qs ? `${icsUrl}?${qs}` : icsUrl;
-  }, [icsUrl, team, arten, alleGewaehlt, trotzTeam]);
+  }, [icsUrl, team, arten, trotzTeam]);
 
   const webcalUrl = url.replace(/^https?:\/\//i, "webcal://");
 

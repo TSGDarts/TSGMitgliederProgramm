@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { formatDate, formatTime } from "@/lib/format";
+import { feiertageBayern } from "@/lib/feiertage";
 import type { EventRow } from "@/lib/types";
 import type { Tournament } from "@/lib/extras";
 
@@ -26,6 +27,10 @@ const ALLE_ARTEN = [
   "turniere",
   "competitions",
 ] as const;
+
+// Zusätzlich wählbar, aber NICHT im Standard (ohne ?arten-Parameter):
+// Feiertage muss man bewusst mit abonnieren.
+const GUELTIGE_ARTEN = [...ALLE_ARTEN, "feiertage"];
 
 /** Ordnet einen Termin einer Abo-Kategorie zu. */
 function eventKategorie(ev: EventRow): string {
@@ -110,7 +115,7 @@ export async function GET(request: Request) {
   const artenRaw = (params.get("arten") ?? "").trim();
   const arten = new Set(
     artenRaw
-      ? artenRaw.split(",").filter((a) => (ALLE_ARTEN as readonly string[]).includes(a))
+      ? artenRaw.split(",").filter((a) => GUELTIGE_ARTEN.includes(a))
       : ALLE_ARTEN,
   );
   // Kategorien, die trotz Mannschafts-Filter von allen Mannschaften kommen
@@ -236,6 +241,22 @@ export async function GET(request: Request) {
       location: t.location,
       description,
     });
+  }
+
+  // Feiertage in Bayern (nur wenn ausdrücklich mit abonniert)
+  if (arten.has("feiertage")) {
+    const jahrStart = new Date(seit).getUTCFullYear();
+    const jahrEnde = new Date().getUTCFullYear() + 2;
+    for (let jahr = jahrStart; jahr <= jahrEnde; jahr++) {
+      for (const f of feiertageBayern(jahr)) {
+        pushEvent({
+          uid: `feiertag-${f.datum}@tsg08roth-dart`,
+          start: f.datum,
+          allDay: true,
+          summary: `⭐ ${f.name}`,
+        });
+      }
+    }
   }
 
   lines.push("END:VCALENDAR");

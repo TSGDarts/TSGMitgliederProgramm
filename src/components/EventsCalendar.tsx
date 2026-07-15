@@ -6,6 +6,7 @@ import { formatTime } from "@/lib/format";
 import { CalendarEventChip } from "@/components/CalendarEventChip";
 import { MonthPicker } from "@/components/MonthPicker";
 import { isCompSpiegel } from "@/lib/types";
+import { feiertageBayern } from "@/lib/feiertage";
 import type { EventRow, EventType, RsvpStatus } from "@/lib/types";
 import type { Tournament } from "@/lib/extras";
 
@@ -242,6 +243,16 @@ export async function EventsCalendar({
     }
   }
 
+  // Gesetzliche Feiertage in Bayern (berechnet – reine Anzeige, kein Sync)
+  const feiertagByDay = new Map<string, string>();
+  for (
+    let jahr = new Date(gridStart).getUTCFullYear();
+    jahr <= new Date(gridEnd).getUTCFullYear();
+    jahr++
+  ) {
+    for (const f of feiertageBayern(jahr)) feiertagByDay.set(f.datum, f.name);
+  }
+
   const todayKey = berlinDay.format(new Date());
   const prev = addMonth(y, m, -1);
   const next = addMonth(y, m, 1);
@@ -346,6 +357,14 @@ export async function EventsCalendar({
                   <div
                     className={`space-y-1 ${isPast ? "opacity-50 grayscale" : ""}`}
                   >
+                    {feiertagByDay.has(key) && (
+                      <div
+                        title={`${feiertagByDay.get(key)} – gesetzlicher Feiertag in Bayern`}
+                        className="truncate rounded bg-teal-600/15 px-1.5 py-0.5 text-xs text-teal-600"
+                      >
+                        ⭐ {feiertagByDay.get(key)}
+                      </div>
+                    )}
                     {(birthdayByDay.get(key) ?? []).map((b) => (
                       <div
                         key={`bday-${b.name}`}
@@ -422,6 +441,9 @@ export async function EventsCalendar({
         <span className="rounded bg-border/70 px-1.5 py-0.5">Sonstiges</span>{" "}
         <span className="rounded bg-sky-600/15 px-1.5 py-0.5 text-sky-600">
           🏟 Turnier
+        </span>{" "}
+        <span className="rounded bg-teal-600/15 px-1.5 py-0.5 text-teal-600">
+          ⭐ Feiertag
         </span>{" "}
         <span className="rounded bg-purple-600/15 px-1.5 py-0.5 text-purple-600">
           🎂 Geburtstag
