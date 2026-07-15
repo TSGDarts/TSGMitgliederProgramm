@@ -123,6 +123,7 @@ export async function createEvent(formData: FormData) {
       meet_home_time: String(formData.get("meet_home_time") ?? "").trim(),
       meet_venue_time: String(formData.get("meet_venue_time") ?? "").trim(),
       is_public: formData.get("is_public") === "on",
+      time_tbd: formData.get("time_tbd") === "on",
       source: "manual",
       created_by: profile.id,
     })
@@ -178,6 +179,7 @@ export async function updateEvent(formData: FormData) {
       meet_home_time: String(formData.get("meet_home_time") ?? "").trim(),
       meet_venue_time: String(formData.get("meet_venue_time") ?? "").trim(),
       is_public: formData.get("is_public") === "on",
+      time_tbd: formData.get("time_tbd") === "on",
     })
     .eq("id", id);
 

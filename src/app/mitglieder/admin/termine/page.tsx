@@ -20,7 +20,7 @@ import {
   type Profile,
   type Opponent,
 } from "@/lib/types";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Termine verwalten" };
 
@@ -259,6 +259,13 @@ export default async function AdminEventsPage() {
               <input type="checkbox" name="is_public" defaultChecked />
               Im öffentlichen Kalender anzeigen
             </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="time_tbd" />
+              ⏳ Genaue Uhrzeit noch nicht bekannt – „Uhrzeit folgt“ anzeigen
+              <span className="text-xs text-muted">
+                (oben trotzdem eine ungefähre Zeit wählen)
+              </span>
+            </label>
             <Button type="submit">Termin anlegen</Button>
           </form>
         </CardBody>
@@ -291,7 +298,9 @@ export default async function AdminEventsPage() {
                       <span className="font-medium">{ev.title}</span>
                     </div>
                     <p className="mt-1 text-sm text-muted">
-                      {formatDateTime(ev.starts_at)}
+                      {ev.time_tbd
+                        ? `${formatDate(ev.starts_at)} – ⏳ Uhrzeit folgt`
+                        : formatDateTime(ev.starts_at)}
                       {ev.location ? ` · ${ev.location}` : ""}
                     </p>
                   </div>
@@ -416,6 +425,15 @@ export default async function AdminEventsPage() {
                         defaultChecked={ev.is_public}
                       />
                       Im öffentlichen Kalender anzeigen
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        name="time_tbd"
+                        defaultChecked={ev.time_tbd ?? false}
+                      />
+                      ⏳ Genaue Uhrzeit noch nicht bekannt – „Uhrzeit folgt“
+                      anzeigen
                     </label>
                     <Button type="submit">Änderungen speichern</Button>
                   </form>

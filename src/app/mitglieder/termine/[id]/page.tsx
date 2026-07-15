@@ -14,7 +14,7 @@ import {
   RSVP_LABELS,
   type RsvpStatus,
 } from "@/lib/types";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 
 const groups: { key: RsvpStatus | "open"; label: string; tone: string }[] = [
   { key: "yes", label: "Zusagen", tone: "text-ok" },
@@ -58,7 +58,11 @@ export default async function EventDetailPage({
 
       <PageHeader
         title={event.title}
-        subtitle={formatDateTime(event.starts_at)}
+        subtitle={
+          event.time_tbd
+            ? `${formatDate(event.starts_at)} – ⏳ genaue Uhrzeit folgt`
+            : formatDateTime(event.starts_at)
+        }
       />
 
       {event.location && (

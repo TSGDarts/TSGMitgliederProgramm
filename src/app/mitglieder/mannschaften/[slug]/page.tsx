@@ -162,6 +162,10 @@ export default async function MemberTeamDetailPage({
                   <input type="checkbox" name="is_public" defaultChecked />
                   Im öffentlichen Kalender anzeigen
                 </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="time_tbd" />
+                  ⏳ Genaue Uhrzeit noch nicht bekannt – „Uhrzeit folgt“ anzeigen
+                </label>
                 <Button type="submit">Termin anlegen</Button>
               </form>
             </CardBody>
@@ -183,7 +187,10 @@ export default async function MemberTeamDetailPage({
                           <span className="font-medium">{ev.title}</span>
                         </div>
                         <p className="mt-1 text-sm text-muted">
-                          {formatDate(ev.starts_at)} · {formatTime(ev.starts_at)} Uhr
+                          {formatDate(ev.starts_at)} ·{" "}
+                          {ev.time_tbd
+                            ? "⏳ Uhrzeit folgt"
+                            : `${formatTime(ev.starts_at)} Uhr`}
                           {ev.location ? ` · ${ev.location}` : ""}
                         </p>
                       </div>
@@ -269,6 +276,15 @@ export default async function MemberTeamDetailPage({
                             defaultChecked={ev.is_public}
                           />
                           Im öffentlichen Kalender anzeigen
+                        </label>
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            name="time_tbd"
+                            defaultChecked={ev.time_tbd ?? false}
+                          />
+                          ⏳ Genaue Uhrzeit noch nicht bekannt – „Uhrzeit
+                          folgt“ anzeigen
                         </label>
                         <Button type="submit">Änderungen speichern</Button>
                       </form>

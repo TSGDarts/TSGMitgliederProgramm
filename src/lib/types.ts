@@ -80,6 +80,7 @@ export interface EventRow {
   type: EventType;
   starts_at: string;
   ends_at: string | null;
+  time_tbd?: boolean | null; // genaue Uhrzeit noch nicht bekannt
   source: "manual" | "nuliga";
   source_uid: string | null;
   is_public: boolean;

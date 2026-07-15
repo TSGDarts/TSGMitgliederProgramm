@@ -54,7 +54,6 @@ export async function GET() {
     { data: gamesData },
     { data: teamsData },
     { data: oppsData },
-    { data: clubEventsData },
   ] = await Promise.all([
     admin
       .from("competition_dates")
@@ -84,16 +83,17 @@ export async function GET() {
       .order("starts_at", { ascending: true }),
     admin.from("teams").select("id, name"),
     admin.from("opponents").select("id, name"),
-    // Öffentliche Vereinstermine (z. B. Sommerfest): vereinsweit (ohne Mannschaft), Art "other" –
-    // Besprechungen ('meeting'), Training und Mannschafts-Termine bleiben damit sicher draußen.
-    admin
-      .from("events")
-      .select("*")
-      .is("team_id", null)
-      .eq("is_public", true)
-      .eq("type", "other")
-      .order("starts_at", { ascending: true }),
   ]);
+
+  // Öffentliche Vereinstermine (team_id leer, keine Besprechungen)
+  const { data: clubEventsData } = await admin
+    .from("events")
+    .select("*")
+    .is("team_id", null)
+    .eq("is_public", true)
+    .neq("type", "meeting")
+    .gte("starts_at", new Date(Date.now() - 26 * 3600e3).toISOString())
+    .order("starts_at", { ascending: true });
 
   const kommendeCompetitions = (compData ?? []).map((c) => {
     const out: Record<string, unknown> = { datum: c.date as string };
@@ -156,7 +156,7 @@ export async function GET() {
     if (datum < today) return [];
     const out: Record<string, unknown> = { datum };
     const uhrzeit = berlinTime.format(start);
-    if (uhrzeit !== "00:00") out.uhrzeit = uhrzeit;
+    if (!ev.time_tbd && uhrzeit !== "00:00") out.uhrzeit = uhrzeit;
     const mannschaft = ev.team_id ? teamNameById.get(ev.team_id) : undefined;
     if (mannschaft) out.mannschaft = mannschaft;
     if (ev.opponent_id) {
@@ -172,17 +172,15 @@ export async function GET() {
     return [out];
   });
 
-  // Öffentliche Vereinstermine – die Competition-App zeigt sie in der Termin-Übersicht
-  // (mit 🔗 „gesynct" markiert); auch vergangene mitliefern, damit ihr Archiv dort erhalten bleibt.
-  const termine = ((clubEventsData as EventRow[]) ?? []).map((ev) => {
+  // Öffentliche Vereinstermine (z. B. Sommerfest) – keine Besprechungen
+  const termine = (((clubEventsData as EventRow[]) ?? [])).flatMap((ev) => {
     const start = new Date(ev.starts_at);
-    const out: Record<string, unknown> = {
-      datum: berlinDate.format(start),
-      text: ev.title,
-    };
+    const datum = berlinDate.format(start);
+    if (datum < today) return [];
+    const out: Record<string, unknown> = { datum, text: ev.title };
     const zeit = berlinTime.format(start);
-    if (zeit !== "00:00") out.zeit = zeit;
-    return out;
+    if (!ev.time_tbd && zeit !== "00:00") out.zeit = zeit;
+    return [out];
   });
 
   return NextResponse.json(

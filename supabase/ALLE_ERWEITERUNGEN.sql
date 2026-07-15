@@ -1,7 +1,7 @@
 -- =====================================================================
 -- SAMMEL-SKRIPT: Alle Datenbank-Erweiterungen in einem Rutsch
 -- ---------------------------------------------------------------------
--- Führt die Skripte 02 bis 23 zusammen aus (OHNE 06_rahmentermine -
+-- Führt die Skripte 02 bis 24 zusammen aus (OHNE 06_rahmentermine -
 -- die Rahmentermine wurden auf Wunsch entfernt). Kann GEFAHRLOS
 -- mehrfach ausgeführt werden.
 -- (Voraussetzung: schema.sql wurde einmal ausgeführt.)
@@ -768,3 +768,14 @@ alter table public.member_invites
   add column if not exists birthday date;
 alter table public.member_invites
   add column if not exists birthday_public boolean not null default false;
+
+-- ###################### 24_uhrzeit_folgt.sql ######################
+
+-- =====================================================================
+-- Erweiterung: "Genaue Uhrzeit folgt noch" bei Terminen
+-- ---------------------------------------------------------------------
+-- Im Supabase SQL-Editor EINMALIG ausführen.
+-- =====================================================================
+
+alter table public.events
+  add column if not exists time_tbd boolean not null default false;

@@ -61,6 +61,7 @@ export async function createTeamEvent(slug: string, formData: FormData) {
     location: String(formData.get("location") ?? "").trim(),
     description: String(formData.get("description") ?? "").trim(),
     is_public: formData.get("is_public") === "on",
+    time_tbd: formData.get("time_tbd") === "on",
     source: "manual",
     created_by: userId,
   });
@@ -93,6 +94,7 @@ export async function updateTeamEvent(slug: string, formData: FormData) {
       location: String(formData.get("location") ?? "").trim(),
       description: String(formData.get("description") ?? "").trim(),
       is_public: formData.get("is_public") === "on",
+      time_tbd: formData.get("time_tbd") === "on",
     })
     .eq("id", eventId)
     .eq("team_id", teamId);

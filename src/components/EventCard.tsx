@@ -32,7 +32,14 @@ export function EventCard({ event }: { event: EventWithStatus }) {
               {event.title}
             </Link>
             <p className="mt-0.5 text-sm text-muted">
-              {formatDate(event.starts_at)} · Start {formatTime(event.starts_at)} Uhr
+              {formatDate(event.starts_at)} ·{" "}
+              {event.time_tbd ? (
+                <span className="font-medium text-warn">
+                  ⏳ Genaue Uhrzeit folgt
+                </span>
+              ) : (
+                <>Start {formatTime(event.starts_at)} Uhr</>
+              )}
             </p>
             {(event.meet_home_time || event.meet_venue_time) && (
               <p className="mt-0.5 text-sm text-muted">

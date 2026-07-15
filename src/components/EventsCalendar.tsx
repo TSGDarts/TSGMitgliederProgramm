@@ -262,7 +262,7 @@ export async function EventsCalendar({
                         eventId={ev.id}
                         title={ev.title}
                         time={
-                          formatTime(ev.starts_at) !== "00:00"
+                          !ev.time_tbd && formatTime(ev.starts_at) !== "00:00"
                             ? formatTime(ev.starts_at)
                             : ""
                         }
