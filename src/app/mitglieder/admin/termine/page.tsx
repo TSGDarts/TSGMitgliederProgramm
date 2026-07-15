@@ -326,19 +326,28 @@ export default async function AdminEventsPage({
                   ))}
                 </select>
               </Field>
-              <Field label="Datum & Startzeit">
+              <Field label="Datum">
                 <input
-                  name="starts_at"
-                  type="datetime-local"
+                  name="starts_date"
+                  type="date"
                   required
                   className={inputClass}
                 />
               </Field>
               <Field
-                label="Ende (optional)"
-                hint="Für längere oder mehrtägige Termine – z. B. ein Fest oder Wochenende"
+                label="Startzeit (optional)"
+                hint="Leer lassen = „Uhrzeit folgt“"
               >
-                <input name="ends_at" type="datetime-local" className={inputClass} />
+                <input name="starts_time" type="time" className={inputClass} />
+              </Field>
+              <Field
+                label="Ende – Datum (optional)"
+                hint="Für mehrtägige Termine – z. B. ein Fest-Wochenende"
+              >
+                <input name="ends_date" type="date" className={inputClass} />
+              </Field>
+              <Field label="Ende – Uhrzeit (optional)">
+                <input name="ends_time" type="time" className={inputClass} />
               </Field>
               <Field label="Treffpunkt bei der TSG (optional)" hint="z. B. zum gemeinsamen Fahren">
                 <input name="meet_home_time" type="time" className={inputClass} />
@@ -388,7 +397,7 @@ export default async function AdminEventsPage({
               <input type="checkbox" name="time_tbd" />
               ⏳ Genaue Uhrzeit noch nicht bekannt – „Uhrzeit folgt“ anzeigen
               <span className="text-xs text-muted">
-                (oben trotzdem eine ungefähre Zeit wählen)
+                (wird automatisch gesetzt, wenn die Startzeit leer bleibt)
               </span>
             </label>
             <label className="flex items-center gap-2 text-sm">
@@ -530,24 +539,58 @@ export default async function AdminEventsPage({
                           ))}
                         </select>
                       </Field>
-                      <Field label="Datum & Startzeit">
+                      <Field label="Datum">
                         <input
-                          name="starts_at"
-                          type="datetime-local"
+                          name="starts_date"
+                          type="date"
                           required
-                          defaultValue={berlinISOToLocalInput(ev.starts_at)}
+                          defaultValue={berlinISOToLocalInput(
+                            ev.starts_at,
+                          ).slice(0, 10)}
                           className={inputClass}
                         />
                       </Field>
                       <Field
-                        label="Ende (optional)"
-                        hint="Für längere oder mehrtägige Termine"
+                        label="Startzeit (optional)"
+                        hint="Leer lassen = „Uhrzeit folgt“"
                       >
                         <input
-                          name="ends_at"
-                          type="datetime-local"
+                          name="starts_time"
+                          type="time"
                           defaultValue={
-                            ev.ends_at ? berlinISOToLocalInput(ev.ends_at) : ""
+                            berlinISOToLocalInput(ev.starts_at).slice(11) !==
+                            "00:00"
+                              ? berlinISOToLocalInput(ev.starts_at).slice(11)
+                              : ""
+                          }
+                          className={inputClass}
+                        />
+                      </Field>
+                      <Field
+                        label="Ende – Datum (optional)"
+                        hint="Für mehrtägige Termine"
+                      >
+                        <input
+                          name="ends_date"
+                          type="date"
+                          defaultValue={
+                            ev.ends_at
+                              ? berlinISOToLocalInput(ev.ends_at).slice(0, 10)
+                              : ""
+                          }
+                          className={inputClass}
+                        />
+                      </Field>
+                      <Field label="Ende – Uhrzeit (optional)">
+                        <input
+                          name="ends_time"
+                          type="time"
+                          defaultValue={
+                            ev.ends_at &&
+                            berlinISOToLocalInput(ev.ends_at).slice(11) !==
+                              "00:00"
+                              ? berlinISOToLocalInput(ev.ends_at).slice(11)
+                              : ""
                           }
                           className={inputClass}
                         />
@@ -638,6 +681,10 @@ export default async function AdminEventsPage({
                       />
                       ⏳ Genaue Uhrzeit noch nicht bekannt – „Uhrzeit folgt“
                       anzeigen
+                      <span className="text-xs text-muted">
+                        (wird automatisch gesetzt, wenn die Startzeit leer
+                        bleibt)
+                      </span>
                     </label>
                     <label className="flex items-center gap-2 text-sm">
                       <input

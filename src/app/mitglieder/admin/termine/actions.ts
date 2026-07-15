@@ -102,6 +102,38 @@ function fertigMitErfolg(): never {
   redirect(`/mitglieder/admin/termine?gespeichert=${Date.now()}`);
 }
 
+/**
+ * Liest Datum/Startzeit/Ende aus dem Formular. Die Startzeit ist optional
+ * (leer = 00:00 + „Uhrzeit folgt“); das Ende besteht aus eigenem Datum
+ * und eigener Uhrzeit, beides optional.
+ */
+function readZeitraum(formData: FormData) {
+  const datum = String(formData.get("starts_date") ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datum)) {
+    abbruchMitFehler("Bitte ein Datum angeben.");
+  }
+  const zeitRaw = String(formData.get("starts_time") ?? "").trim();
+  const zeitLeer = !/^\d{2}:\d{2}$/.test(zeitRaw);
+  const starts_at = berlinLocalToISO(`${datum}T${zeitLeer ? "00:00" : zeitRaw}`)!;
+
+  const endDatumRaw = String(formData.get("ends_date") ?? "").trim();
+  const endZeitRaw = String(formData.get("ends_time") ?? "").trim();
+  const endDatumOk = /^\d{4}-\d{2}-\d{2}$/.test(endDatumRaw);
+  const endZeit = /^\d{2}:\d{2}$/.test(endZeitRaw) ? endZeitRaw : "";
+  let ends_at: string | null = null;
+  if (endDatumOk || endZeit) {
+    const endDatum = endDatumOk ? endDatumRaw : datum;
+    // Gleicher Tag ohne End-Uhrzeit = kein Zeitraum
+    if (!(endDatum === datum && !endZeit)) {
+      ends_at = berlinLocalToISO(`${endDatum}T${endZeit || "00:00"}`);
+      if (ends_at && new Date(ends_at) <= new Date(starts_at)) {
+        abbruchMitFehler("Das Ende muss nach dem Beginn liegen.");
+      }
+    }
+  }
+  return { starts_at, ends_at, zeitLeer };
+}
+
 function revalidateEvents(id?: string) {
   revalidatePath("/mitglieder/admin/termine");
   revalidatePath("/mitglieder/termine");
@@ -114,12 +146,7 @@ function revalidateEvents(id?: string) {
 export async function createEvent(formData: FormData) {
   const profile = await requireEditor();
 
-  const startsLocal = String(formData.get("starts_at") ?? "");
-  const starts_at = berlinLocalToISO(startsLocal);
-  if (!starts_at) abbruchMitFehler("Bitte Datum und Startzeit angeben.");
-  const ends_at = berlinLocalToISO(String(formData.get("ends_at") ?? ""));
-  if (ends_at && new Date(ends_at) <= new Date(starts_at))
-    abbruchMitFehler("Das Ende muss nach dem Beginn liegen.");
+  const { starts_at, ends_at, zeitLeer } = readZeitraum(formData);
 
   const typeRaw = String(formData.get("type") ?? "other") as EventType;
   const type = VALID_TYPES.includes(typeRaw) ? typeRaw : "other";
@@ -152,7 +179,7 @@ export async function createEvent(formData: FormData) {
       meet_home_time: String(formData.get("meet_home_time") ?? "").trim(),
       meet_venue_time: String(formData.get("meet_venue_time") ?? "").trim(),
       is_public: formData.get("is_public") === "on",
-      time_tbd: formData.get("time_tbd") === "on",
+      time_tbd: formData.get("time_tbd") === "on" || zeitLeer,
       feed_export: formData.get("feed_export") === "on",
       contact_ids: formData.getAll("contact_ids").map(String).filter(Boolean),
       source: "manual",
@@ -180,11 +207,7 @@ export async function updateEvent(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const starts_at = berlinLocalToISO(String(formData.get("starts_at") ?? ""));
-  if (!starts_at) abbruchMitFehler("Bitte Datum und Startzeit angeben.");
-  const ends_at = berlinLocalToISO(String(formData.get("ends_at") ?? ""));
-  if (ends_at && new Date(ends_at) <= new Date(starts_at))
-    abbruchMitFehler("Das Ende muss nach dem Beginn liegen.");
+  const { starts_at, ends_at, zeitLeer } = readZeitraum(formData);
 
   const typeRaw = String(formData.get("type") ?? "other") as EventType;
   const type = VALID_TYPES.includes(typeRaw) ? typeRaw : "other";
@@ -217,7 +240,7 @@ export async function updateEvent(formData: FormData) {
       meet_home_time: String(formData.get("meet_home_time") ?? "").trim(),
       meet_venue_time: String(formData.get("meet_venue_time") ?? "").trim(),
       is_public: formData.get("is_public") === "on",
-      time_tbd: formData.get("time_tbd") === "on",
+      time_tbd: formData.get("time_tbd") === "on" || zeitLeer,
       feed_export: formData.get("feed_export") === "on",
       contact_ids: formData.getAll("contact_ids").map(String).filter(Boolean),
     })
