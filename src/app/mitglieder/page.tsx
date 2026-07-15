@@ -2,6 +2,7 @@ import { requireProfile } from "@/lib/auth";
 import { getMemberEvents } from "@/lib/member-queries";
 import { createClient } from "@/lib/supabase/server";
 import { EventCard } from "@/components/EventCard";
+import { EventsCalendar } from "@/components/EventsCalendar";
 import {
   PageHeader,
   EmptyState,
@@ -12,7 +13,12 @@ import {
 import Link from "next/link";
 import type { Season } from "@/lib/season";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ monat?: string; team?: string }>;
+}) {
+  const { monat, team } = await searchParams;
   const profile = await requireProfile();
   const events = await getMemberEvents(profile.id, { limit: 5 });
 
@@ -101,6 +107,11 @@ export default async function DashboardPage() {
             ))}
           </div>
         )}
+      </section>
+
+      <section>
+        <h2 className="mb-4 text-lg font-bold">Kalender</h2>
+        <EventsCalendar base="/mitglieder" monat={monat} team={team} />
       </section>
     </div>
   );
