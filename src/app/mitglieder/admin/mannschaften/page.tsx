@@ -38,15 +38,23 @@ export default async function AdminTeamsPage() {
         <p className="mb-3 text-sm text-muted">
           Wird bei Spiel-Terminen und in der Aufstellung angezeigt – frei
           formulierbar, z. B. „4 Einzel – 2 Doppel – 4 Einzel – 2 Doppel“.
+          Da die Mannschaften in unterschiedlichen Ligen spielen, gilt der
+          Liga-Modus <strong>pro Mannschaft</strong>.
         </p>
         <form action={saveSpielModi} className="space-y-3">
-          <Field label="Liga (Punktspiele)">
-            <input
-              name="modus_liga"
-              defaultValue={modi.liga}
-              className={inputClass}
-            />
-          </Field>
+          {teams.map((t) => (
+            <Field
+              key={t.id}
+              label={`Liga – ${t.name}${t.league ? ` (${t.league})` : ""}`}
+            >
+              <input
+                name={`team_modus_${t.id}`}
+                defaultValue={t.spielmodus ?? ""}
+                placeholder={modi.liga}
+                className={inputClass}
+              />
+            </Field>
+          ))}
           <Field label="Pokal (Klaus-Unterberg-Pokal)">
             <input
               name="modus_pokal"

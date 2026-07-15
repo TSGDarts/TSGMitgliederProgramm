@@ -101,14 +101,23 @@ export default async function ProfilPage() {
               />
               ✉️ Mich zusätzlich per E-Mail benachrichtigen
             </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                name="notify_turnier_woche"
-                defaultChecked={profile.notify_turnier_woche ?? false}
-              />
-              🏟 Eine Woche vor Turnieren erinnern
-            </label>
+            <Field
+              label="🏟 Erinnerung vor Turnieren"
+              hint="So viele Tage vor einem Turnier bekommst du eine Erinnerung (Push/E-Mail) – „aus“ = keine."
+            >
+              <select
+                name="notify_turnier_tage"
+                defaultValue={String(profile.notify_turnier_tage ?? 0)}
+                className={inputClass}
+              >
+                <option value="0">aus</option>
+                {[1, 2, 3, 4, 5, 6, 7, 10, 14].map((n) => (
+                  <option key={n} value={n}>
+                    {n === 1 ? "1 Tag vorher" : `${n} Tage vorher`}
+                  </option>
+                ))}
+              </select>
+            </Field>
             <Button type="submit">Speichern</Button>
           </form>
         </CardBody>

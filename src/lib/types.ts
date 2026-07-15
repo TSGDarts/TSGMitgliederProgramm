@@ -31,7 +31,8 @@ export interface Profile {
   is_trainer?: boolean | null; // darf Trainings eintragen (Haken vom Admin)
   training_default_rsvp?: string | null; // ''|yes|maybe|no – Vorbelegung für Trainings
   notify_email?: boolean | null; // Benachrichtigungen zusätzlich per E-Mail
-  notify_turnier_woche?: boolean | null; // Erinnerung 1 Woche vor Turnieren
+  notify_turnier_woche?: boolean | null; // (alt) Erinnerung 1 Woche vor Turnieren
+  notify_turnier_tage?: number | null; // Erinnerung X Tage vor Turnieren (0 = aus)
   is_active: boolean;
   created_at: string;
 }
@@ -47,6 +48,7 @@ export interface Team {
   home_match_weekday?: number | null; // 1 = Montag … 7 = Sonntag
   home_match_time?: string | null; // z. B. "20:00"
   default_rsvp?: "" | "yes" | "no" | "maybe" | null; // Vorbelegung für Termine
+  spielmodus?: string | null; // Liga-Spielmodus dieser Mannschaft
   sort_order: number;
   created_at: string;
 }

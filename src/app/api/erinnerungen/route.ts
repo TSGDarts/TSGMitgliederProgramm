@@ -25,49 +25,53 @@ export async function GET() {
     return NextResponse.json({ error: "Nicht konfiguriert." }, { status: 503 });
   }
 
-  const zielTag = berlinDay.format(new Date(Date.now() + 7 * 864e5));
-
   const { data: tourData } = await admin.from("tournaments").select("*");
-  const faellig = ((tourData as Tournament[]) ?? []).filter((t) => {
+  const turniere = ((tourData as Tournament[]) ?? []).filter((t) => {
     const startTag = berlinDay.format(new Date(t.starts_at));
-    if (startTag !== zielTag) return false;
     // Von Hand archivierte („Anzeigen bis“ vor dem Turniertag) auslassen
     return !(t.display_until && t.display_until < startTag);
   });
 
-  // Empfänger: alle mit eingeschalteter Turnier-Erinnerung
+  // Abonnenten nach ihrer gewählten Vorlaufzeit gruppieren
   const { data: abonnenten } = await admin
     .from("profiles")
-    .select("id")
-    .eq("notify_turnier_woche", true)
+    .select("id, notify_turnier_tage")
+    .gt("notify_turnier_tage", 0)
     .eq("is_active", true);
-  const empfaenger = (abonnenten ?? []).map((p) => p.id as string);
+  const gruppen = new Map<number, string[]>();
+  for (const p of abonnenten ?? []) {
+    const tage = p.notify_turnier_tage as number;
+    gruppen.set(tage, [...(gruppen.get(tage) ?? []), p.id as string]);
+  }
 
   let verschickt = 0;
-  for (const t of faellig) {
-    if (!empfaenger.length) break;
-    // Doppel-Versand verhindern: Schlüssel zuerst eintragen (Primärschlüssel)
-    const { error: logError } = await admin
-      .from("notification_log")
-      .insert({ key: `turnier7:${t.id}` });
-    if (logError) continue; // gab es schon → wurde bereits verschickt
+  for (const [tage, empfaenger] of gruppen) {
+    const zielTag = berlinDay.format(new Date(Date.now() + tage * 864e5));
+    for (const t of turniere) {
+      if (berlinDay.format(new Date(t.starts_at)) !== zielTag) continue;
+      // Doppel-Versand verhindern: Schlüssel zuerst eintragen (Primärschlüssel)
+      const { error: logError } = await admin
+        .from("notification_log")
+        .insert({ key: `turnier:${t.id}:${tage}` });
+      if (logError) continue; // gab es schon → wurde bereits verschickt
 
-    const zeit =
-      !t.details_tbd && formatTime(t.starts_at) !== "00:00"
-        ? `, ${formatTime(t.starts_at)} Uhr`
-        : "";
-    await benachrichtige(empfaenger, {
-      title: `🏟 In einer Woche: ${t.title}`,
-      body: `${formatDate(t.starts_at)}${zeit}${t.location ? ` · ${t.location}` : ""}`,
-      url: "/mitglieder/turniere",
-    });
-    verschickt++;
+      const zeit =
+        !t.details_tbd && formatTime(t.starts_at) !== "00:00"
+          ? `, ${formatTime(t.starts_at)} Uhr`
+          : "";
+      const wann = tage === 1 ? "Morgen" : `In ${tage} Tagen`;
+      await benachrichtige(empfaenger, {
+        title: `🏟 ${wann}: ${t.title}`,
+        body: `${formatDate(t.starts_at)}${zeit}${t.location ? ` · ${t.location}` : ""}`,
+        url: "/mitglieder/turniere",
+      });
+      verschickt++;
+    }
   }
 
   return NextResponse.json({
-    zielTag,
-    faellig: faellig.length,
-    empfaenger: empfaenger.length,
+    gruppen: gruppen.size,
+    abonnenten: (abonnenten ?? []).length,
     verschickt,
   });
 }

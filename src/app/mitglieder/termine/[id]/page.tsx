@@ -109,12 +109,15 @@ export default async function EventDetailPage({
       }));
     }
   }
-  // Spielmodus (vom Admin gepflegt) – bei Punkt- und Pokalspielen
+  // Spielmodus (vom Admin gepflegt) – bei Punkt- und Pokalspielen;
+  // Liga-Modus kommt aus der Mannschaft (Teams spielen verschiedene Ligen)
   let modusZeilen: string[] = [];
   if (istSpiel) {
     const modi = await getSpielModi();
-    if (event.type === "match" && modi.liga) {
-      modusZeilen = [`Modus: ${modi.liga}`];
+    const teamModus =
+      (event.team_id ? teams.get(event.team_id)?.spielmodus : "") || modi.liga;
+    if (event.type === "match" && teamModus) {
+      modusZeilen = [`Modus: ${teamModus}`];
     } else if (event.type === "pokal") {
       modusZeilen = [
         modi.pokal ? `Pokal: ${modi.pokal}` : "",

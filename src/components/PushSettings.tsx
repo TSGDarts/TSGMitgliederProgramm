@@ -156,8 +156,8 @@ export function PushSettings() {
       {meldung && <p className="text-xs text-danger">{meldung}</p>}
       <p className="text-xs text-muted">
         Gilt pro Gerät – Handy und PC also einzeln aktivieren. Benachrichtigt
-        wird bei neuen Terminen/Trainings und (falls unten angehakt) eine
-        Woche vor Turnieren.
+        wird bei neuen Terminen/Trainings, freigegebenen Aufstellungen und –
+        falls oben eingestellt – vor Turnieren.
       </p>
     </div>
   );
