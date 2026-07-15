@@ -9,7 +9,7 @@ import {
   getManageableTeamIds,
   getTeamRoster,
 } from "@/lib/member-queries";
-import { getGegnerVorlage } from "@/lib/settings";
+import { getGegnerVorlage, getSpielModi } from "@/lib/settings";
 import { RsvpButtons } from "@/components/RsvpButtons";
 import { AddressLine } from "@/components/AddressLine";
 import { CarpoolSection, type CarpoolFahrer } from "@/components/CarpoolSection";
@@ -109,6 +109,20 @@ export default async function EventDetailPage({
       }));
     }
   }
+  // Spielmodus (vom Admin gepflegt) – bei Punkt- und Pokalspielen
+  let modusZeilen: string[] = [];
+  if (istSpiel) {
+    const modi = await getSpielModi();
+    if (event.type === "match" && modi.liga) {
+      modusZeilen = [`Modus: ${modi.liga}`];
+    } else if (event.type === "pokal") {
+      modusZeilen = [
+        modi.pokal ? `Pokal: ${modi.pokal}` : "",
+        modi.achter ? `8ter Cup: ${modi.achter}` : "",
+      ].filter(Boolean);
+    }
+  }
+
   const lineupKopf = [
     `📋 Aufstellung ${event.title}`,
     event.time_tbd || formatTime(event.starts_at) === "00:00"
@@ -119,6 +133,7 @@ export default async function EventDetailPage({
     event.meet_venue_time
       ? `🤝 Treffpunkt vor Ort: ${event.meet_venue_time} Uhr`
       : "",
+    ...modusZeilen.map((z) => `🎯 ${z}`),
   ].filter(Boolean);
 
   // Fahrgemeinschaft
@@ -213,6 +228,10 @@ export default async function EventDetailPage({
             .map((k) => `${k.full_name}${k.phone ? ` (📱 ${k.phone})` : ""}`)
             .join(" · ")}
         </p>
+      )}
+
+      {modusZeilen.length > 0 && (
+        <p className="text-sm text-muted">🎯 {modusZeilen.join(" · ")}</p>
       )}
 
       {event.location && (

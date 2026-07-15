@@ -2,7 +2,9 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { requireEditor } from "@/lib/auth";
 import { getAllTeams } from "@/lib/member-queries";
-import { createTeam } from "./actions";
+import { getSpielModi } from "@/lib/settings";
+import { createTeam, saveSpielModi } from "./actions";
+import { Einklappbar } from "@/components/Einklappbar";
 import {
   PageHeader,
   Card,
@@ -18,6 +20,7 @@ export const metadata: Metadata = { title: "Mannschaften verwalten" };
 export default async function AdminTeamsPage() {
   await requireEditor();
   const teams = await getAllTeams();
+  const modi = await getSpielModi();
 
   return (
     <div className="space-y-8">
@@ -25,6 +28,44 @@ export default async function AdminTeamsPage() {
         title="Mannschaften verwalten"
         subtitle="Teams anlegen, Liga & nuLiga verknüpfen, Kader pflegen"
       />
+
+      {/* Spielmodus je Wettbewerb */}
+      <Einklappbar
+        id="spielmodus"
+        title="🎯 Spielmodus (Liga & Pokal)"
+        defaultOpen={false}
+      >
+        <p className="mb-3 text-sm text-muted">
+          Wird bei Spiel-Terminen und in der Aufstellung angezeigt – frei
+          formulierbar, z. B. „4 Einzel – 2 Doppel – 4 Einzel – 2 Doppel“.
+        </p>
+        <form action={saveSpielModi} className="space-y-3">
+          <Field label="Liga (Punktspiele)">
+            <input
+              name="modus_liga"
+              defaultValue={modi.liga}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Pokal (Klaus-Unterberg-Pokal)">
+            <input
+              name="modus_pokal"
+              defaultValue={modi.pokal}
+              placeholder="z. B. 4 Einzel – 2 Doppel …"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="8ter Cup (BDV-Pokal)">
+            <input
+              name="modus_8er"
+              defaultValue={modi.achter}
+              placeholder="z. B. 8 Einzel – 4 Doppel …"
+              className={inputClass}
+            />
+          </Field>
+          <Button type="submit">Speichern</Button>
+        </form>
+      </Einklappbar>
 
       <Card>
         <CardBody>

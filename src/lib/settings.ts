@@ -45,6 +45,31 @@ Spielbetrieb:
 Wir spielen alle unsere Ligaspiele über die 2k Software. Hier könnt ihr entweder auf der 2k-Webseite (https://www.2k-dart-software.com/frontend/events) die TSG 08 Roth suchen oder ihr scannt vor Ort den Barcode ein, den wir euch zur Verfügung stellen. So können auch Freunde/Leute, die nicht physisch beim Spiel dabei sind, das Spiel live mitverfolgen!
 Ab einer Stunde vor Spielbeginn ist bei uns in der Regel immer einer da.`;
 
+/**
+ * Spielmodi je Wettbewerb (frei editierbarer Text, Pflege unter
+ * „Mannschaften verwalten“) – angezeigt bei Spiel-Terminen und in der
+ * Aufstellung.
+ */
+export async function getSpielModi(): Promise<{
+  liga: string;
+  pokal: string;
+  achter: string;
+}> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("app_settings")
+    .select("key, value")
+    .in("key", ["modus_liga", "modus_pokal", "modus_8er"]);
+  const map = new Map(
+    (data ?? []).map((s) => [s.key as string, (s.value as string) ?? ""]),
+  );
+  return {
+    liga: map.get("modus_liga") ?? "4 Einzel – 2 Doppel – 4 Einzel – 2 Doppel",
+    pokal: map.get("modus_pokal") ?? "",
+    achter: map.get("modus_8er") ?? "",
+  };
+}
+
 export async function getGegnerVorlage(): Promise<string> {
   const supabase = await createClient();
   const { data } = await supabase

@@ -12,6 +12,32 @@ function revalidateTeams() {
   revalidatePath("/mannschaften");
 }
 
+/** Spielmodi (Liga, Pokal, 8ter Cup) speichern – frei editierbarer Text. */
+export async function saveSpielModi(formData: FormData) {
+  await requireEditor();
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+  await supabase.from("app_settings").upsert([
+    {
+      key: "modus_liga",
+      value: String(formData.get("modus_liga") ?? "").trim(),
+      updated_at: now,
+    },
+    {
+      key: "modus_pokal",
+      value: String(formData.get("modus_pokal") ?? "").trim(),
+      updated_at: now,
+    },
+    {
+      key: "modus_8er",
+      value: String(formData.get("modus_8er") ?? "").trim(),
+      updated_at: now,
+    },
+  ]);
+  revalidateTeams();
+  revalidatePath("/mitglieder/termine");
+}
+
 export async function createTeam(formData: FormData) {
   await requireEditor();
   const name = String(formData.get("name") ?? "").trim();
