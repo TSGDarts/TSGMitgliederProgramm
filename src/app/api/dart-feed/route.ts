@@ -85,14 +85,16 @@ export async function GET() {
     admin.from("opponents").select("id, name"),
   ]);
 
-  // Öffentliche Vereinstermine (team_id leer, keine Besprechungen)
+  // Öffentliche Vereinstermine (z. B. Sommerfest): vereinsweit (ohne
+  // Mannschaft), Art "Sonstiges" – Besprechungen, Training und
+  // Mannschafts-Termine bleiben damit sicher draußen. Auch vergangene
+  // mitliefern, damit das Archiv der Competition-App erhalten bleibt.
   const { data: clubEventsData } = await admin
     .from("events")
     .select("*")
     .is("team_id", null)
     .eq("is_public", true)
-    .neq("type", "meeting")
-    .gte("starts_at", new Date(Date.now() - 26 * 3600e3).toISOString())
+    .eq("type", "other")
     .order("starts_at", { ascending: true });
 
   const kommendeCompetitions = (compData ?? []).map((c) => {
@@ -172,15 +174,16 @@ export async function GET() {
     return [out];
   });
 
-  // Öffentliche Vereinstermine (z. B. Sommerfest) – keine Besprechungen
-  const termine = (((clubEventsData as EventRow[]) ?? [])).flatMap((ev) => {
+  // Öffentliche Vereinstermine – inkl. vergangener (Archiv der Competition-App)
+  const termine = (((clubEventsData as EventRow[]) ?? [])).map((ev) => {
     const start = new Date(ev.starts_at);
-    const datum = berlinDate.format(start);
-    if (datum < today) return [];
-    const out: Record<string, unknown> = { datum, text: ev.title };
+    const out: Record<string, unknown> = {
+      datum: berlinDate.format(start),
+      text: ev.title,
+    };
     const zeit = berlinTime.format(start);
     if (!ev.time_tbd && zeit !== "00:00") out.zeit = zeit;
-    return [out];
+    return out;
   });
 
   return NextResponse.json(
