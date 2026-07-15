@@ -23,7 +23,6 @@ const ERINNERUNG_ARTEN: { key: string; label: string }[] = [
   { key: "verein", label: "🏠 Vereinstermine" },
   { key: "turniere", label: "🏟 Turniere" },
 ];
-const ERINNERUNG_TAGE = [1, 2, 3, 7, 14];
 
 export default async function ProfilPage() {
   const profile = await requireProfile();
@@ -122,10 +121,12 @@ export default async function ProfilPage() {
               </label>
               <p className="text-sm font-medium">⏰ Erinnerungen vor Terminen</p>
               <p className="text-xs text-muted">
-                Gilt für Push <em>und</em> E-Mail: Je Termin-Art anhaken, wie
-                viele Tage vorher du erinnert werden willst – auch mehrfach
-                (z. B. 14, 7 und 1 Tag vorher). Nichts angehakt = keine
-                Erinnerung.
+                Gilt für Push <em>und</em> E-Mail: Trage je Termin-Art ein,
+                wie viele <strong>Tage vorher</strong> du erinnert werden
+                willst – mehrere Werte mit Komma trennen. Beispiel:{" "}
+                <strong>„14, 7, 1“</strong> = eine Erinnerung 14 Tage, 7 Tage
+                und 1 Tag vor dem Termin. Erlaubt sind 1–30 Tage; leer =
+                keine Erinnerung.
               </p>
               <div className="space-y-1.5">
                 {ERINNERUNG_ARTEN.map((art) => {
@@ -137,16 +138,15 @@ export default async function ProfilPage() {
                       className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm"
                     >
                       <span className="w-44">{art.label}</span>
-                      {ERINNERUNG_TAGE.map((tag) => (
-                        <label key={tag} className="flex items-center gap-1 text-xs">
-                          <input
-                            type="checkbox"
-                            name={`erinnerung_${art.key}_${tag}`}
-                            defaultChecked={gewaehlt.includes(tag)}
-                          />
-                          {tag === 1 ? "1 Tag" : `${tag} Tage`}
-                        </label>
-                      ))}
+                      <input
+                        name={`erinnerung_${art.key}`}
+                        defaultValue={[...gewaehlt]
+                          .sort((a, b) => b - a)
+                          .join(", ")}
+                        placeholder="z. B. 14, 7, 1"
+                        inputMode="numeric"
+                        className="w-40 rounded-lg border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-primary"
+                      />
                     </div>
                   );
                 })}

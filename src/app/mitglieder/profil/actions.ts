@@ -34,7 +34,7 @@ export async function updateProfile(formData: FormData) {
       training_default_rsvp,
       notify_email: formData.get("notify_email") === "on",
       notify_erinnerungen: (() => {
-        // Aus den Checkboxen erinnerung_<art>_<tage> ein Objekt bauen
+        // Komma-getrennte Tages-Listen (erinnerung_<art> = „14, 7, 1“) parsen
         const arten = [
           "punktspiele",
           "pokal",
@@ -43,12 +43,17 @@ export async function updateProfile(formData: FormData) {
           "verein",
           "turniere",
         ];
-        const tage = [1, 2, 3, 7, 14];
         const erinnerungen: Record<string, number[]> = {};
         for (const art of arten) {
-          const liste = tage.filter(
-            (t) => formData.get(`erinnerung_${art}_${t}`) === "on",
-          );
+          const roh = String(formData.get(`erinnerung_${art}`) ?? "");
+          const liste = [
+            ...new Set(
+              roh
+                .split(/[,;\s]+/)
+                .map((t) => Math.round(Number(t)))
+                .filter((n) => Number.isFinite(n) && n >= 1 && n <= 30),
+            ),
+          ].sort((a, b) => b - a);
           if (liste.length) erinnerungen[art] = liste;
         }
         return erinnerungen;

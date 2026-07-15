@@ -118,10 +118,44 @@ export function PushSettings() {
   }
   if (status === "verweigert") {
     return (
-      <p className="text-sm text-warn">
-        Benachrichtigungen sind für diese Seite blockiert. Bitte in den
-        Browser-/Website-Einstellungen erlauben und die Seite neu laden.
-      </p>
+      <div className="space-y-2 text-sm">
+        <p className="font-medium text-warn">
+          Benachrichtigungen sind für diese Seite blockiert.
+        </p>
+        <p className="text-muted">
+          So erlaubst du sie wieder – <strong>Microsoft Edge am PC:</strong>
+        </p>
+        <ol className="list-inside list-decimal space-y-1 text-muted">
+          <li>
+            Klicke auf das <strong>Schloss-Symbol</strong> links in der
+            Adressleiste.
+          </li>
+          <li>
+            Wähle <strong>„Berechtigungen für diese Website“</strong>.
+          </li>
+          <li>
+            Stelle <strong>„Benachrichtigungen“</strong> auf{" "}
+            <strong>„Zulassen“</strong>.
+          </li>
+          <li>
+            Lade die Seite neu und klicke hier auf „Push auf diesem Gerät
+            aktivieren“.
+          </li>
+        </ol>
+        <p className="text-muted">
+          Findest du das Schloss nicht: Edge-Menü (⋯ oben rechts) →{" "}
+          <strong>Einstellungen</strong> → „Cookies und
+          Websiteberechtigungen“ → „Benachrichtigungen“ → unsere Seite aus
+          der Liste <strong>„Blockieren“</strong> entfernen. In der
+          installierten App: ⋯ oben → „App-Einstellungen“ →
+          Benachrichtigungen zulassen.
+        </p>
+        <p className="text-muted">
+          Am Handy: In Chrome über das Schloss in der Adressleiste →
+          „Berechtigungen“; am iPhone gilt die Freigabe-Abfrage der
+          installierten App (ggf. unter Einstellungen → Mitteilungen).
+        </p>
+      </div>
     );
   }
 
