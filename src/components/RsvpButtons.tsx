@@ -13,11 +13,15 @@ const options: { value: RsvpStatus; label: string; active: string }[] = [
 export function RsvpButtons({
   eventId,
   current,
+  currentComment = "",
 }: {
   eventId: string;
   current: RsvpStatus | null;
+  currentComment?: string;
 }) {
   const [status, setStatus] = useState<RsvpStatus | null>(current);
+  const [comment, setComment] = useState(currentComment);
+  const [commentSaved, setCommentSaved] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
 
@@ -25,6 +29,7 @@ export function RsvpButtons({
     const previous = status;
     setStatus(value); // optimistisch
     setError("");
+    setCommentSaved(false);
     startTransition(async () => {
       const res = await setRsvp(eventId, value);
       if (!res.ok) {
@@ -34,8 +39,21 @@ export function RsvpButtons({
     });
   }
 
+  function saveComment() {
+    setError("");
+    startTransition(async () => {
+      const res = await setRsvp(eventId, "no", comment);
+      if (!res.ok) {
+        setError("Konnte nicht gespeichert werden.");
+      } else {
+        setCommentSaved(true);
+        setTimeout(() => setCommentSaved(false), 2000);
+      }
+    });
+  }
+
   return (
-    <div>
+    <div className="space-y-2">
       <div className="inline-flex flex-wrap gap-2">
         {options.map((opt) => (
           <button
@@ -52,7 +70,28 @@ export function RsvpButtons({
           </button>
         ))}
       </div>
-      {error && <p className="mt-1 text-xs text-danger">{error}</p>}
+
+      {/* Optionaler Grund bei Absage */}
+      {status === "no" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Grund (optional), z. B. Schicht, Urlaub …"
+            className="w-64 max-w-full rounded-lg border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-primary"
+          />
+          <button
+            onClick={saveComment}
+            disabled={isPending}
+            className="rounded-lg border border-border px-2 py-1 text-sm hover:bg-border/40 disabled:opacity-60"
+          >
+            {commentSaved ? "✓ Gespeichert" : "Grund speichern"}
+          </button>
+        </div>
+      )}
+
+      {error && <p className="text-xs text-danger">{error}</p>}
     </div>
   );
 }

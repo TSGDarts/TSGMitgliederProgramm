@@ -90,6 +90,21 @@ export default async function AdminTeamDetailPage({
                 className={inputClass}
               />
             </Field>
+            <Field
+              label="Standard-Rückmeldung für Termine"
+              hint="Vorbelegung der Zu-/Absagen bei allen Terminen dieser Mannschaft – wer aktiv klickt, überschreibt sie jederzeit"
+            >
+              <select
+                name="default_rsvp"
+                defaultValue={team.default_rsvp ?? ""}
+                className={inputClass}
+              >
+                <option value="">Keine Vorbelegung (jeder muss antworten)</option>
+                <option value="yes">Alle auf Zusage – wer nicht kann, sagt ab</option>
+                <option value="no">Alle auf Absage – wer kommt, sagt zu</option>
+                <option value="maybe">Alle auf Vielleicht</option>
+              </select>
+            </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field
                 label="Heimspieltag"

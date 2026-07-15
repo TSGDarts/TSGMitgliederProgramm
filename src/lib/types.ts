@@ -38,6 +38,7 @@ export interface Team {
   nuliga_ical_url: string | null;
   home_match_weekday?: number | null; // 1 = Montag … 7 = Sonntag
   home_match_time?: string | null; // z. B. "20:00"
+  default_rsvp?: "" | "yes" | "no" | "maybe" | null; // Vorbelegung für Termine
   sort_order: number;
   created_at: string;
 }

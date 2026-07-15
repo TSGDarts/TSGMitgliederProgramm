@@ -9,6 +9,7 @@ import type {
 
 export type EventWithStatus = EventRow & {
   myStatus: RsvpStatus | null;
+  myComment: string;
   teamName: string | null;
 };
 
@@ -53,23 +54,31 @@ export async function getMemberEvents(
 
   const ids = limited.map((e) => e.id);
   const rsvpMap = new Map<string, RsvpStatus>();
+  const commentMap = new Map<string, string>();
   if (ids.length) {
     const { data: rsvps } = await supabase
       .from("rsvps")
-      .select("event_id,status")
+      .select("event_id,status,comment")
       .eq("profile_id", userId)
       .in("event_id", ids);
-    (rsvps ?? []).forEach((r) =>
-      rsvpMap.set(r.event_id as string, r.status as RsvpStatus),
-    );
+    (rsvps ?? []).forEach((r) => {
+      rsvpMap.set(r.event_id as string, r.status as RsvpStatus);
+      commentMap.set(r.event_id as string, (r.comment as string) ?? "");
+    });
   }
 
   const teams = await getTeamsMap();
-  return limited.map((e) => ({
-    ...e,
-    myStatus: rsvpMap.get(e.id) ?? null,
-    teamName: e.team_id ? (teams.get(e.team_id)?.name ?? null) : null,
-  }));
+  return limited.map((e) => {
+    const team = e.team_id ? teams.get(e.team_id) : undefined;
+    // Ohne eigene Antwort greift die Standard-Rückmeldung der Mannschaft.
+    const teamDefault = (team?.default_rsvp || null) as RsvpStatus | null;
+    return {
+      ...e,
+      myStatus: rsvpMap.get(e.id) ?? teamDefault,
+      myComment: commentMap.get(e.id) ?? "",
+      teamName: team?.name ?? null,
+    };
+  });
 }
 
 export async function getEvent(id: string): Promise<EventRow | null> {
@@ -85,6 +94,8 @@ export async function getEvent(id: string): Promise<EventRow | null> {
 export type Participant = {
   profile: Profile;
   status: RsvpStatus | null;
+  isDefault: boolean; // Status kommt aus der Team-Vorbelegung, nicht aktiv gewählt
+  comment: string;
   isCaptain: boolean;
   isViceCaptain: boolean;
 };
@@ -134,24 +145,42 @@ export async function getEventParticipants(
   const ids = profiles.map((p) => p.id);
 
   const rsvpMap = new Map<string, RsvpStatus>();
+  const commentMap = new Map<string, string>();
   if (ids.length) {
     const { data: rsvps } = await supabase
       .from("rsvps")
-      .select("profile_id,status")
+      .select("profile_id,status,comment")
       .eq("event_id", event.id)
       .in("profile_id", ids);
-    (rsvps ?? []).forEach((r) =>
-      rsvpMap.set(r.profile_id as string, r.status as RsvpStatus),
-    );
+    (rsvps ?? []).forEach((r) => {
+      rsvpMap.set(r.profile_id as string, r.status as RsvpStatus);
+      commentMap.set(r.profile_id as string, (r.comment as string) ?? "");
+    });
+  }
+
+  // Standard-Rückmeldung der Mannschaft (greift ohne eigene Antwort)
+  let teamDefault: RsvpStatus | null = null;
+  if (event.team_id) {
+    const { data: team } = await supabase
+      .from("teams")
+      .select("default_rsvp")
+      .eq("id", event.team_id)
+      .maybeSingle();
+    teamDefault = ((team?.default_rsvp as string) || null) as RsvpStatus | null;
   }
 
   return profiles
-    .map((p) => ({
-      profile: p,
-      status: rsvpMap.get(p.id) ?? null,
-      isCaptain: captainIds.has(p.id),
-      isViceCaptain: viceIds.has(p.id),
-    }))
+    .map((p) => {
+      const own = rsvpMap.get(p.id) ?? null;
+      return {
+        profile: p,
+        status: own ?? teamDefault,
+        isDefault: own === null && teamDefault !== null,
+        comment: commentMap.get(p.id) ?? "",
+        isCaptain: captainIds.has(p.id),
+        isViceCaptain: viceIds.has(p.id),
+      };
+    })
     .sort((a, b) => a.profile.full_name.localeCompare(b.profile.full_name));
 }
 

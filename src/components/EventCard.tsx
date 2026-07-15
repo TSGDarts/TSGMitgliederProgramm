@@ -52,7 +52,11 @@ export function EventCard({ event }: { event: EventWithStatus }) {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <RsvpButtons eventId={event.id} current={event.myStatus} />
+          <RsvpButtons
+            eventId={event.id}
+            current={event.myStatus}
+            currentComment={event.myComment}
+          />
           <span className="flex items-center gap-3">
             {event.meeting_url && (
               <a

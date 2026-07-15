@@ -49,6 +49,11 @@ export async function updateTeam(formData: FormData) {
   const home_match_weekday =
     weekdayRaw >= 1 && weekdayRaw <= 7 ? weekdayRaw : null;
 
+  const defaultRsvpRaw = String(formData.get("default_rsvp") ?? "");
+  const default_rsvp = ["yes", "no", "maybe"].includes(defaultRsvpRaw)
+    ? defaultRsvpRaw
+    : "";
+
   const supabase = await createClient();
   await supabase
     .from("teams")
@@ -60,6 +65,7 @@ export async function updateTeam(formData: FormData) {
       nuliga_ical_url: String(formData.get("nuliga_ical_url") ?? "").trim(),
       home_match_weekday,
       home_match_time: String(formData.get("home_match_time") ?? "").trim(),
+      default_rsvp,
     })
     .eq("id", id);
   revalidateTeams();

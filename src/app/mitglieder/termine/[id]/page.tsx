@@ -110,7 +110,14 @@ export default async function EventDetailPage({
       <Card className="bg-primary/5">
         <CardBody className="space-y-2">
           <p className="text-sm font-medium">Deine Rückmeldung</p>
-          <RsvpButtons eventId={event.id} current={myStatus} />
+          <RsvpButtons
+            eventId={event.id}
+            current={myStatus}
+            currentComment={
+              participants.find((p) => p.profile.id === profile.id)?.comment ??
+              ""
+            }
+          />
         </CardBody>
       </Card>
 
@@ -133,11 +140,24 @@ export default async function EventDetailPage({
                     {list.map((p) => (
                       <li
                         key={p.profile.id}
-                        className="flex items-center gap-2"
+                        className="flex flex-wrap items-center gap-2"
                       >
                         <span>{p.profile.full_name || p.profile.email}</span>
                         {p.isCaptain && <Badge tone="primary">C</Badge>}
                         {p.isViceCaptain && <Badge>VC</Badge>}
+                        {p.isDefault && (
+                          <span
+                            className="text-xs text-muted"
+                            title="Team-Vorbelegung – noch keine eigene Antwort"
+                          >
+                            (Standard)
+                          </span>
+                        )}
+                        {g.key === "no" && p.comment && (
+                          <span className="text-xs italic text-muted">
+                            – {p.comment}
+                          </span>
+                        )}
                         {g.key !== "open" &&
                           p.status &&
                           p.profile.id === profile.id && (

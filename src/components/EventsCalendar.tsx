@@ -98,6 +98,11 @@ export async function EventsCalendar({
   }
 
   // Eigene Zu-/Absagen für die angezeigten Termine
+  // (ohne eigene Antwort greift die Standard-Rückmeldung der Mannschaft)
+  const defaultByTeam = new Map<string, RsvpStatus>();
+  for (const t of teams) {
+    if (t.default_rsvp) defaultByTeam.set(t.id, t.default_rsvp as RsvpStatus);
+  }
   const statusMap = new Map<string, RsvpStatus>();
   const {
     data: { user },
@@ -225,7 +230,12 @@ export async function EventsCalendar({
                         }
                         location={ev.location ?? ""}
                         chipClass={eventChipClass[ev.type]}
-                        myStatus={statusMap.get(ev.id) ?? null}
+                        myStatus={
+                          statusMap.get(ev.id) ??
+                          (ev.team_id
+                            ? (defaultByTeam.get(ev.team_id) ?? null)
+                            : null)
+                        }
                       />
                     ))}
                   </div>
