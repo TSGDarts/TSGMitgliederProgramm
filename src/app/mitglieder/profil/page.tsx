@@ -104,20 +104,28 @@ export default async function ProfilPage() {
                 <option value="no">standardmäßig absagen</option>
               </select>
             </Field>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                name="notify_email"
-                defaultChecked={profile.notify_email ?? false}
-              />
-              ✉️ Mich zusätzlich per E-Mail benachrichtigen
-            </label>
-            <div className="space-y-2">
+            <div className="space-y-3 rounded-lg border border-border p-3">
+              <p className="text-sm font-medium">🔔 Benachrichtigungen</p>
+              <p className="text-xs text-muted">
+                Benachrichtigungen (neue Termine, Aufstellungen, Erinnerungen)
+                kommen als <strong>Push</strong> auf jedes Gerät, auf dem du
+                Push unten aktiviert hast. Mit dem Haken bekommst du{" "}
+                <strong>alles zusätzlich per E-Mail</strong>.
+              </p>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="notify_email"
+                  defaultChecked={profile.notify_email ?? false}
+                />
+                ✉️ Alles zusätzlich per E-Mail erhalten
+              </label>
               <p className="text-sm font-medium">⏰ Erinnerungen vor Terminen</p>
               <p className="text-xs text-muted">
-                Je Termin-Art anhaken, wie viele Tage vorher du erinnert
-                werden willst – auch mehrfach (z. B. 14, 7 und 1 Tag vorher).
-                Nichts angehakt = keine Erinnerung.
+                Gilt für Push <em>und</em> E-Mail: Je Termin-Art anhaken, wie
+                viele Tage vorher du erinnert werden willst – auch mehrfach
+                (z. B. 14, 7 und 1 Tag vorher). Nichts angehakt = keine
+                Erinnerung.
               </p>
               <div className="space-y-1.5">
                 {ERINNERUNG_ARTEN.map((art) => {
