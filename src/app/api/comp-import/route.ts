@@ -106,7 +106,7 @@ export async function GET() {
 
   const { data: vorhanden } = await admin
     .from("events")
-    .select("id, source_uid, title, starts_at")
+    .select("id, source_uid, title, starts_at, time_tbd")
     .like("source_uid", "comp-app:%");
   const byUid = new Map((vorhanden ?? []).map((e) => [e.source_uid as string, e]));
 
@@ -132,11 +132,12 @@ export async function GET() {
       neu++;
     } else if (
       alt.title !== title ||
-      new Date(alt.starts_at as string).toISOString() !== starts
+      new Date(alt.starts_at as string).toISOString() !== starts ||
+      !alt.time_tbd // Altbestand reparieren: „Uhrzeit folgt“ statt 00:00 Uhr
     ) {
       await admin
         .from("events")
-        .update({ title, starts_at: starts })
+        .update({ title, starts_at: starts, time_tbd: true })
         .eq("id", alt.id);
       aktualisiert++;
     }
