@@ -100,6 +100,20 @@ export async function GET() {
       (e.text ?? "").trim(),
   );
 
+  // Zusätzlich: unsere eigenen Competition-Abende (competition_dates) in den
+  // Terminkalender spiegeln – so erscheinen sie in Kalender & Termin-Listen.
+  const { data: compDates } = await admin
+    .from("competition_dates")
+    .select("date, nr");
+  for (const c of compDates ?? []) {
+    if (!c.date) continue;
+    gueltig.push({
+      uid: `comp-app:cd-${c.date}`,
+      datum: c.date as string,
+      text: c.nr != null ? `🎯 Competition ${c.nr}` : "🎯 Competition",
+    });
+  }
+
   const { data: vorhanden } = await admin
     .from("events")
     .select("id, source_uid, title, starts_at")
@@ -122,6 +136,8 @@ export async function GET() {
         is_public: true,
         source: "manual",
         source_uid: e.uid,
+        time_tbd: true, // Uhrzeit pflegt die Competition-App nicht mit → „Uhrzeit folgt"
+        feed_export: false, // nie zurück in den dart-feed (käme sonst doppelt in der Competition-App an)
       });
       neu++;
     } else if (
