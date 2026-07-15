@@ -32,6 +32,8 @@ export async function updateProfile(formData: FormData) {
       birthday_public,
       birthday_congrats,
       training_default_rsvp,
+      notify_email: formData.get("notify_email") === "on",
+      notify_turnier_woche: formData.get("notify_turnier_woche") === "on",
     })
     .eq("id", user.id);
 

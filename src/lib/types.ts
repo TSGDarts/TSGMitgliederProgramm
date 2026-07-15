@@ -30,6 +30,8 @@ export interface Profile {
   role: Role;
   is_trainer?: boolean | null; // darf Trainings eintragen (Haken vom Admin)
   training_default_rsvp?: string | null; // ''|yes|maybe|no – Vorbelegung für Trainings
+  notify_email?: boolean | null; // Benachrichtigungen zusätzlich per E-Mail
+  notify_turnier_woche?: boolean | null; // Erinnerung 1 Woche vor Turnieren
   is_active: boolean;
   created_at: string;
 }

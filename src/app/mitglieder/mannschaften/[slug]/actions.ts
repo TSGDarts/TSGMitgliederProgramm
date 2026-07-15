@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { berlinLocalToISO } from "@/lib/tz";
+import { meldeNeuenTermin } from "@/lib/benachrichtigung";
 import type { EventType } from "@/lib/types";
 
 const VALID_TYPES: EventType[] = [
@@ -55,18 +56,38 @@ export async function createTeamEvent(slug: string, formData: FormData) {
   const typeRaw = String(formData.get("type") ?? "match") as EventType;
   const type = VALID_TYPES.includes(typeRaw) ? typeRaw : "other";
 
-  await supabase.from("events").insert({
-    team_id: teamId,
-    title,
-    type,
-    starts_at,
-    location: String(formData.get("location") ?? "").trim(),
-    description: String(formData.get("description") ?? "").trim(),
-    is_public: formData.get("is_public") === "on",
-    time_tbd: formData.get("time_tbd") === "on",
-    source: "manual",
-    created_by: userId,
-  });
+  const { data: created } = await supabase
+    .from("events")
+    .insert({
+      team_id: teamId,
+      title,
+      type,
+      starts_at,
+      location: String(formData.get("location") ?? "").trim(),
+      description: String(formData.get("description") ?? "").trim(),
+      is_public: formData.get("is_public") === "on",
+      time_tbd: formData.get("time_tbd") === "on",
+      source: "manual",
+      created_by: userId,
+    })
+    .select("id")
+    .single();
+
+  // Kader benachrichtigen (Push/E-Mail, best-effort)
+  if (created?.id) {
+    await meldeNeuenTermin(
+      {
+        id: created.id,
+        title,
+        team_id: teamId,
+        starts_at,
+        time_tbd: formData.get("time_tbd") === "on",
+        type,
+      },
+      [],
+      userId,
+    );
+  }
 
   revalidatePath(`/mitglieder/mannschaften/${slug}`);
   revalidatePath("/mitglieder/termine");

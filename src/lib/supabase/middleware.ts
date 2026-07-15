@@ -53,6 +53,7 @@ export async function updateSession(request: NextRequest) {
     "/api/dart-feed",
     "/api/comp-import",
     "/api/kalender",
+    "/api/erinnerungen",
   ];
   const isOpen =
     openPaths.some((p) => path === p || path.startsWith(p + "/")) ||

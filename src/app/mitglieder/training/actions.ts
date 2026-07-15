@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireTrainer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { berlinLocalToISO } from "@/lib/tz";
+import { meldeNeuenTermin } from "@/lib/benachrichtigung";
 
 const PFAD = "/mitglieder/training";
 
@@ -57,12 +58,32 @@ export async function createTraining(formData: FormData) {
   const fields = readFields(formData);
 
   const supabase = await createClient();
-  const { error } = await supabase.from("events").insert({
-    ...fields,
-    source: "manual",
-    created_by: profile.id,
-  });
+  const { data: created, error } = await supabase
+    .from("events")
+    .insert({
+      ...fields,
+      source: "manual",
+      created_by: profile.id,
+    })
+    .select("id")
+    .single();
   if (error) abbruchMitFehler(error.message);
+
+  // Alle Betroffenen benachrichtigen (Push/E-Mail, best-effort)
+  if (created?.id) {
+    await meldeNeuenTermin(
+      {
+        id: created.id,
+        title: fields.title,
+        team_id: fields.team_id,
+        starts_at: fields.starts_at,
+        time_tbd: false,
+        type: fields.type,
+      },
+      [],
+      profile.id,
+    );
+  }
 
   revalidateTraining();
   fertigMitErfolg();

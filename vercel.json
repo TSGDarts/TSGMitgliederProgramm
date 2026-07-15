@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/comp-import", "schedule": "0 4 * * *" }
+    { "path": "/api/comp-import", "schedule": "0 4 * * *" },
+    { "path": "/api/erinnerungen", "schedule": "0 6 * * *" }
   ]
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireProfile } from "@/lib/auth";
 import { updateProfile } from "./actions";
+import { PushSettings } from "@/components/PushSettings";
 import {
   PageHeader,
   Card,
@@ -92,8 +93,31 @@ export default async function ProfilPage() {
                 <option value="no">standardmäßig absagen</option>
               </select>
             </Field>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="notify_email"
+                defaultChecked={profile.notify_email ?? false}
+              />
+              ✉️ Mich zusätzlich per E-Mail benachrichtigen
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="notify_turnier_woche"
+                defaultChecked={profile.notify_turnier_woche ?? false}
+              />
+              🏟 Eine Woche vor Turnieren erinnern
+            </label>
             <Button type="submit">Speichern</Button>
           </form>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardBody className="space-y-2">
+          <p className="font-medium">🔔 Push-Benachrichtigungen</p>
+          <PushSettings />
         </CardBody>
       </Card>
 

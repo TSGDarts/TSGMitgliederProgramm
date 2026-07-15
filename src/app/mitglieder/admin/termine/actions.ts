@@ -6,6 +6,7 @@ import { requireEditor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { berlinLocalToISO } from "@/lib/tz";
 import { romanTeamNo } from "@/lib/extras";
+import { meldeNeuenTermin } from "@/lib/benachrichtigung";
 import type { EventType } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -196,6 +197,22 @@ export async function createEvent(formData: FormData) {
       invitees.map((profile_id) => ({ event_id: created.id, profile_id })),
     );
     if (invError) abbruchMitFehler(invError.message);
+  }
+
+  // Alle Betroffenen benachrichtigen (Push/E-Mail, best-effort)
+  if (created?.id) {
+    await meldeNeuenTermin(
+      {
+        id: created.id,
+        title,
+        team_id,
+        starts_at,
+        time_tbd: formData.get("time_tbd") === "on" || zeitLeer,
+        type,
+      },
+      invitees,
+      profile.id,
+    );
   }
 
   revalidateEvents();
