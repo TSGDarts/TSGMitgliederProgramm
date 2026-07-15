@@ -75,19 +75,19 @@ export async function GET() {
   const m = html.match(
     /<script type="application\/json" id="compEventsFuerMitgliederApp">([\s\S]*?)<\/script>/,
   );
-  if (!m) {
-    return NextResponse.json({
-      hinweis:
-        "Kein Datenblock gefunden – die Competition-Seite wurde vermutlich noch nicht neu veröffentlicht.",
-      importiert: 0,
-    });
-  }
-
+  // Kein Datenblock (Seite noch nicht neu veröffentlicht)? Dann trotzdem weitermachen –
+  // die Competition-Abende (competition_dates) werden unabhängig davon gespiegelt.
+  let hinweis: string | undefined;
   let events: CompEvent[] = [];
-  try {
-    events = JSON.parse(m[1]).events ?? [];
-  } catch {
-    return NextResponse.json({ error: "Datenblock unlesbar." }, { status: 502 });
+  if (!m) {
+    hinweis =
+      "Kein VM/Finalturnier-Datenblock gefunden – die Competition-Seite wurde vermutlich noch nicht neu veröffentlicht.";
+  } else {
+    try {
+      events = JSON.parse(m[1]).events ?? [];
+    } catch {
+      hinweis = "Datenblock unlesbar – VM/Finalturnier übersprungen.";
+    }
   }
 
   const gueltig = events.filter(
@@ -152,14 +152,20 @@ export async function GET() {
     }
     byUid.delete(e.uid as string);
   }
-  // Übrig gebliebene comp-app-Einträge gibt es in der Competition-App nicht mehr
+  // Übrig gebliebene comp-app-Einträge gibt es in der Competition-App nicht mehr.
+  // VM/Finalturnier (nicht "cd-") aber NUR aufräumen, wenn der Datenblock wirklich
+  // gelesen wurde – sonst würde eine noch nicht veröffentlichte Seite sie löschen.
+  const blockOk = !!m && !hinweis;
   for (const rest of byUid.values()) {
+    const uid = (rest.source_uid as string) || "";
+    if (!uid.startsWith("comp-app:cd-") && !blockOk) continue;
     await admin.from("events").delete().eq("id", rest.id);
     entfernt++;
   }
 
   return NextResponse.json({
     quelle: QUELLE,
+    ...(hinweis ? { hinweis } : {}),
     gefunden: gueltig.length,
     neu,
     aktualisiert,
