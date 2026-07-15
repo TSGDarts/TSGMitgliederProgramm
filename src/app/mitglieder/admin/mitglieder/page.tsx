@@ -45,6 +45,7 @@ export default async function AdminMembersPage() {
     birthday?: string | null;
     birthday_public?: boolean | null;
     birthday_congrats?: boolean | null;
+    is_trainer?: boolean | null;
   }>;
   const teamName = (id: string) => teams.find((t) => t.id === id)?.name ?? "";
 
@@ -79,6 +80,7 @@ export default async function AdminMembersPage() {
                         <Badge tone="primary">Bearbeiter</Badge>
                       )}
                       {inv.role === "member" && <Badge>ohne Liga</Badge>}
+                      {inv.is_trainer && <Badge tone="ok">💪 Trainer</Badge>}
                       <Badge tone="warn">noch nicht angemeldet</Badge>
                       {inv.team_ids?.length > 0 && (
                         <span className="text-sm text-muted">
@@ -186,6 +188,14 @@ export default async function AdminMembersPage() {
                           (entscheidet die Person bei der Registrierung selbst
                           neu)
                         </span>
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="is_trainer"
+                          defaultChecked={inv.is_trainer ?? false}
+                        />
+                        💪 Trainer – darf Trainings eintragen
                       </label>
                       <Button type="submit">Änderungen speichern</Button>
                     </form>

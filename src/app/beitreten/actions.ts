@@ -86,6 +86,7 @@ export async function claimMember(
     .update({
       full_name: invite.full_name,
       role: invite.role,
+      is_trainer: invite.is_trainer ?? false,
       email,
       phone,
       birthday,

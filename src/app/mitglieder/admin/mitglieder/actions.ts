@@ -56,6 +56,7 @@ export async function createMember(
     : null;
   const birthday_public = formData.get("birthday_public") === "on";
   const birthday_congrats = formData.get("birthday_congrats") === "on";
+  const is_trainer = formData.get("is_trainer") === "on";
 
   // Ohne E-Mail: Name für die Selbst-Anmeldung anlegen. Die Person
   // registriert sich später über den Beitritts-Link/QR und gibt ihre
@@ -76,6 +77,7 @@ export async function createMember(
         birthday,
         birthday_public,
         birthday_congrats,
+        is_trainer,
       });
     if (error) {
       return {
@@ -125,7 +127,15 @@ export async function createMember(
   // Profil vervollständigen (Trigger legt Grunddaten an).
   await admin
     .from("profiles")
-    .update({ full_name, role, email, birthday, birthday_public, birthday_congrats })
+    .update({
+      full_name,
+      role,
+      email,
+      birthday,
+      birthday_public,
+      birthday_congrats,
+      is_trainer,
+    })
     .eq("id", userId);
 
   // Mannschaften zuordnen.
