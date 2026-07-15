@@ -4,6 +4,7 @@ import { getAllTeams } from "@/lib/member-queries";
 import { getEventArchiveDays } from "@/lib/settings";
 import { formatTime } from "@/lib/format";
 import { CalendarEventChip } from "@/components/CalendarEventChip";
+import { isCompSpiegel } from "@/lib/types";
 import type { EventRow, EventType, RsvpStatus } from "@/lib/types";
 import type { Tournament } from "@/lib/extras";
 
@@ -391,6 +392,7 @@ export async function EventsCalendar({
                               ? (defaultByTeam.get(ev.team_id) ?? null)
                               : null)
                         }
+                        rsvp={!isCompSpiegel(ev)}
                       />
                     ))}
                   </div>

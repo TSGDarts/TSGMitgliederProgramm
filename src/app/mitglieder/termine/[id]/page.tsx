@@ -13,6 +13,7 @@ import { PageHeader, Card, CardBody, Badge } from "@/components/ui";
 import {
   EVENT_TYPE_LABELS,
   RSVP_LABELS,
+  isCompSpiegel,
   type RsvpStatus,
 } from "@/lib/types";
 import { formatDate, formatDateTime, formatUntil } from "@/lib/format";
@@ -133,6 +134,17 @@ export default async function EventDetailPage({
         </Card>
       )}
 
+      {/* Gespiegelte Competition-Abende: reine Anzeige, keine Zu-/Absage –
+          die Anmeldung läuft über die Competition-App */}
+      {isCompSpiegel(event) ? (
+        <Card className="bg-primary/5">
+          <CardBody className="text-sm text-muted">
+            🎯 Dieser Competition-Abend wird in der Competition-App gepflegt –
+            hier ist keine Zu-/Absage nötig.
+          </CardBody>
+        </Card>
+      ) : (
+        <>
       <Card className="bg-primary/5">
         <CardBody className="space-y-2">
           <p className="text-sm font-medium">Deine Rückmeldung</p>
@@ -200,6 +212,8 @@ export default async function EventDetailPage({
           );
         })}
       </section>
+        </>
+      )}
     </div>
   );
 }

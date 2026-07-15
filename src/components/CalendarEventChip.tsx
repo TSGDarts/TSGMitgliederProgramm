@@ -16,6 +16,7 @@ export function CalendarEventChip({
   location,
   chipClass,
   myStatus,
+  rsvp = true,
 }: {
   eventId: string;
   title: string;
@@ -23,17 +24,19 @@ export function CalendarEventChip({
   location: string;
   chipClass: string;
   myStatus: RsvpStatus | null;
+  rsvp?: boolean; // false = reine Anzeige (z. B. gespiegelte Competition-Abende)
 }) {
   const [open, setOpen] = useState(false);
 
-  const statusMark =
-    myStatus === "yes" ? " ✓" : myStatus === "no" ? " ✗" : myStatus === "maybe" ? " ~" : "";
+  const statusMark = !rsvp
+    ? ""
+    : myStatus === "yes" ? " ✓" : myStatus === "no" ? " ✗" : myStatus === "maybe" ? " ~" : "";
 
   return (
     <div>
       <button
         onClick={() => setOpen((o) => !o)}
-        title={`${time ? `${time} Uhr – ` : ""}${title}${location ? ` (${location})` : ""} – antippen für Zu-/Absage`}
+        title={`${time ? `${time} Uhr – ` : ""}${title}${location ? ` (${location})` : ""}${rsvp ? " – antippen für Zu-/Absage" : ""}`}
         className={`block w-full truncate rounded px-1.5 py-0.5 text-left text-xs hover:opacity-80 ${chipClass}`}
       >
         {time && <span className="font-semibold">{time} </span>}
@@ -51,12 +54,12 @@ export function CalendarEventChip({
               {location}
             </p>
           )}
-          <RsvpButtons eventId={eventId} current={myStatus} />
+          {rsvp && <RsvpButtons eventId={eventId} current={myStatus} />}
           <Link
             href={`/mitglieder/termine/${eventId}`}
             className="block text-primary hover:underline"
           >
-            Details & Wer kommt? →
+            {rsvp ? "Details & Wer kommt? →" : "Details →"}
           </Link>
         </div>
       )}

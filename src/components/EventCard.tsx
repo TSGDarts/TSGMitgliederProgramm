@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Card, CardBody, Badge } from "@/components/ui";
 import { RsvpButtons } from "@/components/RsvpButtons";
 import { AddressLine } from "@/components/AddressLine";
-import { EVENT_TYPE_LABELS } from "@/lib/types";
+import { EVENT_TYPE_LABELS, isCompSpiegel } from "@/lib/types";
 import type { EventWithStatus } from "@/lib/member-queries";
 import { formatDate, formatTime, formatUntil } from "@/lib/format";
 
@@ -72,31 +72,34 @@ export function EventCard({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <RsvpButtons
-            eventId={event.id}
-            current={event.myStatus}
-            currentComment={event.myComment}
-          />
-          <span className="flex items-center gap-3">
-            {event.meeting_url && (
-              <a
-                href={event.meeting_url}
-                target="_blank"
-                rel="noreferrer"
+        {/* Gespiegelte Competition-Abende sind reine Anzeige – ohne Zu-/Absage */}
+        {!isCompSpiegel(event) && (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <RsvpButtons
+              eventId={event.id}
+              current={event.myStatus}
+              currentComment={event.myComment}
+            />
+            <span className="flex items-center gap-3">
+              {event.meeting_url && (
+                <a
+                  href={event.meeting_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-primary hover:underline"
+                >
+                  🎦 Online-Link
+                </a>
+              )}
+              <Link
+                href={`/mitglieder/termine/${event.id}`}
                 className="text-sm text-primary hover:underline"
               >
-                🎦 Online-Link
-              </a>
-            )}
-            <Link
-              href={`/mitglieder/termine/${event.id}`}
-              className="text-sm text-primary hover:underline"
-            >
-              Wer kommt? →
-            </Link>
-          </span>
-        </div>
+                Wer kommt? →
+              </Link>
+            </span>
+          </div>
+        )}
       </CardBody>
     </Card>
   );

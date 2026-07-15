@@ -94,6 +94,14 @@ export interface EventRow {
   created_at: string;
 }
 
+/**
+ * Aus der Competition-App gespiegelter Competition-Abend? Reine Anzeige –
+ * ohne Zu-/Absage (Anmeldung & Pflege laufen über die Competition-App).
+ */
+export function isCompSpiegel(ev: { source_uid?: string | null }): boolean {
+  return (ev.source_uid ?? "").startsWith("comp-app:cd-");
+}
+
 export interface Rsvp {
   event_id: string;
   profile_id: string;

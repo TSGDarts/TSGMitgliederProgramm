@@ -12,6 +12,7 @@ import {
   ButtonLink,
 } from "@/components/ui";
 import Link from "next/link";
+import { isCompSpiegel } from "@/lib/types";
 import type { Season } from "@/lib/season";
 
 export default async function DashboardPage({
@@ -23,7 +24,10 @@ export default async function DashboardPage({
   const profile = await requireProfile();
   const events = await getMemberEvents(profile.id, { limit: 5 });
 
-  const offen = events.filter((e) => e.myStatus === null).length;
+  // Gespiegelte Competition-Abende brauchen keine Rückmeldung
+  const offen = events.filter(
+    (e) => e.myStatus === null && !isCompSpiegel(e),
+  ).length;
 
   // Läuft gerade eine Saisonabfrage, die ich noch nicht beantwortet habe?
   // (Mitglieder ohne Liga-Spielbetrieb betrifft sie nicht.)
