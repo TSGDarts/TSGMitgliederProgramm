@@ -7,6 +7,7 @@ import { EventCard } from "@/components/EventCard";
 import { EventsCalendar } from "@/components/EventsCalendar";
 import { CalendarSubscribe } from "@/components/CalendarSubscribe";
 import { Einklappbar } from "@/components/Einklappbar";
+import { PdfPan } from "@/components/PdfPan";
 import { PageHeader, EmptyState } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Termine & Zusagen" };
@@ -74,18 +75,15 @@ export default async function MemberTerminePage({
         title="📄 Rahmenterminplan 2026/27 & 2027/28"
         defaultOpen={false}
       >
-        <p className="text-sm text-muted">
-          Der offizielle Rahmenterminplan (Mittelfranken / BDV / DDV) als PDF
-          – die Spielwochen stehen auch unten im Kalender.
+        <p className="mb-3 text-sm text-muted">
+          Der offizielle Rahmenterminplan (Mittelfranken / BDV / DDV) – die
+          Spielwochen stehen auch unten im Kalender.
         </p>
-        <a
-          href="/rahmenterminplan.pdf"
-          target="_blank"
-          rel="noreferrer"
-          className="mt-3 inline-flex items-center rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-border/40"
-        >
-          PDF öffnen
-        </a>
+        <PdfPan
+          src="/rahmenterminplan.pdf"
+          titel="Rahmenterminplan 2026/27 & 2027/28"
+          seiten={2}
+        />
       </Einklappbar>
 
       {isCalendar ? (

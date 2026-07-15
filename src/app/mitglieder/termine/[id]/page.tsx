@@ -191,7 +191,7 @@ export default async function EventDetailPage({
                             (Standard)
                           </span>
                         )}
-                        {g.key === "no" && p.comment && (
+                        {(g.key === "no" || g.key === "maybe") && p.comment && (
                           <span className="text-xs italic text-muted">
                             – {p.comment}
                           </span>

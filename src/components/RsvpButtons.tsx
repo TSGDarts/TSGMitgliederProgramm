@@ -40,9 +40,10 @@ export function RsvpButtons({
   }
 
   function saveComment() {
+    if (status !== "no" && status !== "maybe") return;
     setError("");
     startTransition(async () => {
-      const res = await setRsvp(eventId, "no", comment);
+      const res = await setRsvp(eventId, status, comment);
       if (!res.ok) {
         setError("Konnte nicht gespeichert werden.");
       } else {
@@ -71,14 +72,18 @@ export function RsvpButtons({
         ))}
       </div>
 
-      {/* Optionaler Grund bei Absage */}
-      {status === "no" && (
+      {/* Optionaler Grund bei Absage oder „Vielleicht“ */}
+      {(status === "no" || status === "maybe") && (
         <div className="flex flex-wrap items-center gap-2">
           <input
             type="text"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="Grund (optional), z. B. Schicht, Urlaub …"
+            placeholder={
+              status === "no"
+                ? "Grund (optional), z. B. Schicht, Urlaub …"
+                : "Anmerkung (optional), z. B. weiß erst Freitag …"
+            }
             className="w-64 max-w-full rounded-lg border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-primary"
           />
           <button
@@ -86,7 +91,11 @@ export function RsvpButtons({
             disabled={isPending}
             className="rounded-lg border border-border px-2 py-1 text-sm hover:bg-border/40 disabled:opacity-60"
           >
-            {commentSaved ? "✓ Gespeichert" : "Grund speichern"}
+            {commentSaved
+              ? "✓ Gespeichert"
+              : status === "no"
+                ? "Grund speichern"
+                : "Anmerkung speichern"}
           </button>
         </div>
       )}
