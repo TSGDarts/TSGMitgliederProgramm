@@ -195,6 +195,21 @@ export async function updateEvent(formData: FormData) {
   revalidateEvents(id);
 }
 
+/** Archiv-Frist speichern: nach so vielen Tagen verschwinden Termine. */
+export async function saveArchiveDays(formData: FormData) {
+  await requireAdmin();
+  const n = Math.round(Number(formData.get("archive_days") ?? 0));
+  if (!Number.isFinite(n) || n < 1 || n > 365) return;
+
+  const supabase = await createClient();
+  await supabase.from("app_settings").upsert({
+    key: "event_archive_days",
+    value: String(n),
+    updated_at: new Date().toISOString(),
+  });
+  revalidateEvents();
+}
+
 export async function deleteEvent(formData: FormData) {
   await requireAdmin();
   const id = String(formData.get("id") ?? "");

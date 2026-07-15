@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getAllTeams } from "@/lib/member-queries";
+import { getEventArchiveDays } from "@/lib/settings";
 import { formatTime } from "@/lib/format";
 import { CalendarEventChip } from "@/components/CalendarEventChip";
 import type { EventRow, EventType, RsvpStatus } from "@/lib/types";
@@ -87,6 +88,15 @@ export async function EventsCalendar({
   } else if (teamFilter) {
     events = events.filter((e) => e.team_id === teamFilter);
   }
+
+  // Archiv-Frist: ältere Termine ausblenden (bleiben in der Datenbank)
+  const archiveDays = await getEventArchiveDays();
+  const cutoffKey = berlinDay.format(
+    new Date(Date.now() - archiveDays * 864e5),
+  );
+  events = events.filter(
+    (e) => berlinDay.format(new Date(e.starts_at)) >= cutoffKey,
+  );
 
   // Termine nach Berliner Kalendertag gruppieren
   const byDay = new Map<string, EventRow[]>();
@@ -230,6 +240,7 @@ export async function EventsCalendar({
               const inMonth = date.getUTCMonth() === m - 1;
               const dayEvents = byDay.get(key) ?? [];
               const isToday = key === todayKey;
+              const isPast = key < todayKey;
               return (
                 <div
                   key={key}
@@ -246,7 +257,9 @@ export async function EventsCalendar({
                   >
                     {dayNum}
                   </div>
-                  <div className="space-y-1">
+                  <div
+                    className={`space-y-1 ${isPast ? "opacity-50 grayscale" : ""}`}
+                  >
                     {(birthdayByDay.get(key) ?? []).map((name) => (
                       <div
                         key={`bday-${name}`}

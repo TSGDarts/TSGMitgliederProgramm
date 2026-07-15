@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getEventArchiveDays } from "@/lib/settings";
 import type {
   EventRow,
   Profile,
@@ -38,9 +39,21 @@ export async function getMemberEvents(
   const nowIso = new Date().toISOString();
 
   let query = supabase.from("events").select("*");
-  query = opts.past
-    ? query.lt("starts_at", nowIso).order("starts_at", { ascending: false })
-    : query.gte("starts_at", nowIso).order("starts_at", { ascending: true });
+  if (opts.past) {
+    // Vergangene nur bis zur Archiv-Frist anzeigen
+    const archiveDays = await getEventArchiveDays();
+    const cutoffIso = new Date(
+      Date.now() - archiveDays * 864e5,
+    ).toISOString();
+    query = query
+      .lt("starts_at", nowIso)
+      .gte("starts_at", cutoffIso)
+      .order("starts_at", { ascending: false });
+  } else {
+    query = query
+      .gte("starts_at", nowIso)
+      .order("starts_at", { ascending: true });
+  }
   if (opts.limit) query = query.limit(opts.limit * 3);
 
   const { data } = await query;

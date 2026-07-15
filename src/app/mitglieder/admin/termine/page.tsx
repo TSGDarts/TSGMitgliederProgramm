@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAllTeams } from "@/lib/member-queries";
-import { createEvent, updateEvent, deleteEvent } from "./actions";
+import { createEvent, updateEvent, deleteEvent, saveArchiveDays } from "./actions";
 import { berlinISOToLocalInput } from "@/lib/tz";
+import { getEventArchiveDays } from "@/lib/settings";
 import {
   PageHeader,
   Card,
@@ -143,10 +144,14 @@ export default async function AdminEventsPage() {
   const teams = await getAllTeams();
   const supabase = await createClient();
 
+  const archiveDays = await getEventArchiveDays();
   const { data } = await supabase
     .from("events")
     .select("*")
-    .gte("starts_at", new Date(Date.now() - 7 * 864e5).toISOString())
+    .gte(
+      "starts_at",
+      new Date(Date.now() - archiveDays * 864e5).toISOString(),
+    )
     .order("starts_at", { ascending: true });
   const events = (data as EventRow[]) ?? [];
   const teamName = (id: string | null) =>
@@ -187,6 +192,34 @@ export default async function AdminEventsPage() {
         title="Termine verwalten"
         subtitle="Termine für den Verein oder einzelne Mannschaften anlegen"
       />
+
+      {/* Archiv-Einstellung */}
+      <Card className="bg-primary/5">
+        <CardBody className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold">🗄️ Automatisches Archiv</p>
+            <p className="text-sm text-muted">
+              Vergangene Termine werden im Kalender grau angezeigt und
+              verschwinden nach dieser Frist aus Listen und Kalender
+              (bleiben aber gespeichert; der Dart-Feed ist nicht betroffen).
+            </p>
+          </div>
+          <form action={saveArchiveDays} className="flex items-center gap-2">
+            <input
+              name="archive_days"
+              type="number"
+              min={1}
+              max={365}
+              defaultValue={archiveDays}
+              className={`${inputClass} w-24`}
+            />
+            <span className="text-sm text-muted">Tage</span>
+            <Button type="submit" variant="secondary">
+              Speichern
+            </Button>
+          </form>
+        </CardBody>
+      </Card>
 
       <Card>
         <CardBody>

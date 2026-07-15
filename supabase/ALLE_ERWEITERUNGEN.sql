@@ -1,7 +1,7 @@
 -- =====================================================================
 -- SAMMEL-SKRIPT: Alle Datenbank-Erweiterungen in einem Rutsch
 -- ---------------------------------------------------------------------
--- Führt die Skripte 02 bis 24 zusammen aus (OHNE 06_rahmentermine -
+-- Führt die Skripte 02 bis 25 zusammen aus (OHNE 06_rahmentermine -
 -- die Rahmentermine wurden auf Wunsch entfernt). Kann GEFAHRLOS
 -- mehrfach ausgeführt werden.
 -- (Voraussetzung: schema.sql wurde einmal ausgeführt.)
@@ -809,3 +809,21 @@ where not exists (
 
 alter table public.events
   add column if not exists time_tbd boolean not null default false;
+
+-- ###################### 25_termin_archiv.sql ######################
+
+-- =====================================================================
+-- Erweiterung: Automatisches Termin-Archiv (einstellbare Frist)
+-- ---------------------------------------------------------------------
+-- Im Supabase SQL-Editor EINMALIG ausführen.
+-- =====================================================================
+
+-- Mitglieder dürfen die App-Einstellungen lesen (z. B. die Archiv-Frist).
+drop policy if exists "app_settings_read" on public.app_settings;
+create policy "app_settings_read" on public.app_settings
+  for select using (auth.uid() is not null);
+
+-- Standard: Termine 30 Tage nach ihrem Datum archivieren
+insert into public.app_settings (key, value)
+values ('event_archive_days', '30')
+on conflict (key) do nothing;
