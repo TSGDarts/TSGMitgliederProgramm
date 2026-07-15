@@ -267,6 +267,7 @@ export default async function TurnierePage({
           id="turnier-eintragen"
           title="➕ Turnier eintragen"
           defaultOpen={false}
+          zuklappBei={gespeichert}
         >
           <form
             key={gespeichert ?? "neu"}

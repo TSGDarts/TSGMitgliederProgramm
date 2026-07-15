@@ -10,17 +10,21 @@ export function Einklappbar({
   id,
   title,
   defaultOpen = true,
+  zuklappBei,
   className = "",
   children,
 }: {
   id: string;
   title: React.ReactNode;
   defaultOpen?: boolean;
+  /** Ändert sich dieser Wert (z. B. ?gespeichert=…), klappt der Bereich zu. */
+  zuklappBei?: string;
   className?: string;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDetailsElement>(null);
   const geladen = useRef(false);
+  const signal = useRef(zuklappBei);
 
   useEffect(() => {
     try {
@@ -31,6 +35,16 @@ export function Einklappbar({
     }
     geladen.current = true;
   }, [id]);
+
+  // Nach dem Speichern (Signal wechselt) zuklappen – und das auch merken
+  useEffect(() => {
+    if (signal.current === zuklappBei) return;
+    signal.current = zuklappBei;
+    if (ref.current) ref.current.open = false;
+    try {
+      localStorage.setItem(`einklappen:${id}`, "0");
+    } catch {}
+  }, [zuklappBei, id]);
 
   return (
     <details

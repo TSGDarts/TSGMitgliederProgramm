@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireProfile, canManageTrainings } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminSupabase } from "@/lib/supabase/admin";
 import { getMemberEvents, getAllTeams } from "@/lib/member-queries";
 import { createTraining, updateTraining, deleteTraining } from "./actions";
 import { EventCard } from "@/components/EventCard";
@@ -146,7 +147,8 @@ export default async function TrainingPage({
   const upcoming = upcomingAll.filter((e) => e.type === "training");
   const past = pastAll.filter((e) => e.type === "training");
 
-  // Alle Trainer (für die Auswahl im Formular und die Anzeige an der Karte)
+  // Alle Trainer (für die Auswahl im Formular und die Anzeige an der Karte):
+  // registrierte Mitglieder UND vorab angelegte Namen mit Trainer-Haken.
   const supabase = await createClient();
   const { data: trainerData } = await supabase
     .from("profiles")
@@ -154,7 +156,25 @@ export default async function TrainingPage({
     .eq("is_trainer", true)
     .eq("is_active", true)
     .order("full_name");
-  const trainer = (trainerData as TrainerInfo[]) ?? [];
+  let inviteTrainer: TrainerInfo[] = [];
+  try {
+    // Einladungen sind per Zugriffsschutz Admin-Sache – hier lesen wir nur
+    // Name + Kennung der Trainer darunter (Server-seitig, für die Auswahl).
+    const adminDb = createAdminSupabase();
+    const { data: invData } = await adminDb
+      .from("member_invites")
+      .select("id, full_name")
+      .eq("is_trainer", true)
+      .eq("claimed", false)
+      .order("full_name");
+    inviteTrainer = (invData as TrainerInfo[]) ?? [];
+  } catch {
+    // Ohne Service-Schlüssel eben nur registrierte Trainer
+  }
+  const trainer = [
+    ...((trainerData as TrainerInfo[]) ?? []),
+    ...inviteTrainer,
+  ].sort((a, b) => a.full_name.localeCompare(b.full_name));
   const trainerName = new Map(trainer.map((t) => [t.id, t.full_name]));
   const namenFuer = (e: EventWithStatus) =>
     (e.trainer_ids ?? [])
@@ -190,6 +210,7 @@ export default async function TrainingPage({
           id="training-anlegen"
           title="➕ Training eintragen"
           defaultOpen={false}
+          zuklappBei={gespeichert}
         >
           {/* Schlüssel wechselt nach dem Speichern → Formular wird geleert */}
           <form

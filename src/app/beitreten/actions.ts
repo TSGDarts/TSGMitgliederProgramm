@@ -128,6 +128,22 @@ export async function claimMember(
       .eq("profile_id", userId);
   }
 
+  // Als „anwesender Trainer“ vorgemerkte Trainings aufs neue Profil umziehen
+  const { data: trainerEvents } = await admin
+    .from("events")
+    .select("id, trainer_ids")
+    .contains("trainer_ids", [inviteId]);
+  for (const t of trainerEvents ?? []) {
+    await admin
+      .from("events")
+      .update({
+        trainer_ids: ((t.trainer_ids as string[]) ?? []).map((x) =>
+          x === inviteId ? userId : x,
+        ),
+      })
+      .eq("id", t.id);
+  }
+
   await admin
     .from("member_invites")
     .update({ claimed: true, claimed_profile_id: userId })
