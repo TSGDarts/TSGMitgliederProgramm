@@ -66,10 +66,16 @@ function readTournamentFields(formData: FormData) {
     ? "doppel"
     : "einzel";
 
-  // "Anzeigen bis": leer -> letzter Turniertag (danach wandert es ins Archiv)
+  // "Anzeigen bis": leer -> letzter Turniertag (danach wandert es ins Archiv).
+  // Nie früher als der letzte Turniertag – sonst bliebe ein Turnier nach
+  // einer Datums-Korrektur fälschlich im Archiv hängen.
+  const letzterTag = (ends_at ?? starts_at).slice(0, 10);
   let display_until = String(formData.get("display_until") ?? "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(display_until)) {
-    display_until = (ends_at ?? starts_at).slice(0, 10);
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(display_until) ||
+    display_until < letzterTag
+  ) {
+    display_until = letzterTag;
   }
 
   return {

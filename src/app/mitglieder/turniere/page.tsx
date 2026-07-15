@@ -170,7 +170,7 @@ function TournamentFields({ defaults }: { defaults?: Tournament }) {
         </Field>
         <Field
           label="Anzeigen bis (optional)"
-          hint="Danach wandert das Turnier automatisch ins Archiv. Leer = letzter Turniertag."
+          hint="Danach wandert das Turnier automatisch ins Archiv. Leer oder früher als der letzte Turniertag = letzter Turniertag."
         >
           <input
             name="display_until"
