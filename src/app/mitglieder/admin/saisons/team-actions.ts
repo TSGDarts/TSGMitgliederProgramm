@@ -46,6 +46,20 @@ export async function addTeamMemberAction(
   return { ok: true };
 }
 
+/** Person von einem Team in ein anderes verschieben (Drag & Drop). */
+export async function moveTeamMemberAction(
+  fromTeamId: string | null,
+  toTeamId: string,
+  target: string,
+): Promise<Res> {
+  const add = await addTeamMemberAction(toTeamId, target);
+  if (!add.ok) return add;
+  if (fromTeamId && fromTeamId !== toTeamId) {
+    return removeTeamMemberAction(fromTeamId, target);
+  }
+  return { ok: true };
+}
+
 export async function removeTeamMemberAction(
   teamId: string,
   target: string,

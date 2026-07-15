@@ -6,11 +6,14 @@ import { Card, CardBody, Badge } from "@/components/ui";
 import {
   addPokalManyAction,
   removePokalAction,
+  movePokalRowAction,
   setPokalTeamsAction,
 } from "../pokal-actions";
 
 export type PokalPerson = { key: string; name: string; answer: string };
 export type SquadItem = { id: string; teamNo: number; key: string };
+
+type DragData = { key: string; itemId: string | null; from: number | null };
 
 function mark(answer: string): string {
   if (answer === "yes") return "✓";
@@ -24,6 +27,15 @@ function markTitle(answer: string): string {
   if (answer === "if_needed") return "„Ja, wenn ihr jemanden braucht“";
   if (answer === "no") return "Hat „Nein“ gesagt";
   return answer ? `Sonstiges: ${answer}` : "Keine Antwort";
+}
+
+function readDragData(e: React.DragEvent): DragData | null {
+  try {
+    const data = JSON.parse(e.dataTransfer.getData("text/plain")) as DragData;
+    return data && typeof data.key === "string" ? data : null;
+  } catch {
+    return null;
+  }
 }
 
 export function PokalPlanner({
@@ -49,6 +61,7 @@ export function PokalPlanner({
   const [teams, setTeams] = useState(Math.max(1, initialTeams));
   const [squad, setSquad] = useState<SquadItem[]>(initialSquad);
   const [error, setError] = useState("");
+  const [overZone, setOverZone] = useState<number | null>(null);
   const [, startTransition] = useTransition();
 
   const nameByKey = useMemo(
@@ -101,6 +114,18 @@ export function PokalPlanner({
     });
   }
 
+  function moveItem(itemId: string, toNo: number) {
+    if (itemId.startsWith("tmp-")) return; // erst speichern lassen
+    setError("");
+    setSquad((s) =>
+      s.map((x) => (x.id === itemId ? { ...x, teamNo: toNo } : x)),
+    );
+    startTransition(async () => {
+      const res = await movePokalRowAction(itemId, toNo);
+      if (!res.ok) return fail(res.message);
+    });
+  }
+
   function changeTeams(delta: number) {
     const n = Math.min(Math.max(teams + delta, 1), 6);
     if (n === teams) return;
@@ -111,6 +136,33 @@ export function PokalPlanner({
       const res = await setPokalTeamsAction(seasonId, kind, n);
       if (!res.ok) return fail(res.message);
     });
+  }
+
+  function dragStart(e: React.DragEvent, data: DragData) {
+    e.dataTransfer.setData("text/plain", JSON.stringify(data));
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function dropZoneProps(no: number) {
+    return {
+      onDragOver: (e: React.DragEvent) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        setOverZone(no);
+      },
+      onDragLeave: () => setOverZone((z) => (z === no ? null : z)),
+      onDrop: (e: React.DragEvent) => {
+        e.preventDefault();
+        setOverZone(null);
+        const data = readDragData(e);
+        if (!data) return;
+        if (data.itemId) {
+          if (data.from !== no) moveItem(data.itemId, no);
+        } else {
+          addPersons([data.key], no);
+        }
+      },
+    };
   }
 
   return (
@@ -151,12 +203,20 @@ export function PokalPlanner({
           </p>
         )}
 
-        {/* Teams */}
+        {/* Teams (Ablagezonen) */}
         <div className="space-y-2">
           {Array.from({ length: teams }, (_, i) => i + 1).map((no) => {
             const items = squad.filter((s) => s.teamNo === no);
             return (
-              <div key={no} className="rounded-lg border border-border p-3">
+              <div
+                key={no}
+                {...dropZoneProps(no)}
+                className={`rounded-lg border p-3 transition ${
+                  overZone === no
+                    ? "border-primary bg-primary/10 ring-2 ring-primary/30"
+                    : "border-border"
+                }`}
+              >
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-sm font-semibold">
                     {teams === 1 ? "Kader" : `Team ${no}`}
@@ -166,26 +226,43 @@ export function PokalPlanner({
                   </Badge>
                 </div>
                 {items.length === 0 ? (
-                  <p className="text-sm text-muted">Noch niemand zugeordnet.</p>
+                  <p className="text-sm text-muted">
+                    Hierher ziehen oder unten übernehmen.
+                  </p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {items.map((item) => {
                       const p = nameByKey.get(item.key);
                       const pendingSave = item.id.startsWith("tmp-");
                       return (
-                        <button
+                        <span
                           key={item.id}
-                          onClick={() => removeItem(item)}
-                          disabled={pendingSave}
-                          title={`${markTitle(p?.answer ?? "")} – klicken zum Entfernen`}
-                          className={`inline-flex items-center gap-1 rounded-full bg-primary/15 px-3 py-1 text-sm text-primary hover:bg-primary/25 ${
+                          draggable={!pendingSave}
+                          onDragStart={(e) =>
+                            dragStart(e, {
+                              key: item.key,
+                              itemId: item.id,
+                              from: item.teamNo,
+                            })
+                          }
+                          title={`${markTitle(p?.answer ?? "")} – ziehen zum Verschieben`}
+                          className={`inline-flex cursor-grab items-center gap-1 rounded-full bg-primary/15 px-3 py-1 text-sm text-primary active:cursor-grabbing ${
                             pendingSave ? "opacity-50" : ""
                           }`}
                         >
                           {p?.name ?? "(unbekannt)"}{" "}
-                          <span className="opacity-70">{mark(p?.answer ?? "")}</span>{" "}
-                          ✕
-                        </button>
+                          <span className="opacity-70">
+                            {mark(p?.answer ?? "")}
+                          </span>
+                          <button
+                            onClick={() => removeItem(item)}
+                            disabled={pendingSave}
+                            className="ml-0.5 hover:opacity-70"
+                            title="Aus dem Kader entfernen"
+                          >
+                            ✕
+                          </button>
+                        </span>
                       );
                     })}
                   </div>
@@ -222,9 +299,14 @@ export function PokalPlanner({
                   .map((p) => (
                     <div
                       key={p.key}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-1 text-sm hover:bg-border/30"
+                      draggable
+                      onDragStart={(e) =>
+                        dragStart(e, { key: p.key, itemId: null, from: null })
+                      }
+                      className="flex cursor-grab flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-1 text-sm hover:bg-border/30 active:cursor-grabbing"
                     >
                       <span title={markTitle(p.answer)}>
+                        <span className="mr-1 text-muted">⠿</span>
                         {p.name}{" "}
                         <span className="text-muted">{mark(p.answer)}</span>
                       </span>

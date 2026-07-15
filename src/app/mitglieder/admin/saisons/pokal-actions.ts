@@ -60,6 +60,24 @@ export async function addPokalManyAction(
   return { ok: true, added };
 }
 
+/** Eintrag in ein anderes Pokal-Team verschieben (Drag & Drop). */
+export async function movePokalRowAction(
+  rowId: string,
+  teamNo: number,
+): Promise<{ ok: boolean; message?: string }> {
+  await requireAdmin();
+  const team_no = Math.min(Math.max(Math.round(teamNo) || 1, 1), 6);
+  if (!rowId) return { ok: false, message: "Kein Eintrag angegeben." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("pokal_squads")
+    .update({ team_no })
+    .eq("id", rowId);
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
+}
+
 export async function removePokalAction(
   rowId: string,
 ): Promise<{ ok: boolean; message?: string }> {
