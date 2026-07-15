@@ -8,6 +8,7 @@ import {
   removeTeamMemberAction,
   moveTeamMemberAction,
   setTeamRoleAction,
+  swapTeamsAction,
 } from "../team-actions";
 
 export type TeamInfo = { id: string; name: string; home?: string };
@@ -68,12 +69,25 @@ export function TeamPlanner({
   const [assign, setAssign] = useState<TeamAssign[]>(initialAssign);
   const [error, setError] = useState("");
   const [overZone, setOverZone] = useState<string | null>(null);
+  const [swapA, setSwapA] = useState("");
+  const [swapB, setSwapB] = useState("");
   const [, startTransition] = useTransition();
 
   const personByKey = useMemo(
     () => new Map(persons.map((p) => [p.key, p])),
     [persons],
   );
+  const teamNameById = useMemo(
+    () => new Map(teams.map((t) => [t.id, t.name])),
+    [teams],
+  );
+  // Für die Mehrfach-Markierung: in welchen Teams steckt jede Person?
+  const teamsByKey = new Map<string, string[]>();
+  for (const a of assign) {
+    const list = teamsByKey.get(a.key) ?? [];
+    list.push(a.teamId);
+    teamsByKey.set(a.key, list);
+  }
   const assignedKeys = new Set(assign.map((a) => a.key));
   const unassigned = persons
     .filter((p) => !assignedKeys.has(p.key))
@@ -142,6 +156,29 @@ export function TeamPlanner({
     });
   }
 
+  /** Komplette Kader zweier Teams tauschen. */
+  function doSwap() {
+    if (!swapA || !swapB || swapA === swapB) return;
+    setError("");
+    setAssign((s) =>
+      s.map((a) =>
+        a.teamId === swapA
+          ? { ...a, teamId: swapB }
+          : a.teamId === swapB
+            ? { ...a, teamId: swapA }
+            : a,
+      ),
+    );
+    const a = swapA;
+    const b = swapB;
+    setSwapA("");
+    setSwapB("");
+    startTransition(async () => {
+      const res = await swapTeamsAction(a, b);
+      if (!res.ok) fail(res.message);
+    });
+  }
+
   function dragStart(e: React.DragEvent, data: DragData) {
     e.dataTransfer.setData("text/plain", JSON.stringify(data));
     e.dataTransfer.effectAllowed = "move";
@@ -169,10 +206,12 @@ export function TeamPlanner({
     p,
     from,
     hideTeams,
+    note,
   }: {
     p: TeamPerson;
     from: string | null;
     hideTeams?: Set<string>;
+    note?: string;
   }) {
     return (
       <div
@@ -192,6 +231,9 @@ export function TeamPlanner({
             >
               💬
             </span>
+          )}
+          {note && (
+            <span className="ml-1 text-xs text-muted">({note})</span>
           )}
         </span>
         <span className="flex flex-wrap gap-1">
@@ -225,6 +267,45 @@ export function TeamPlanner({
           <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
             {error}
           </p>
+        )}
+
+        {/* Teams komplett tauschen */}
+        {teams.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-border/20 px-3 py-2 text-sm">
+            <span className="font-medium">Kader komplett tauschen:</span>
+            <select
+              value={swapA}
+              onChange={(e) => setSwapA(e.target.value)}
+              className="rounded-lg border border-border bg-surface px-2 py-1"
+            >
+              <option value="">Team wählen …</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id} disabled={t.id === swapB}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            <span className="font-bold">⇄</span>
+            <select
+              value={swapB}
+              onChange={(e) => setSwapB(e.target.value)}
+              className="rounded-lg border border-border bg-surface px-2 py-1"
+            >
+              <option value="">Team wählen …</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id} disabled={t.id === swapA}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={doSwap}
+              disabled={!swapA || !swapB || swapA === swapB}
+              className="rounded-lg bg-primary px-3 py-1 font-medium text-primary-fg hover:opacity-90 disabled:opacity-40"
+            >
+              Tauschen
+            </button>
+          </div>
         )}
 
         {/* Team-Boxen (Ablagezonen) */}
@@ -273,7 +354,12 @@ export function TeamPlanner({
                             (y.a.role === "captain" ? 0 : y.a.role === "vice" ? 1 : 2) ||
                           x.p.name.localeCompare(y.p.name),
                       )
-                      .map(({ a, p }) => (
+                      .map(({ a, p }) => {
+                        const otherTeams = (teamsByKey.get(p.key) ?? [])
+                          .filter((tid) => tid !== t.id)
+                          .map((tid) => teamNameById.get(tid))
+                          .filter(Boolean);
+                        return (
                         <span
                           key={p.key}
                           draggable
@@ -312,6 +398,14 @@ export function TeamPlanner({
                               👑
                             </button>
                           )}
+                          {otherTeams.length > 0 && (
+                            <span
+                              className="rounded-full bg-warn/25 px-1.5 text-xs font-bold text-warn"
+                              title={`Auch zugeordnet in: ${otherTeams.join(", ")}`}
+                            >
+                              +{otherTeams.length}
+                            </span>
+                          )}
                           <button
                             onClick={() => remove(p.key, t.id)}
                             className="ml-0.5 hover:opacity-70"
@@ -320,7 +414,8 @@ export function TeamPlanner({
                             ✕
                           </button>
                         </span>
-                      ))}
+                        );
+                      })}
                   </div>
                 )}
               </div>
@@ -380,6 +475,10 @@ export function TeamPlanner({
                         .map((a) => a.teamId),
                     )
                   }
+                  note={`in: ${(teamsByKey.get(p.key) ?? [])
+                    .map((tid) => teamNameById.get(tid))
+                    .filter(Boolean)
+                    .join(", ")}`}
                 />
               ))}
             </div>

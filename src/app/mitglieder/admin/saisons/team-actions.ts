@@ -46,6 +46,69 @@ export async function addTeamMemberAction(
   return { ok: true };
 }
 
+/** Tauscht die kompletten Kader zweier Mannschaften (inkl. Rollen). */
+export async function swapTeamsAction(
+  teamAId: string,
+  teamBId: string,
+): Promise<Res> {
+  await requireAdmin();
+  if (!teamAId || !teamBId || teamAId === teamBId) {
+    return { ok: false, message: "Bitte zwei verschiedene Teams wählen." };
+  }
+
+  const supabase = await createClient();
+
+  // Registrierte Mitglieder: nur die tauschen, die nicht in beiden Teams sind
+  const [{ data: rowsA }, { data: rowsB }] = await Promise.all([
+    supabase.from("team_members").select("profile_id").eq("team_id", teamAId),
+    supabase.from("team_members").select("profile_id").eq("team_id", teamBId),
+  ]);
+  const setA = new Set((rowsA ?? []).map((r) => r.profile_id as string));
+  const setB = new Set((rowsB ?? []).map((r) => r.profile_id as string));
+  const onlyA = [...setA].filter((x) => !setB.has(x));
+  const onlyB = [...setB].filter((x) => !setA.has(x));
+
+  if (onlyA.length) {
+    const { error } = await supabase
+      .from("team_members")
+      .update({ team_id: teamBId })
+      .eq("team_id", teamAId)
+      .in("profile_id", onlyA);
+    if (error) return { ok: false, message: error.message };
+  }
+  if (onlyB.length) {
+    const { error } = await supabase
+      .from("team_members")
+      .update({ team_id: teamAId })
+      .eq("team_id", teamBId)
+      .in("profile_id", onlyB);
+    if (error) return { ok: false, message: error.message };
+  }
+
+  // Vorab angelegte Namen: Team-IDs in den Arrays tauschen
+  const { data: invs } = await supabase
+    .from("member_invites")
+    .select("id, team_ids")
+    .eq("claimed", false);
+  for (const inv of invs ?? []) {
+    const ids = (inv.team_ids as string[]) ?? [];
+    if (!ids.includes(teamAId) && !ids.includes(teamBId)) continue;
+    const swapped = [
+      ...new Set(
+        ids.map((x) =>
+          x === teamAId ? teamBId : x === teamBId ? teamAId : x,
+        ),
+      ),
+    ];
+    await supabase
+      .from("member_invites")
+      .update({ team_ids: swapped })
+      .eq("id", inv.id);
+  }
+
+  return { ok: true };
+}
+
 /**
  * Team-Rolle setzen: 'captain', 'vice' oder 'none'.
  * Regeln: pro Team nur EIN Kapitän / EIN Vize; eine Person nur bei
