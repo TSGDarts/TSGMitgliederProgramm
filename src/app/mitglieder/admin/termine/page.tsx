@@ -142,10 +142,10 @@ function InviteePicker({
 export default async function AdminEventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; gespeichert?: string }>;
 }) {
   await requireAdmin();
-  const { fehler } = await searchParams;
+  const { fehler, gespeichert } = await searchParams;
   const teams = await getAllTeams();
   const supabase = await createClient();
 
@@ -209,6 +209,12 @@ export default async function AdminEventsPage({
         </Card>
       ) : null}
 
+      {gespeichert ? (
+        <Card className="border-ok/40 bg-ok/10">
+          <CardBody className="font-semibold text-ok">✓ Gespeichert.</CardBody>
+        </Card>
+      ) : null}
+
       {/* Archiv-Einstellung */}
       <Card className="bg-primary/5">
         <CardBody className="flex flex-wrap items-center justify-between gap-3">
@@ -239,7 +245,12 @@ export default async function AdminEventsPage({
 
       <Card>
         <CardBody>
-          <form action={createEvent} className="space-y-4">
+          {/* Schlüssel wechselt nach dem Speichern → Formular wird geleert */}
+          <form
+            key={gespeichert ?? "neu"}
+            action={createEvent}
+            className="space-y-4"
+          >
             <h2 className="font-semibold">Neuer Termin</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field
@@ -361,8 +372,12 @@ export default async function AdminEventsPage({
                   </form>
                 </div>
 
-                {/* Bearbeiten (aufklappbar, vorausgefüllt) */}
-                <details className="rounded-lg border border-border">
+                {/* Bearbeiten (aufklappbar, vorausgefüllt); Schlüssel
+                    wechselt nach dem Speichern → Feld klappt wieder zu */}
+                <details
+                  key={`${ev.id}-${gespeichert ?? ""}`}
+                  className="rounded-lg border border-border"
+                >
                   <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-primary">
                     ✏️ Bearbeiten
                   </summary>

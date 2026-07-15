@@ -92,6 +92,16 @@ function abbruchMitFehler(msg: string): never {
   redirect(`/mitglieder/admin/termine?fehler=${encodeURIComponent(text)}`);
 }
 
+/**
+ * Nach erfolgreichem Speichern: Seite neu laden mit Erfolgs-Hinweis.
+ * Der Zeitstempel sorgt dafür, dass offene Bearbeiten-Felder zuklappen
+ * und das Anlege-Formular geleert wird (auch bei mehreren Speicherungen
+ * hintereinander).
+ */
+function fertigMitErfolg(): never {
+  redirect(`/mitglieder/admin/termine?gespeichert=${Date.now()}`);
+}
+
 function revalidateEvents(id?: string) {
   revalidatePath("/mitglieder/admin/termine");
   revalidatePath("/mitglieder/termine");
@@ -156,6 +166,7 @@ export async function createEvent(formData: FormData) {
   }
 
   revalidateEvents();
+  fertigMitErfolg();
 }
 
 export async function updateEvent(formData: FormData) {
@@ -212,6 +223,7 @@ export async function updateEvent(formData: FormData) {
   }
 
   revalidateEvents(id);
+  fertigMitErfolg();
 }
 
 /** Archiv-Frist speichern: nach so vielen Tagen verschwinden Termine. */
