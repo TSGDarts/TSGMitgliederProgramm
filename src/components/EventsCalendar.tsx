@@ -5,6 +5,7 @@ import { getEventArchiveDays } from "@/lib/settings";
 import { formatTime } from "@/lib/format";
 import { CalendarEventChip } from "@/components/CalendarEventChip";
 import { MonthPicker } from "@/components/MonthPicker";
+import { KalenderZoom } from "@/components/KalenderZoom";
 import { isCompSpiegel } from "@/lib/types";
 import { feiertageBayern } from "@/lib/feiertage";
 import type { EventRow, EventType, RsvpStatus } from "@/lib/types";
@@ -318,8 +319,8 @@ export async function EventsCalendar({
         </Link>
       </div>
 
-      {/* Raster */}
-      <div className="overflow-x-auto">
+      {/* Raster (mit Zoom: −/+ oder zwei Finger) */}
+      <KalenderZoom>
         <div className="min-w-[720px]">
           <div className="grid grid-cols-7 gap-1">
             {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map((d) => (
@@ -422,7 +423,7 @@ export async function EventsCalendar({
             })}
           </div>
         </div>
-      </div>
+      </KalenderZoom>
 
       <p className="text-xs text-muted">
         Farben:{" "}
