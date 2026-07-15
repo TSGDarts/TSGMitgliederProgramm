@@ -5,6 +5,7 @@ import { getEventArchiveDays } from "@/lib/settings";
 import { formatTime } from "@/lib/format";
 import { CalendarEventChip } from "@/components/CalendarEventChip";
 import type { EventRow, EventType, RsvpStatus } from "@/lib/types";
+import type { Tournament } from "@/lib/extras";
 
 // Monats-Kalender mit Mannschafts-Filter. Wiederverwendbar:
 // "base" ist die Seite, auf der er eingebettet ist (Links bleiben dort).
@@ -148,9 +149,46 @@ export async function EventsCalendar({
     }
   }
 
+  // Turniere im Umkreis: erscheinen bei „Alle“ und „Verein“ als eigene
+  // Kärtchen (mehrtägige an jedem Tag ihres Zeitraums).
+  const tournamentsByDay = new Map<string, Tournament[]>();
+  if (!teamFilter || teamFilter === "verein") {
+    const { data: tourData } = await supabase
+      .from("tournaments")
+      .select("*")
+      .or(`starts_at.gte.${gridStartIso},ends_at.gte.${gridStartIso}`)
+      .lt("starts_at", new Date(gridStart + totalCells * 864e5).toISOString())
+      .order("starts_at");
+    for (const t of (tourData as Tournament[]) ?? []) {
+      const startKey = berlinDay.format(new Date(t.starts_at));
+      const endKey = t.ends_at
+        ? berlinDay.format(new Date(t.ends_at))
+        : startKey;
+      // Von Hand archivierte ausblenden („Anzeigen bis“ vor dem Turniertag)
+      if (t.display_until && t.display_until < startKey) continue;
+      // Archiv-Frist wie bei Terminen (ab dem letzten Turniertag)
+      if (endKey < cutoffKey) continue;
+      const dayKeys = new Set<string>([startKey]);
+      if (endKey > startKey) {
+        let ts = new Date(t.starts_at).getTime();
+        for (let i = 0; i < 62; i++) {
+          ts += 864e5;
+          const k = berlinDay.format(new Date(ts));
+          if (k > endKey) break;
+          dayKeys.add(k);
+        }
+      }
+      for (const key of dayKeys) {
+        const list = tournamentsByDay.get(key) ?? [];
+        list.push(t);
+        tournamentsByDay.set(key, list);
+      }
+    }
+  }
+
   // Geburtstage (nur Mitglieder, die der Anzeige zugestimmt haben).
   // Erscheinen ausschließlich hier im Mitglieder-Kalender – nie in Feeds.
-  const birthdayByDay = new Map<string, string[]>();
+  const birthdayByDay = new Map<string, { name: string; age: number }[]>();
   const { data: bdayData } = await supabase
     .from("profiles")
     .select("full_name, birthday")
@@ -160,6 +198,7 @@ export async function EventsCalendar({
   const gridEnd = gridStart + totalCells * 864e5;
   for (const p of bdayData ?? []) {
     const bday = String(p.birthday); // JJJJ-MM-TT
+    const bYear = Number(bday.slice(0, 4));
     const bMonth = Number(bday.slice(5, 7));
     const bDay = Number(bday.slice(8, 10));
     const startYear = new Date(gridStart).getUTCFullYear();
@@ -171,7 +210,7 @@ export async function EventsCalendar({
       if (t >= gridStart && t < gridEnd) {
         const key = new Date(t).toISOString().slice(0, 10);
         const list = birthdayByDay.get(key) ?? [];
-        list.push(p.full_name as string);
+        list.push({ name: p.full_name as string, age: year - bYear });
         birthdayByDay.set(key, list);
       }
     }
@@ -280,14 +319,30 @@ export async function EventsCalendar({
                   <div
                     className={`space-y-1 ${isPast ? "opacity-50 grayscale" : ""}`}
                   >
-                    {(birthdayByDay.get(key) ?? []).map((name) => (
+                    {(birthdayByDay.get(key) ?? []).map((b) => (
                       <div
-                        key={`bday-${name}`}
-                        title={`${name} hat Geburtstag 🎂`}
+                        key={`bday-${b.name}`}
+                        title={`${b.name} wird ${b.age} Jahre 🎂`}
                         className="truncate rounded bg-purple-600/15 px-1.5 py-0.5 text-xs text-purple-600"
                       >
-                        🎂 {name}
+                        🎂 {b.name}
                       </div>
+                    ))}
+                    {(tournamentsByDay.get(key) ?? []).map((t) => (
+                      <Link
+                        key={`tur-${t.id}`}
+                        href="/mitglieder/turniere"
+                        title={`${t.title}${
+                          t.details_tbd
+                            ? " – ⏳ Details folgen"
+                            : formatTime(t.starts_at) !== "00:00"
+                              ? ` – Beginn ${formatTime(t.starts_at)} Uhr`
+                              : ""
+                        }`}
+                        className="block truncate rounded bg-sky-600/15 px-1.5 py-0.5 text-xs text-sky-600 hover:bg-sky-600/25"
+                      >
+                        🏟 {t.title}
+                      </Link>
                     ))}
                     {dayEvents.map((ev) => (
                       <CalendarEventChip
@@ -335,6 +390,9 @@ export async function EventsCalendar({
           Training
         </span>{" "}
         <span className="rounded bg-border/70 px-1.5 py-0.5">Sonstiges</span>{" "}
+        <span className="rounded bg-sky-600/15 px-1.5 py-0.5 text-sky-600">
+          🏟 Turnier
+        </span>{" "}
         <span className="rounded bg-purple-600/15 px-1.5 py-0.5 text-purple-600">
           🎂 Geburtstag
         </span>{" "}
