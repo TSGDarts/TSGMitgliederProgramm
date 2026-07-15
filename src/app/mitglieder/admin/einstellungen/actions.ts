@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { sendeTestMail } from "@/lib/benachrichtigung";
 
 const PFAD = "/mitglieder/admin/einstellungen";
@@ -40,6 +41,33 @@ export async function saveMailEinstellungen(formData: FormData) {
   }
 
   revalidatePath(PFAD);
+  redirect(`${PFAD}?gespeichert=${Date.now()}`);
+}
+
+/** Kontakt für das Weiterleiten von Fragen speichern (nur Admins). */
+export async function saveFragenEinstellungen(formData: FormData) {
+  await requireAdmin();
+
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("app_settings").upsert([
+    {
+      key: "fragen_email",
+      value: String(formData.get("email") ?? "").trim(),
+      updated_at: now,
+    },
+    {
+      key: "fragen_whatsapp",
+      value: String(formData.get("whatsapp") ?? "").trim(),
+      updated_at: now,
+    },
+  ]);
+  if (error) {
+    redirect(`${PFAD}?fehler=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath(PFAD);
+  revalidatePath("/mitglieder/fragen");
   redirect(`${PFAD}?gespeichert=${Date.now()}`);
 }
 

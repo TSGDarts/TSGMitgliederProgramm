@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminSupabase } from "@/lib/supabase/admin";
-import { saveMailEinstellungen, testMailAction } from "./actions";
+import {
+  saveMailEinstellungen,
+  saveFragenEinstellungen,
+  testMailAction,
+} from "./actions";
 import { Einklappbar } from "@/components/Einklappbar";
 import {
   PageHeader,
@@ -27,6 +31,8 @@ export default async function AdminEinstellungenPage({
   let client = "";
   let absender = "";
   let secretGesetzt = false;
+  let fragenEmail = "";
+  let fragenWhatsapp = "";
   try {
     const admin = createAdminSupabase();
     const { data } = await admin
@@ -44,6 +50,15 @@ export default async function AdminEinstellungenPage({
       if (row.key === "graph_client_id") client = wert;
       if (row.key === "graph_absender") absender = wert;
       if (row.key === "graph_client_secret") secretGesetzt = !!wert;
+    }
+    const { data: appData } = await admin
+      .from("app_settings")
+      .select("key, value")
+      .in("key", ["fragen_email", "fragen_whatsapp"]);
+    for (const row of appData ?? []) {
+      if (row.key === "fragen_email") fragenEmail = (row.value as string) ?? "";
+      if (row.key === "fragen_whatsapp")
+        fragenWhatsapp = (row.value as string) ?? "";
     }
   } catch {
     // Tabelle fehlt noch – Formular zeigt dann leere Felder
@@ -140,6 +155,49 @@ export default async function AdminEinstellungenPage({
             <Button type="submit" variant="secondary">
               ✉️ Test-E-Mail an mich senden
             </Button>
+          </form>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardBody className="space-y-4">
+          <div>
+            <h2 className="font-semibold">❓ Fragen weiterleiten</h2>
+            <p className="text-sm text-muted">
+              Bei jeder Frage unter „Fragen“ erscheinen Knöpfe, mit denen
+              Mitglieder die Frage direkt per E-Mail oder WhatsApp an den
+              Verein schicken können. Hier festlegen, wohin – leere Felder
+              blenden den jeweiligen Knopf aus.
+            </p>
+          </div>
+          <form action={saveFragenEinstellungen} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="E-Mail-Adresse"
+                hint="Empfänger für „Per E-Mail senden“"
+              >
+                <input
+                  name="email"
+                  type="email"
+                  defaultValue={fragenEmail}
+                  placeholder="dart@tsg08roth.de"
+                  className={inputClass}
+                />
+              </Field>
+              <Field
+                label="WhatsApp-Nummer"
+                hint="Mit Vorwahl, z. B. 0170 1234567 oder +49 170 1234567"
+              >
+                <input
+                  name="whatsapp"
+                  type="tel"
+                  defaultValue={fragenWhatsapp}
+                  placeholder="+49 170 1234567"
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+            <Button type="submit">Speichern</Button>
           </form>
         </CardBody>
       </Card>

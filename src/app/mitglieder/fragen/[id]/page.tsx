@@ -12,6 +12,8 @@ import {
   EmptyState,
 } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
+import { getFragenKontakt, waNummer } from "@/lib/settings";
+import { siteUrl } from "@/lib/supabase/config";
 
 export default async function FrageDetailPage({
   params,
@@ -24,7 +26,7 @@ export default async function FrageDetailPage({
 
   const { data: question } = await supabase
     .from("questions")
-    .select("id,title,body,created_at,author:profiles(full_name)")
+    .select("id,title,body,created_at,author:profiles(full_name),team:teams(name)")
     .eq("id", id)
     .maybeSingle();
 
@@ -35,6 +37,7 @@ export default async function FrageDetailPage({
     body: string | null;
     created_at: string;
     author: { full_name: string } | null;
+    team: { name: string } | null;
   };
 
   const { data: answersData } = await supabase
@@ -49,6 +52,23 @@ export default async function FrageDetailPage({
     created_at: string;
     author: { full_name: string } | null;
   }>;
+
+  // Weiterleiten-Knöpfe: Frage zusammengefasst per E-Mail oder WhatsApp an
+  // den Verein schicken (Kontakt pflegt der Admin unter „Einstellungen“).
+  const kontakt = await getFragenKontakt();
+  const zusammenfassung = [
+    `Frage von ${q.author?.full_name || "einem Mitglied"} (${q.team?.name ?? "Gesamter Verein"}):`,
+    q.title,
+    ...(q.body ? ["", q.body] : []),
+    "",
+    `Zur Frage in der App: ${siteUrl}/mitglieder/fragen/${q.id}`,
+  ].join("\n");
+  const mailtoLink = kontakt.email
+    ? `mailto:${kontakt.email}?subject=${encodeURIComponent(`Frage: ${q.title}`)}&body=${encodeURIComponent(zusammenfassung)}`
+    : null;
+  const waLink = kontakt.whatsapp
+    ? `https://wa.me/${waNummer(kontakt.whatsapp)}?text=${encodeURIComponent(zusammenfassung)}`
+    : null;
 
   return (
     <div className="space-y-6">
@@ -72,6 +92,30 @@ export default async function FrageDetailPage({
             <p className="whitespace-pre-line text-muted">{q.body}</p>
           </CardBody>
         </Card>
+      )}
+
+      {(mailtoLink || waLink) && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted">Frage an den Verein senden:</span>
+          {mailtoLink && (
+            <a
+              href={mailtoLink}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-border/40"
+            >
+              ✉️ Per E-Mail
+            </a>
+          )}
+          {waLink && (
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:opacity-90"
+            >
+              💬 Per WhatsApp
+            </a>
+          )}
+        </div>
       )}
 
       <section className="space-y-3">

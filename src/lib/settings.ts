@@ -70,6 +70,37 @@ export async function getSpielModi(): Promise<{
   };
 }
 
+/**
+ * Kontakt für das Weiterleiten von Fragen (Pflege unter „Einstellungen“):
+ * E-Mail-Adresse und WhatsApp-Nummer des Vereins/Vorstands. Leere Werte
+ * blenden den jeweiligen Knopf aus.
+ */
+export async function getFragenKontakt(): Promise<{
+  email: string;
+  whatsapp: string;
+}> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("app_settings")
+    .select("key, value")
+    .in("key", ["fragen_email", "fragen_whatsapp"]);
+  const map = new Map(
+    (data ?? []).map((s) => [s.key as string, (s.value as string) ?? ""]),
+  );
+  return {
+    email: map.get("fragen_email") ?? "",
+    whatsapp: map.get("fragen_whatsapp") ?? "",
+  };
+}
+
+/** Telefonnummer ins wa.me-Format bringen (nur Ziffern, 0… → 49…). */
+export function waNummer(telefon: string): string {
+  let ziffern = telefon.replace(/\D/g, "");
+  if (ziffern.startsWith("00")) ziffern = ziffern.slice(2);
+  else if (ziffern.startsWith("0")) ziffern = `49${ziffern.slice(1)}`;
+  return ziffern;
+}
+
 export async function getGegnerVorlage(): Promise<string> {
   const supabase = await createClient();
   const { data } = await supabase
