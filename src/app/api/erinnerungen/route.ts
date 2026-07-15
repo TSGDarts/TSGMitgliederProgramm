@@ -87,6 +87,7 @@ export async function GET() {
     kader.set(row.team_id as string, set);
   }
   const eingeladene = new Map<string, Set<string>>();
+  const abgesagt = new Map<string, Set<string>>();
   if (events.length) {
     const { data: invData } = await admin
       .from("event_invitees")
@@ -97,17 +98,30 @@ export async function GET() {
       set.add(row.profile_id as string);
       eingeladene.set(row.event_id as string, set);
     }
+    // Wer aktiv ABGESAGT hat, bekommt keine Erinnerung mehr
+    const { data: absagen } = await admin
+      .from("rsvps")
+      .select("event_id, profile_id")
+      .eq("status", "no")
+      .in("event_id", events.map((e) => e.id));
+    for (const row of absagen ?? []) {
+      const set = abgesagt.get(row.event_id as string) ?? new Set<string>();
+      set.add(row.profile_id as string);
+      abgesagt.set(row.event_id as string, set);
+    }
   }
   const relevanteEmpfaenger = (ev: EventRow, ids: string[]): string[] => {
+    let kandidaten = ids;
     const invitierte = eingeladene.get(ev.id);
     if (invitierte && invitierte.size > 0) {
-      return ids.filter((id) => invitierte.has(id));
-    }
-    if (ev.team_id) {
+      kandidaten = kandidaten.filter((id) => invitierte.has(id));
+    } else if (ev.team_id) {
       const k = kader.get(ev.team_id);
-      return k ? ids.filter((id) => k.has(id)) : [];
+      kandidaten = k ? kandidaten.filter((id) => k.has(id)) : [];
     }
-    return ids;
+    const nein = abgesagt.get(ev.id);
+    if (nein) kandidaten = kandidaten.filter((id) => !nein.has(id));
+    return kandidaten;
   };
 
   let verschickt = 0;
