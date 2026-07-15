@@ -25,21 +25,22 @@ const berlinUhr = new Intl.DateTimeFormat("de-DE", {
   minute: "2-digit",
 });
 
-// Mitternacht Europe/Berlin als ISO-Zeitpunkt (Sommer-/Winterzeit korrekt)
-function berlinMidnightIso(datum: string): string {
+// Datum + Uhrzeit Europe/Berlin als ISO-Zeitpunkt (Sommer-/Winterzeit korrekt)
+function berlinZeitIso(datum: string, zeit = "00:00"): string {
   for (const off of ["+02:00", "+01:00"]) {
-    const d = new Date(`${datum}T00:00:00${off}`);
-    if (berlinDatum.format(d) === datum && berlinUhr.format(d) === "00:00") {
+    const d = new Date(`${datum}T${zeit}:00${off}`);
+    if (berlinDatum.format(d) === datum && berlinUhr.format(d) === zeit) {
       return d.toISOString();
     }
   }
-  return new Date(`${datum}T00:00:00+01:00`).toISOString();
+  return new Date(`${datum}T${zeit}:00+01:00`).toISOString();
 }
 
 interface CompEvent {
   uid?: string;
   datum?: string;
   text?: string;
+  zeit?: string; // HH:MM – z. B. die globale Competition-Uhrzeit; fehlt sie → „Uhrzeit folgt"
 }
 
 export async function GET() {
@@ -114,7 +115,11 @@ export async function GET() {
   let aktualisiert = 0;
   let entfernt = 0;
   for (const e of gueltig) {
-    const starts = berlinMidnightIso(e.datum as string);
+    // Liefert die Competition-App eine Uhrzeit mit (HH:MM), wird sie übernommen – sonst „Uhrzeit folgt"
+    const zeit =
+      typeof e.zeit === "string" && /^\d{2}:\d{2}$/.test(e.zeit) ? e.zeit : null;
+    const starts = berlinZeitIso(e.datum as string, zeit ?? "00:00");
+    const tbd = !zeit;
     const title = (e.text as string).trim();
     const alt = byUid.get(e.uid as string);
     if (!alt) {
@@ -126,18 +131,18 @@ export async function GET() {
         is_public: true,
         source: "manual",
         source_uid: e.uid,
-        time_tbd: true, // Uhrzeit pflegt die Competition-App nicht mit → „Uhrzeit folgt"
+        time_tbd: tbd,
         feed_export: false, // nie zurück in den dart-feed (käme sonst doppelt in der Competition-App an)
       });
       neu++;
     } else if (
       alt.title !== title ||
       new Date(alt.starts_at as string).toISOString() !== starts ||
-      !alt.time_tbd // Altbestand reparieren: „Uhrzeit folgt“ statt 00:00 Uhr
+      !!alt.time_tbd !== tbd // Altbestand reparieren (z. B. „Uhrzeit folgt" ↔ echte Uhrzeit)
     ) {
       await admin
         .from("events")
-        .update({ title, starts_at: starts, time_tbd: true })
+        .update({ title, starts_at: starts, time_tbd: tbd })
         .eq("id", alt.id);
       aktualisiert++;
     }
