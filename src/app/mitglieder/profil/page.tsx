@@ -151,6 +151,19 @@ export default async function ProfilPage() {
                   );
                 })}
               </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="notify_trotz_absage"
+                  defaultChecked={profile.notify_trotz_absage ?? false}
+                />
+                🔁 Auch erinnern, wenn ich schon abgesagt habe
+              </label>
+              <p className="text-xs text-muted">
+                Ohne Haken bekommst du keine Erinnerung mehr zu Terminen, bei
+                denen du abgesagt hast. Zusagen und „Vielleicht“ werden immer
+                erinnert.
+              </p>
             </div>
             <Button type="submit">Speichern</Button>
           </form>

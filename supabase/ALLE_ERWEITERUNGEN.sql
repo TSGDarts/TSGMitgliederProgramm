@@ -1303,3 +1303,15 @@ set notify_erinnerungen =
 where notify_erinnerungen = '{}'::jsonb
    or notify_erinnerungen = '{"turniere": [7]}'::jsonb;
 
+
+-- ###################### 41_erinnerung_trotz_absage.sql ######################
+
+-- =====================================================================
+-- Erweiterung: Erinnerung auch nach Absage (pro Mitglied wählbar)
+-- ---------------------------------------------------------------------
+-- Im Supabase SQL-Editor EINMALIG ausführen.
+-- =====================================================================
+
+alter table public.profiles
+  add column if not exists notify_trotz_absage boolean not null default false;
+

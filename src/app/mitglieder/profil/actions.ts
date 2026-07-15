@@ -33,6 +33,7 @@ export async function updateProfile(formData: FormData) {
       birthday_congrats,
       training_default_rsvp,
       notify_email: formData.get("notify_email") === "on",
+      notify_trotz_absage: formData.get("notify_trotz_absage") === "on",
       notify_erinnerungen: (() => {
         // Komma-getrennte Tages-Listen (erinnerung_<art> = „14, 7, 1“) parsen
         const arten = [

@@ -30,8 +30,14 @@ export async function GET() {
   // Abonnenten je (Kategorie, Vorlaufzeit) gruppieren
   const { data: abonnenten } = await admin
     .from("profiles")
-    .select("id, notify_erinnerungen")
+    .select("id, notify_erinnerungen, notify_trotz_absage")
     .eq("is_active", true);
+  // Wer den Haken „auch nach Absage erinnern“ gesetzt hat
+  const trotzAbsage = new Set(
+    (abonnenten ?? [])
+      .filter((p) => p.notify_trotz_absage)
+      .map((p) => p.id as string),
+  );
   const gruppen = new Map<string, Map<number, string[]>>();
   for (const p of abonnenten ?? []) {
     const konfiguration = (p.notify_erinnerungen ?? {}) as Record<
@@ -120,7 +126,11 @@ export async function GET() {
       kandidaten = k ? kandidaten.filter((id) => k.has(id)) : [];
     }
     const nein = abgesagt.get(ev.id);
-    if (nein) kandidaten = kandidaten.filter((id) => !nein.has(id));
+    if (nein) {
+      kandidaten = kandidaten.filter(
+        (id) => !nein.has(id) || trotzAbsage.has(id),
+      );
+    }
     return kandidaten;
   };
 

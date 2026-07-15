@@ -34,6 +34,7 @@ export interface Profile {
   notify_turnier_woche?: boolean | null; // (alt) Erinnerung 1 Woche vor Turnieren
   notify_turnier_tage?: number | null; // (alt) Erinnerung X Tage vor Turnieren
   notify_erinnerungen?: Record<string, number[]> | null; // z. B. {"turniere":[14,7,1]}
+  notify_trotz_absage?: boolean | null; // Erinnerung auch nach eigener Absage
   is_active: boolean;
   created_at: string;
 }
