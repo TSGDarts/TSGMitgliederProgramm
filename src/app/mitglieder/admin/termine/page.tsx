@@ -10,7 +10,7 @@ import {
   toggleFeedExport,
 } from "./actions";
 import { berlinISOToLocalInput } from "@/lib/tz";
-import { getEventArchiveDays } from "@/lib/settings";
+import { getEventArchiveDays, archiveCutoffIso } from "@/lib/settings";
 import {
   PageHeader,
   Card,
@@ -171,10 +171,7 @@ export default async function AdminEventsPage({
   const { data } = await supabase
     .from("events")
     .select("*")
-    .gte(
-      "starts_at",
-      new Date(Date.now() - archiveDays * 864e5).toISOString(),
-    )
+    .gte("starts_at", archiveCutoffIso(archiveDays))
     .order("starts_at", { ascending: true });
   const events = (data as EventRow[]) ?? [];
   const teamName = (id: string | null) =>

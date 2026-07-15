@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getEventArchiveDays } from "@/lib/settings";
+import { getEventArchiveDays, archiveCutoffIso } from "@/lib/settings";
 import type {
   EventRow,
   Profile,
@@ -40,12 +40,11 @@ export async function getMemberEvents(
 
   let query = supabase.from("events").select("*");
   if (opts.past) {
-    // Vergangene nur bis zur Archiv-Frist anzeigen; noch laufende
-    // mehrtägige Termine gehören nicht hierher, sondern zu „Kommende“
+    // Vergangene nur bis zur Archiv-Frist anzeigen (in ganzen Berliner
+    // Kalendertagen, wie im Kalender); noch laufende mehrtägige Termine
+    // gehören nicht hierher, sondern zu „Kommende“
     const archiveDays = await getEventArchiveDays();
-    const cutoffIso = new Date(
-      Date.now() - archiveDays * 864e5,
-    ).toISOString();
+    const cutoffIso = archiveCutoffIso(archiveDays);
     query = query
       .lt("starts_at", nowIso)
       .gte("starts_at", cutoffIso)
