@@ -2,7 +2,13 @@ import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAllTeams } from "@/lib/member-queries";
-import { createEvent, updateEvent, deleteEvent, saveArchiveDays } from "./actions";
+import {
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  saveArchiveDays,
+  toggleFeedExport,
+} from "./actions";
 import { berlinISOToLocalInput } from "@/lib/tz";
 import { getEventArchiveDays } from "@/lib/settings";
 import {
@@ -24,6 +30,17 @@ import {
 import { formatDate, formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Termine verwalten" };
+
+/**
+ * Landet dieser Termin überhaupt im Dart-Feed (Competition-App)?
+ * Vereinstermine: Art „Sonstiges“ ohne Mannschaft. Spieltermine:
+ * Punkt-/Pokal-/Freundschaftsspiele einer Mannschaft. Jeweils nur öffentlich.
+ */
+function feedEligible(ev: EventRow): boolean {
+  if (!ev.is_public) return false;
+  if (ev.team_id === null) return ev.type === "other";
+  return ["match", "pokal", "friendly"].includes(ev.type);
+}
 
 /** Gegner-, Mannschafts-Nr.- und Heim/Auswärts-Felder für Terminformulare. */
 function OpponentFields({
@@ -326,6 +343,13 @@ export default async function AdminEventsPage({
                 (oben trotzdem eine ungefähre Zeit wählen)
               </span>
             </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="feed_export" defaultChecked />
+              📤 Automatisch an die Competition-App übergeben
+              <span className="text-xs text-muted">
+                (gilt nur für öffentliche Vereins- und Spieltermine)
+              </span>
+            </label>
             <Button type="submit">Termin anlegen</Button>
           </form>
         </CardBody>
@@ -364,12 +388,36 @@ export default async function AdminEventsPage({
                       {ev.location ? ` · ${ev.location}` : ""}
                     </p>
                   </div>
-                  <form action={deleteEvent}>
-                    <input type="hidden" name="id" value={ev.id} />
-                    <button className="text-sm text-danger hover:underline">
-                      Löschen
-                    </button>
-                  </form>
+                  <div className="flex items-center gap-4">
+                    {feedEligible(ev) && (
+                      <form action={toggleFeedExport}>
+                        <input type="hidden" name="id" value={ev.id} />
+                        <input
+                          type="hidden"
+                          name="next"
+                          value={ev.feed_export === false ? "1" : "0"}
+                        />
+                        <button
+                          className={`text-sm hover:underline ${
+                            ev.feed_export === false
+                              ? "text-muted"
+                              : "text-ok"
+                          }`}
+                          title="Klicken zum Umschalten: Soll dieser Termin automatisch an die Competition-App übergeben werden?"
+                        >
+                          {ev.feed_export === false
+                            ? "📵 nicht an Competition-App"
+                            : "📤 an Competition-App"}
+                        </button>
+                      </form>
+                    )}
+                    <form action={deleteEvent}>
+                      <input type="hidden" name="id" value={ev.id} />
+                      <button className="text-sm text-danger hover:underline">
+                        Löschen
+                      </button>
+                    </form>
+                  </div>
                 </div>
 
                 {/* Bearbeiten (aufklappbar, vorausgefüllt); Schlüssel
@@ -498,6 +546,17 @@ export default async function AdminEventsPage({
                       />
                       ⏳ Genaue Uhrzeit noch nicht bekannt – „Uhrzeit folgt“
                       anzeigen
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        name="feed_export"
+                        defaultChecked={ev.feed_export ?? true}
+                      />
+                      📤 Automatisch an die Competition-App übergeben
+                      <span className="text-xs text-muted">
+                        (gilt nur für öffentliche Vereins- und Spieltermine)
+                      </span>
                     </label>
                     <Button type="submit">Änderungen speichern</Button>
                   </form>

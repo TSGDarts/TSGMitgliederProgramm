@@ -153,6 +153,8 @@ export async function GET() {
     (oppsData ?? []).map((o) => [o.id as string, o.name as string]),
   );
   const spiele = (((gamesData as EventRow[]) ?? [])).flatMap((ev) => {
+    // Pro Termin abwählbar: „an die Competition-App übergeben“
+    if (ev.feed_export === false) return [];
     const start = new Date(ev.starts_at);
     const datum = berlinDate.format(start);
     if (datum < today) return [];
@@ -175,7 +177,9 @@ export async function GET() {
   });
 
   // Öffentliche Vereinstermine – inkl. vergangener (Archiv der Competition-App)
-  const termine = (((clubEventsData as EventRow[]) ?? [])).map((ev) => {
+  const termine = (((clubEventsData as EventRow[]) ?? []))
+    .filter((ev) => ev.feed_export !== false)
+    .map((ev) => {
     const start = new Date(ev.starts_at);
     const out: Record<string, unknown> = {
       datum: berlinDate.format(start),

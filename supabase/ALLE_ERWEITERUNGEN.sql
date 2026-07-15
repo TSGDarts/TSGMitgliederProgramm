@@ -827,3 +827,16 @@ create policy "app_settings_read" on public.app_settings
 insert into public.app_settings (key, value)
 values ('event_archive_days', '30')
 on conflict (key) do nothing;
+
+-- ###################### 26_feed_uebergabe.sql ######################
+
+-- =====================================================================
+-- Erweiterung: Übergabe an die Competition-App pro Termin steuerbar
+-- ---------------------------------------------------------------------
+-- Im Supabase SQL-Editor EINMALIG ausführen.
+-- =====================================================================
+
+-- Steuert, ob ein Termin im öffentlichen Dart-Feed (und damit in der
+-- Competition-App) erscheint. Standard: ja – wie bisher.
+alter table public.events
+  add column if not exists feed_export boolean not null default true;

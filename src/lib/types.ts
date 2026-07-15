@@ -81,6 +81,7 @@ export interface EventRow {
   starts_at: string;
   ends_at: string | null;
   time_tbd?: boolean | null; // genaue Uhrzeit noch nicht bekannt
+  feed_export?: boolean | null; // an die Competition-App übergeben (Dart-Feed)
   source: "manual" | "nuliga";
   source_uid: string | null;
   is_public: boolean;

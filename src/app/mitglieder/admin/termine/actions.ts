@@ -149,6 +149,7 @@ export async function createEvent(formData: FormData) {
       meet_venue_time: String(formData.get("meet_venue_time") ?? "").trim(),
       is_public: formData.get("is_public") === "on",
       time_tbd: formData.get("time_tbd") === "on",
+      feed_export: formData.get("feed_export") === "on",
       source: "manual",
       created_by: profile.id,
     })
@@ -208,6 +209,7 @@ export async function updateEvent(formData: FormData) {
       meet_venue_time: String(formData.get("meet_venue_time") ?? "").trim(),
       is_public: formData.get("is_public") === "on",
       time_tbd: formData.get("time_tbd") === "on",
+      feed_export: formData.get("feed_export") === "on",
     })
     .eq("id", id);
   if (updateError) abbruchMitFehler(updateError.message);
@@ -221,6 +223,24 @@ export async function updateEvent(formData: FormData) {
     );
     if (invError) abbruchMitFehler(invError.message);
   }
+
+  revalidateEvents(id);
+  fertigMitErfolg();
+}
+
+/** Schnell-Umschalter: Termin an die Competition-App übergeben ja/nein. */
+export async function toggleFeedExport(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const next = formData.get("next") === "1";
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("events")
+    .update({ feed_export: next })
+    .eq("id", id);
+  if (error) abbruchMitFehler(error.message);
 
   revalidateEvents(id);
   fertigMitErfolg();
