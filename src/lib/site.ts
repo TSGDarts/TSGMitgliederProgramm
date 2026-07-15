@@ -36,5 +36,6 @@ export const adminNav = [
   { href: "/mitglieder/admin/beitritt", label: "Selbst-Anmeldung (Link/QR)", icon: "shield" },
   { href: "/mitglieder/admin/mitglieder", label: "Mitglieder verwalten", icon: "shield" },
   { href: "/mitglieder/admin/mannschaften", label: "Mannschaften verwalten", icon: "shield" },
+  { href: "/mitglieder/admin/gegner", label: "Gegner verwalten", icon: "shield" },
   { href: "/mitglieder/admin/termine", label: "Termine verwalten", icon: "shield" },
 ];

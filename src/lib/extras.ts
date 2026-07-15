@@ -71,3 +71,10 @@ export function formatHomeMatch(
 export function mapsUrl(address: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
+
+/** Römische Mannschafts-Nummer: 1 → "" (erste Mannschaft ohne Zusatz). */
+export function romanTeamNo(no?: number | null): string {
+  const ROMAN = ["", "", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+  if (!no || no <= 1) return "";
+  return ROMAN[no] ?? String(no);
+}

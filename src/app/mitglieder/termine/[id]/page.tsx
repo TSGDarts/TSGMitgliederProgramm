@@ -7,6 +7,7 @@ import {
   getTeamsMap,
 } from "@/lib/member-queries";
 import { RsvpButtons } from "@/components/RsvpButtons";
+import { AddressLine } from "@/components/AddressLine";
 import { PageHeader, Card, CardBody, Badge } from "@/components/ui";
 import {
   EVENT_TYPE_LABELS,
@@ -57,15 +58,21 @@ export default async function EventDetailPage({
 
       <PageHeader
         title={event.title}
-        subtitle={`${formatDateTime(event.starts_at)}${
-          event.location ? ` · ${event.location}` : ""
-        }`}
+        subtitle={formatDateTime(event.starts_at)}
       />
+
+      {event.location && (
+        <AddressLine address={event.location} className="text-sm" />
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone="primary">{EVENT_TYPE_LABELS[event.type]}</Badge>
         <Badge>{teamName ?? "Gesamter Verein"}</Badge>
         {event.source === "nuliga" && <Badge>aus nuLiga</Badge>}
+        {event.home_away === "heim" && <Badge tone="ok">🏠 Heim</Badge>}
+        {event.home_away === "auswaerts" && (
+          <Badge tone="warn">🚗 Auswärts</Badge>
+        )}
         {event.meeting_url && (
           <a
             href={event.meeting_url}

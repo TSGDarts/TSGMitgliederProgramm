@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardBody, Badge } from "@/components/ui";
 import { RsvpButtons } from "@/components/RsvpButtons";
+import { AddressLine } from "@/components/AddressLine";
 import { EVENT_TYPE_LABELS } from "@/lib/types";
 import type { EventWithStatus } from "@/lib/member-queries";
 import { formatDate, formatTime } from "@/lib/format";
@@ -19,6 +20,10 @@ export function EventCard({ event }: { event: EventWithStatus }) {
                 <Badge>Gesamter Verein</Badge>
               )}
               {event.source === "nuliga" && <Badge tone="neutral">nuLiga</Badge>}
+              {event.home_away === "heim" && <Badge tone="ok">🏠 Heim</Badge>}
+              {event.home_away === "auswaerts" && (
+                <Badge tone="warn">🚗 Auswärts</Badge>
+              )}
             </div>
             <Link
               href={`/mitglieder/termine/${event.id}`}
@@ -28,8 +33,10 @@ export function EventCard({ event }: { event: EventWithStatus }) {
             </Link>
             <p className="mt-0.5 text-sm text-muted">
               {formatDate(event.starts_at)} · {formatTime(event.starts_at)} Uhr
-              {event.location ? ` · 📍 ${event.location}` : ""}
             </p>
+            {event.location && (
+              <AddressLine address={event.location} className="mt-0.5 text-sm" />
+            )}
           </div>
         </div>
 

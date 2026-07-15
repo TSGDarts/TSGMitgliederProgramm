@@ -50,6 +50,14 @@ export interface TeamMember {
   jersey_number: number | null;
 }
 
+export interface Opponent {
+  id: string;
+  name: string;
+  address: string;
+  notes: string;
+  created_at: string;
+}
+
 export interface EventRow {
   id: string;
   team_id: string | null;
@@ -57,6 +65,9 @@ export interface EventRow {
   description: string | null;
   location: string | null;
   meeting_url?: string | null; // Online-Link (Teams, Meet, …)
+  opponent_id?: string | null;
+  opponent_team_no?: number | null;
+  home_away?: "" | "heim" | "auswaerts" | null;
   type: EventType;
   starts_at: string;
   ends_at: string | null;

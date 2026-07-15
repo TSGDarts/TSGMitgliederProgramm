@@ -14,10 +14,74 @@ import {
   Badge,
   EmptyState,
 } from "@/components/ui";
-import { EVENT_TYPE_LABELS, type EventRow, type Profile } from "@/lib/types";
+import {
+  EVENT_TYPE_LABELS,
+  type EventRow,
+  type Profile,
+  type Opponent,
+} from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Termine verwalten" };
+
+/** Gegner-, Mannschafts-Nr.- und Heim/Auswärts-Felder für Terminformulare. */
+function OpponentFields({
+  opponents,
+  defaults,
+}: {
+  opponents: Opponent[];
+  defaults?: {
+    opponent_id?: string | null;
+    opponent_team_no?: number | null;
+    home_away?: string | null;
+  };
+}) {
+  return (
+    <>
+      <Field
+        label="Gegner (optional)"
+        hint="Vereine mit Adresse unter „Gegner verwalten“ pflegen"
+      >
+        <select
+          name="opponent_id"
+          defaultValue={defaults?.opponent_id ?? ""}
+          className={inputClass}
+        >
+          <option value="">– kein Gegner –</option>
+          {opponents.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Gegner-Mannschaft" hint="Die wievielte Mannschaft des Gegners">
+        <select
+          name="opponent_team_no"
+          defaultValue={String(defaults?.opponent_team_no ?? 1)}
+          className={inputClass}
+        >
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+            <option key={n} value={n}>
+              {n === 1 ? "1. Mannschaft" : `${n}. Mannschaft (${["", "", "II", "III", "IV", "V", "VI", "VII", "VIII"][n]})`}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Heim oder Auswärts">
+        <select
+          name="home_away"
+          defaultValue={defaults?.home_away ?? ""}
+          className={inputClass}
+        >
+          <option value="">–</option>
+          <option value="heim">🏠 Heim</option>
+          <option value="auswaerts">🚗 Auswärts</option>
+        </select>
+      </Field>
+    </>
+  );
+}
 
 /** Aufklappbare Teilnehmer-Auswahl (nur Angehakte sehen den Termin). */
 function InviteePicker({
@@ -88,6 +152,13 @@ export default async function AdminEventsPage() {
     .order("full_name");
   const members = (memberData as Profile[]) ?? [];
 
+  // Gegner für die Auswahl
+  const { data: oppData } = await supabase
+    .from("opponents")
+    .select("*")
+    .order("name");
+  const opponents = (oppData as Opponent[]) ?? [];
+
   // Bestehende Einladungslisten (für Bearbeiten + Badge)
   const inviteesByEvent = new Map<string, Set<string>>();
   if (events.length) {
@@ -114,8 +185,11 @@ export default async function AdminEventsPage() {
           <form action={createEvent} className="space-y-4">
             <h2 className="font-semibold">Neuer Termin</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Titel">
-                <input name="title" required className={inputClass} />
+              <Field
+                label="Titel (optional bei Gegner)"
+                hint="Leer lassen = wird automatisch erzeugt, z. B. „Heim gegen DC Schwabach II“"
+              >
+                <input name="title" className={inputClass} />
               </Field>
               <Field label="Art">
                 <select name="type" className={inputClass} defaultValue="match">
@@ -144,7 +218,11 @@ export default async function AdminEventsPage() {
                   ))}
                 </select>
               </Field>
-              <Field label="Ort (optional)">
+              <OpponentFields opponents={opponents} />
+              <Field
+                label="Ort (optional)"
+                hint="Leer = automatisch: Heim → unsere Adresse, Auswärts → Gegner-Adresse"
+              >
                 <input name="location" className={inputClass} />
               </Field>
               <Field label="Beschreibung (optional)">
@@ -186,6 +264,10 @@ export default async function AdminEventsPage() {
                       <Badge tone="primary">{EVENT_TYPE_LABELS[ev.type]}</Badge>
                       <Badge>{teamName(ev.team_id) ?? "Verein"}</Badge>
                       {ev.source === "nuliga" && <Badge>nuLiga</Badge>}
+                      {ev.home_away === "heim" && <Badge tone="ok">🏠 Heim</Badge>}
+                      {ev.home_away === "auswaerts" && (
+                        <Badge tone="warn">🚗 Auswärts</Badge>
+                      )}
                       {!ev.is_public && <Badge tone="warn">intern</Badge>}
                       {(inviteesByEvent.get(ev.id)?.size ?? 0) > 0 && (
                         <Badge tone="warn">
@@ -221,7 +303,6 @@ export default async function AdminEventsPage() {
                       <Field label="Titel">
                         <input
                           name="title"
-                          required
                           defaultValue={ev.title}
                           className={inputClass}
                         />
@@ -262,6 +343,14 @@ export default async function AdminEventsPage() {
                           ))}
                         </select>
                       </Field>
+                      <OpponentFields
+                        opponents={opponents}
+                        defaults={{
+                          opponent_id: ev.opponent_id,
+                          opponent_team_no: ev.opponent_team_no,
+                          home_away: ev.home_away,
+                        }}
+                      />
                       <Field label="Ort (optional)">
                         <input
                           name="location"
