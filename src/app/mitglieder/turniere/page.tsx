@@ -21,7 +21,7 @@ import {
   mapsUrl,
   type Tournament,
 } from "@/lib/extras";
-import { formatDate, formatDateTime, formatTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatTime, formatUntil } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Turniere im Umkreis" };
 
@@ -116,6 +116,12 @@ export default async function TurnierePage({
                     className={inputClass}
                   />
                 </Field>
+                <Field
+                  label="Turnierende (optional)"
+                  hint="Für mehrtägige Turniere – z. B. ein Ranglisten-Wochenende"
+                >
+                  <input name="ends_at" type="datetime-local" className={inputClass} />
+                </Field>
                 <Field label="Einlass ab (optional)">
                   <input name="doors_time" type="time" className={inputClass} />
                 </Field>
@@ -152,6 +158,13 @@ export default async function TurnierePage({
                   <FlyerUpload />
                 </Field>
               </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="details_tbd" />
+                ⏳ Noch keine Details verfügbar – „Details folgen“ anzeigen
+                <span className="text-xs text-muted">
+                  (oben trotzdem ein ungefähres Datum wählen)
+                </span>
+              </label>
               <Button type="submit">Turnier eintragen</Button>
             </form>
           </div>
@@ -193,12 +206,28 @@ export default async function TurnierePage({
                       </div>
                       <p className="mt-1 text-sm text-muted">
                         📅 {formatDate(t.starts_at)}
-                        {t.doors_time && <> · Einlass {t.doors_time} Uhr</>} ·
-                        Beginn {formatTime(t.starts_at)} Uhr
-                        {t.entry_deadline && (
+                        {t.ends_at && (
+                          <> – {formatUntil(t.starts_at, t.ends_at)}</>
+                        )}
+                        {t.details_tbd ? (
                           <>
                             {" "}
-                            · Meldeschluss: {formatDateTime(t.entry_deadline)}
+                            ·{" "}
+                            <span className="font-medium text-warn">
+                              ⏳ Details folgen
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            {t.doors_time && <> · Einlass {t.doors_time} Uhr</>}{" "}
+                            · Beginn {formatTime(t.starts_at)} Uhr
+                            {t.entry_deadline && (
+                              <>
+                                {" "}
+                                · Meldeschluss:{" "}
+                                {formatDateTime(t.entry_deadline)}
+                              </>
+                            )}
                           </>
                         )}
                       </p>

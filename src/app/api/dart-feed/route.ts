@@ -112,14 +112,24 @@ export async function GET() {
       art: TOURNAMENT_KIND_LABELS[t.kind] ?? t.kind,
       datum: berlinDate.format(start),
     };
-    if (t.doors_time) out.einlass = t.doors_time;
-    const uhrzeit = berlinTime.format(start);
-    if (uhrzeit !== "00:00") out.uhrzeit = uhrzeit;
-    if (t.entry_deadline) {
-      const deadline = new Date(t.entry_deadline);
-      out.meldeschluss = berlinDate.format(deadline);
-      const zeit = berlinTime.format(deadline);
-      if (zeit !== "00:00") out.meldeschlussZeit = zeit;
+    // Mehrtägig: Endtag mitgeben (nur wenn er vom Starttag abweicht)
+    if (t.ends_at) {
+      const bis = berlinDate.format(new Date(t.ends_at));
+      if (bis !== out.datum) out.bisDatum = bis;
+    }
+    if (t.details_tbd) {
+      // Noch keine Details bekannt: Zeiten/Meldeschluss weglassen
+      out.detailsFolgen = true;
+    } else {
+      if (t.doors_time) out.einlass = t.doors_time;
+      const uhrzeit = berlinTime.format(start);
+      if (uhrzeit !== "00:00") out.uhrzeit = uhrzeit;
+      if (t.entry_deadline) {
+        const deadline = new Date(t.entry_deadline);
+        out.meldeschluss = berlinDate.format(deadline);
+        const zeit = berlinTime.format(deadline);
+        if (zeit !== "00:00") out.meldeschlussZeit = zeit;
+      }
     }
     if (t.info_url) out.url = t.info_url;
     if (t.register_url) out.anmeldeUrl = t.register_url;

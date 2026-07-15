@@ -26,6 +26,10 @@ export async function createTournament(formData: FormData) {
   const deadlineRaw = String(formData.get("entry_deadline") ?? "");
   const entry_deadline = deadlineRaw ? berlinLocalToISO(deadlineRaw) : null;
 
+  // Optionales Turnierende (mehrtägig); ein Ende vor dem Beginn wird verworfen
+  let ends_at = berlinLocalToISO(String(formData.get("ends_at") ?? ""));
+  if (ends_at && new Date(ends_at) <= new Date(starts_at)) ends_at = null;
+
   const kindRaw = String(formData.get("kind") ?? "frei");
   const kind = ["ddv", "bdv", "bezirk", "frei"].includes(kindRaw)
     ? kindRaw
@@ -34,10 +38,10 @@ export async function createTournament(formData: FormData) {
     ? "doppel"
     : "einzel";
 
-  // "Anzeigen bis": leer -> Turniertag (danach wandert es ins Archiv)
+  // "Anzeigen bis": leer -> letzter Turniertag (danach wandert es ins Archiv)
   let display_until = String(formData.get("display_until") ?? "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(display_until)) {
-    display_until = starts_at.slice(0, 10);
+    display_until = (ends_at ?? starts_at).slice(0, 10);
   }
 
   const supabase = await createClient();
@@ -46,6 +50,8 @@ export async function createTournament(formData: FormData) {
     kind,
     mode,
     starts_at,
+    ends_at,
+    details_tbd: formData.get("details_tbd") === "on",
     entry_deadline,
     doors_time: String(formData.get("doors_time") ?? "").trim(),
     location: String(formData.get("location") ?? "").trim(),
