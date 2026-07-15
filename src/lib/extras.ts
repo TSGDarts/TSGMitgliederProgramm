@@ -11,6 +11,7 @@ export interface Tournament {
   entry_deadline: string | null;
   doors_time?: string | null; // Einlass, z. B. "12:00"
   location: string;
+  notes?: string | null; // Kommentar, z. B. Hinweise zur Anmeldung
   flyer_url: string;
   register_url: string;
   info_url: string;

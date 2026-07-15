@@ -216,17 +216,17 @@ export async function GET(request: Request) {
     if (t.display_until && t.display_until < startKey) continue;
     const allDay =
       !!t.details_tbd || berlinTime.format(new Date(t.starts_at)) === "00:00";
-    const description = t.details_tbd
-      ? "⏳ Details folgen"
-      : [
-          t.doors_time ? `Einlass ab ${t.doors_time} Uhr` : "",
-          t.entry_deadline
-            ? `Meldeschluss: ${formatDate(t.entry_deadline)}, ${formatTime(t.entry_deadline)} Uhr`
-            : "",
-          t.register_url ? `Anmeldung: ${t.register_url}` : "",
-        ]
-        .filter(Boolean)
-        .join("\n");
+    const description = [
+      t.details_tbd ? "⏳ Details folgen" : "",
+      !t.details_tbd && t.doors_time ? `Einlass ab ${t.doors_time} Uhr` : "",
+      !t.details_tbd && t.entry_deadline
+        ? `Meldeschluss: ${formatDate(t.entry_deadline)}, ${formatTime(t.entry_deadline)} Uhr`
+        : "",
+      !t.details_tbd && t.register_url ? `Anmeldung: ${t.register_url}` : "",
+      t.notes ?? "",
+    ]
+      .filter(Boolean)
+      .join("\n");
     pushEvent({
       uid: `tournament-${t.id}@tsg08roth-dart`,
       start: t.starts_at,

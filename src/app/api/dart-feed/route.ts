@@ -131,6 +131,7 @@ export async function GET() {
         if (zeit !== "00:00") out.meldeschlussZeit = zeit;
       }
     }
+    if (t.notes) out.hinweis = t.notes;
     if (t.info_url) out.url = t.info_url;
     if (t.register_url) out.anmeldeUrl = t.register_url;
     return out;

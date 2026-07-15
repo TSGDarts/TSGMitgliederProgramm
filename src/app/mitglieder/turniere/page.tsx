@@ -158,6 +158,17 @@ function TournamentFields({ defaults }: { defaults?: Tournament }) {
           />
         </Field>
         <Field
+          label="Kommentar (optional)"
+          hint="Wird beim Turnier angezeigt – auch in der Competition-App"
+        >
+          <textarea
+            name="notes"
+            rows={2}
+            defaultValue={defaults?.notes ?? ""}
+            className={inputClass}
+          />
+        </Field>
+        <Field
           label="Anzeigen bis (optional)"
           hint="Danach wandert das Turnier automatisch ins Archiv. Leer = letzter Turniertag."
         >
@@ -353,6 +364,11 @@ export default async function TurnierePage({
                           >
                             {t.location}
                           </a>
+                        </p>
+                      )}
+                      {t.notes && (
+                        <p className="whitespace-pre-line text-sm text-muted">
+                          💬 {t.notes}
                         </p>
                       )}
                     </div>

@@ -82,6 +82,7 @@ function readTournamentFields(formData: FormData) {
     entry_deadline,
     doors_time: String(formData.get("doors_time") ?? "").trim(),
     location: String(formData.get("location") ?? "").trim(),
+    notes: String(formData.get("notes") ?? "").trim(),
     flyer_url: String(formData.get("flyer_url") ?? "").trim(),
     register_url: String(formData.get("register_url") ?? "").trim(),
     info_url: String(formData.get("info_url") ?? "").trim(),

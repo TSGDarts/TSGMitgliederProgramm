@@ -4,6 +4,7 @@ import { getAllTeams } from "@/lib/member-queries";
 import { getEventArchiveDays } from "@/lib/settings";
 import { formatTime } from "@/lib/format";
 import { CalendarEventChip } from "@/components/CalendarEventChip";
+import { MonthPicker } from "@/components/MonthPicker";
 import { isCompSpiegel } from "@/lib/types";
 import type { EventRow, EventType, RsvpStatus } from "@/lib/types";
 import type { Tournament } from "@/lib/extras";
@@ -244,7 +245,6 @@ export async function EventsCalendar({
   const todayKey = berlinDay.format(new Date());
   const prev = addMonth(y, m, -1);
   const next = addMonth(y, m, 1);
-  const monthLabel = monthLabelFmt.format(new Date(Date.UTC(y, m - 1, 1)));
 
   const filterChip = (active: boolean) =>
     `rounded-full px-3 py-1 text-sm font-medium ${
@@ -255,53 +255,55 @@ export async function EventsCalendar({
 
   return (
     <section className="space-y-4">
-      {/* Mannschafts-Filter */}
-      <div className="flex flex-wrap gap-2">
-        <Link
-          href={makeHref(base, { monat: ym(y, m) })}
-          className={filterChip(!teamFilter)}
-        >
-          Alle
-        </Link>
-        <Link
-          href={makeHref(base, { monat: ym(y, m), team: "verein" })}
-          className={filterChip(teamFilter === "verein")}
-        >
-          Verein
-        </Link>
-        {teams.map((t) => (
+      {/* Mannschafts-Filter + Heute-Knopf */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link
-            key={t.id}
-            href={makeHref(base, { monat: ym(y, m), team: t.id })}
-            className={filterChip(teamFilter === t.id)}
+            href={makeHref(base, { monat: ym(y, m) })}
+            className={filterChip(!teamFilter)}
           >
-            {t.name}
+            Alle
           </Link>
-        ))}
+          <Link
+            href={makeHref(base, { monat: ym(y, m), team: "verein" })}
+            className={filterChip(teamFilter === "verein")}
+          >
+            Verein
+          </Link>
+          {teams.map((t) => (
+            <Link
+              key={t.id}
+              href={makeHref(base, { monat: ym(y, m), team: t.id })}
+              className={filterChip(teamFilter === t.id)}
+            >
+              {t.name}
+            </Link>
+          ))}
+        </div>
+        <Link
+          href={makeHref(base, { team: teamFilter || undefined })}
+          className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-border/40"
+        >
+          📅 Heute
+        </Link>
       </div>
 
-      {/* Monats-Navigation */}
-      <div className="flex items-center justify-between">
+      {/* Monats-Navigation: Monat & Jahr direkt wählbar */}
+      <div className="flex items-center justify-between gap-2">
         <Link
           href={makeHref(base, { monat: ym(prev.y, prev.m), team: teamFilter || undefined })}
           className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-border/40"
+          title={monthLabelFmt.format(new Date(Date.UTC(prev.y, prev.m - 1, 1)))}
         >
-          ← {monthLabelFmt.format(new Date(Date.UTC(prev.y, prev.m - 1, 1)))}
+          ←
         </Link>
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold">{monthLabel}</h2>
-          <Link
-            href={makeHref(base, { team: teamFilter || undefined })}
-            className="text-sm text-primary hover:underline"
-          >
-            Heute
-          </Link>
-        </div>
+        <MonthPicker base={base} y={y} m={m} team={teamFilter || undefined} />
         <Link
           href={makeHref(base, { monat: ym(next.y, next.m), team: teamFilter || undefined })}
           className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-border/40"
+          title={monthLabelFmt.format(new Date(Date.UTC(next.y, next.m - 1, 1)))}
         >
-          {monthLabelFmt.format(new Date(Date.UTC(next.y, next.m - 1, 1)))} →
+          →
         </Link>
       </div>
 
