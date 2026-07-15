@@ -10,7 +10,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: `Mitglieder-App der ${site.fullName}`,
     start_url: "/mitglieder",
     display: "standalone",
-    background_color: "#0e0f13",
+    background_color: "#ffffff",
     theme_color: "#c8102e",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
