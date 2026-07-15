@@ -54,6 +54,7 @@ export async function GET() {
     { data: gamesData },
     { data: teamsData },
     { data: oppsData },
+    { data: clubEventsData },
   ] = await Promise.all([
     admin
       .from("competition_dates")
@@ -83,6 +84,15 @@ export async function GET() {
       .order("starts_at", { ascending: true }),
     admin.from("teams").select("id, name"),
     admin.from("opponents").select("id, name"),
+    // Öffentliche Vereinstermine (z. B. Sommerfest): vereinsweit (ohne Mannschaft), Art "other" –
+    // Besprechungen ('meeting'), Training und Mannschafts-Termine bleiben damit sicher draußen.
+    admin
+      .from("events")
+      .select("*")
+      .is("team_id", null)
+      .eq("is_public", true)
+      .eq("type", "other")
+      .order("starts_at", { ascending: true }),
   ]);
 
   const kommendeCompetitions = (compData ?? []).map((c) => {
@@ -162,8 +172,21 @@ export async function GET() {
     return [out];
   });
 
+  // Öffentliche Vereinstermine – die Competition-App zeigt sie in der Termin-Übersicht
+  // (mit 🔗 „gesynct" markiert); auch vergangene mitliefern, damit ihr Archiv dort erhalten bleibt.
+  const termine = ((clubEventsData as EventRow[]) ?? []).map((ev) => {
+    const start = new Date(ev.starts_at);
+    const out: Record<string, unknown> = {
+      datum: berlinDate.format(start),
+      text: ev.title,
+    };
+    const zeit = berlinTime.format(start);
+    if (zeit !== "00:00") out.zeit = zeit;
+    return out;
+  });
+
   return NextResponse.json(
-    { kommendeCompetitions, turniere, woechentlicheCompetitions, spiele },
+    { kommendeCompetitions, turniere, woechentlicheCompetitions, spiele, termine },
     {
       headers: {
         ...CORS,
