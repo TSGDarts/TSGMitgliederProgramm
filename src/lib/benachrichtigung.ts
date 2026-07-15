@@ -55,19 +55,61 @@ async function sendePush(profileIds: string[], nachricht: Nachricht) {
   );
 }
 
+interface GraphConfig {
+  tenant: string;
+  client: string;
+  secret: string;
+  absender: string;
+}
+
+/**
+ * M365-Zugangsdaten: bevorzugt aus der geschützten Tabelle secure_settings
+ * (Pflege durch den Admin in der App), sonst aus den Umgebungsvariablen.
+ */
+async function getGraphConfig(): Promise<GraphConfig> {
+  const cfg: GraphConfig = {
+    tenant: process.env.GRAPH_TENANT_ID ?? "",
+    client: process.env.GRAPH_CLIENT_ID ?? "",
+    secret: process.env.GRAPH_CLIENT_SECRET ?? "",
+    absender: process.env.GRAPH_ABSENDER ?? "",
+  };
+  try {
+    const admin = createAdminSupabase();
+    const { data } = await admin
+      .from("secure_settings")
+      .select("key, value")
+      .in("key", [
+        "graph_tenant_id",
+        "graph_client_id",
+        "graph_client_secret",
+        "graph_absender",
+      ]);
+    for (const row of data ?? []) {
+      const wert = (row.value as string) ?? "";
+      if (!wert) continue;
+      if (row.key === "graph_tenant_id") cfg.tenant = wert;
+      if (row.key === "graph_client_id") cfg.client = wert;
+      if (row.key === "graph_client_secret") cfg.secret = wert;
+      if (row.key === "graph_absender") cfg.absender = wert;
+    }
+  } catch {
+    // Tabelle fehlt noch → Umgebungsvariablen genügen
+  }
+  return cfg;
+}
+
 /** OAuth2-Token für Microsoft Graph (Modern Auth, Client Credentials). */
-async function graphToken(): Promise<string | null> {
-  const { GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET } = process.env;
-  if (!GRAPH_TENANT_ID || !GRAPH_CLIENT_ID || !GRAPH_CLIENT_SECRET) return null;
+async function graphToken(cfg: GraphConfig): Promise<string | null> {
+  if (!cfg.tenant || !cfg.client || !cfg.secret) return null;
   try {
     const res = await fetch(
-      `https://login.microsoftonline.com/${GRAPH_TENANT_ID}/oauth2/v2.0/token`,
+      `https://login.microsoftonline.com/${cfg.tenant}/oauth2/v2.0/token`,
       {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
-          client_id: GRAPH_CLIENT_ID,
-          client_secret: GRAPH_CLIENT_SECRET,
+          client_id: cfg.client,
+          client_secret: cfg.secret,
           scope: "https://graph.microsoft.com/.default",
           grant_type: "client_credentials",
         }),
@@ -86,9 +128,10 @@ async function sendeMailsGraph(
   adressen: string[],
   nachricht: Nachricht,
 ): Promise<boolean> {
-  const absender = process.env.GRAPH_ABSENDER;
+  const cfg = await getGraphConfig();
+  const absender = cfg.absender;
   if (!absender) return false;
-  const token = await graphToken();
+  const token = await graphToken(cfg);
   if (!token) return false;
 
   const text = `${nachricht.body}\n\n${siteUrl}${nachricht.url}\n\n– TSG 08 Roth Darts (Einstellungen unter „Mein Profil“)`;
@@ -115,6 +158,74 @@ async function sendeMailsGraph(
     ),
   );
   return true;
+}
+
+/**
+ * Test-E-Mail über Microsoft 365 – gibt eine verständliche Fehlermeldung
+ * zurück (für den Test-Knopf in den Admin-Einstellungen).
+ */
+export async function sendeTestMail(
+  an: string,
+): Promise<{ ok: boolean; message: string }> {
+  const cfg = await getGraphConfig();
+  if (!cfg.tenant || !cfg.client || !cfg.secret || !cfg.absender) {
+    return {
+      ok: false,
+      message:
+        "Es fehlen noch Werte (Mandanten-ID, Anwendungs-ID, Schlüssel oder Absender).",
+    };
+  }
+  const token = await graphToken(cfg);
+  if (!token) {
+    return {
+      ok: false,
+      message:
+        "Anmeldung bei Microsoft fehlgeschlagen – bitte Mandanten-ID, Anwendungs-ID und Schlüssel prüfen.",
+    };
+  }
+  try {
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.absender)}/sendMail`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: {
+            subject: "✅ Test: E-Mail-Versand der Mitglieder-App",
+            body: {
+              contentType: "Text",
+              content: `Der E-Mail-Versand über Microsoft 365 funktioniert.\n\n– TSG 08 Roth Darts (${siteUrl})`,
+            },
+            toRecipients: [{ emailAddress: { address: an } }],
+          },
+          saveToSentItems: false,
+        }),
+      },
+    );
+    if (res.status === 202) {
+      return { ok: true, message: `Test-E-Mail an ${an} verschickt.` };
+    }
+    const fehler = await res.text();
+    if (res.status === 403) {
+      return {
+        ok: false,
+        message:
+          "Microsoft lehnt den Versand ab (403) – vermutlich fehlt die Mail.Send-Berechtigung oder die Administratorzustimmung.",
+      };
+    }
+    if (res.status === 404) {
+      return {
+        ok: false,
+        message: `Absender-Postfach „${cfg.absender}“ wurde nicht gefunden (404).`,
+      };
+    }
+    return { ok: false, message: `Fehler ${res.status}: ${fehler.slice(0, 300)}` };
+  } catch {
+    return { ok: false, message: "Microsoft war nicht erreichbar." };
+  }
 }
 
 /** E-Mail an alle Empfänger mit eingeschalteter E-Mail-Benachrichtigung. */

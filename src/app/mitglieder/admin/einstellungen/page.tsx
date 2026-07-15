@@ -1,0 +1,187 @@
+import type { Metadata } from "next";
+import { requireAdmin } from "@/lib/auth";
+import { createAdminSupabase } from "@/lib/supabase/admin";
+import { saveMailEinstellungen, testMailAction } from "./actions";
+import { Einklappbar } from "@/components/Einklappbar";
+import {
+  PageHeader,
+  Card,
+  CardBody,
+  Button,
+  Field,
+  inputClass,
+} from "@/components/ui";
+
+export const metadata: Metadata = { title: "Einstellungen" };
+
+export default async function AdminEinstellungenPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ fehler?: string; gespeichert?: string; test?: string }>;
+}) {
+  await requireAdmin();
+  const { fehler, gespeichert, test } = await searchParams;
+
+  // Aktuelle Werte (der geheime Schlüssel wird nie angezeigt)
+  let tenant = "";
+  let client = "";
+  let absender = "";
+  let secretGesetzt = false;
+  try {
+    const admin = createAdminSupabase();
+    const { data } = await admin
+      .from("secure_settings")
+      .select("key, value")
+      .in("key", [
+        "graph_tenant_id",
+        "graph_client_id",
+        "graph_client_secret",
+        "graph_absender",
+      ]);
+    for (const row of data ?? []) {
+      const wert = (row.value as string) ?? "";
+      if (row.key === "graph_tenant_id") tenant = wert;
+      if (row.key === "graph_client_id") client = wert;
+      if (row.key === "graph_absender") absender = wert;
+      if (row.key === "graph_client_secret") secretGesetzt = !!wert;
+    }
+  } catch {
+    // Tabelle fehlt noch – Formular zeigt dann leere Felder
+  }
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      <PageHeader
+        title="Einstellungen"
+        subtitle="Technische Einstellungen – nur für Admins"
+      />
+
+      {fehler ? (
+        <Card className="border-danger/40 bg-danger/10">
+          <CardBody>
+            <p className="font-semibold text-danger">⚠️ Fehler</p>
+            <p className="mt-1 text-sm">{fehler}</p>
+          </CardBody>
+        </Card>
+      ) : null}
+
+      {gespeichert ? (
+        <Card className="border-ok/40 bg-ok/10">
+          <CardBody className="font-semibold text-ok">✓ Gespeichert.</CardBody>
+        </Card>
+      ) : null}
+
+      {test ? (
+        <Card className="border-ok/40 bg-ok/10">
+          <CardBody className="font-semibold text-ok">✅ {test}</CardBody>
+        </Card>
+      ) : null}
+
+      <Card>
+        <CardBody className="space-y-4">
+          <div>
+            <h2 className="font-semibold">📧 E-Mail-Versand (Microsoft 365)</h2>
+            <p className="text-sm text-muted">
+              Benachrichtigungen werden über euer Microsoft-365-Postfach
+              verschickt (Modern Auth). Der geheime Schlüssel wird sicher
+              gespeichert und ist für Mitglieder nicht einsehbar.
+            </p>
+          </div>
+          <form action={saveMailEinstellungen} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Verzeichnis-ID (Mandant)">
+                <input
+                  name="tenant"
+                  defaultValue={tenant}
+                  placeholder="xxxxxxxx-xxxx-…"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Anwendungs-ID (Client)">
+                <input
+                  name="client"
+                  defaultValue={client}
+                  placeholder="xxxxxxxx-xxxx-…"
+                  className={inputClass}
+                />
+              </Field>
+              <Field
+                label="Geheimer Clientschlüssel (Wert)"
+                hint={
+                  secretGesetzt
+                    ? "✓ Gespeichert – zum Ändern neuen Wert eingeben, sonst leer lassen"
+                    : "Der WERT des Schlüssels (nur einmal sichtbar in Entra)"
+                }
+              >
+                <input
+                  name="secret"
+                  type="password"
+                  autoComplete="off"
+                  placeholder={secretGesetzt ? "••••••••" : ""}
+                  className={inputClass}
+                />
+              </Field>
+              <Field
+                label="Absender-Adresse"
+                hint="Das M365-Postfach, von dem gesendet wird"
+              >
+                <input
+                  name="absender"
+                  type="email"
+                  defaultValue={absender}
+                  placeholder="darts@tsg08roth.de"
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+            <Button type="submit">Speichern</Button>
+          </form>
+          <form action={testMailAction}>
+            <Button type="submit" variant="secondary">
+              ✉️ Test-E-Mail an mich senden
+            </Button>
+          </form>
+        </CardBody>
+      </Card>
+
+      <Einklappbar
+        id="einstellungen-m365-anleitung"
+        title="📖 Anleitung: Werte in Microsoft 365 anlegen"
+        defaultOpen={false}
+      >
+        <ol className="list-inside list-decimal space-y-2 text-sm text-muted">
+          <li>
+            <strong>entra.microsoft.com</strong> mit einem Admin-Konto öffnen
+            → Identität → Anwendungen → <strong>App-Registrierungen</strong> →
+            „Neue Registrierung“ (Name z. B. „TSG Mitglieder-App
+            Mailversand“, Kontotyp „Nur Konten in diesem
+            Organisationsverzeichnis“).
+          </li>
+          <li>
+            Auf der Übersichtsseite die <strong>Anwendungs-ID (Client)</strong>{" "}
+            und die <strong>Verzeichnis-ID (Mandant)</strong> kopieren → oben
+            eintragen.
+          </li>
+          <li>
+            „API-Berechtigungen“ → „Berechtigung hinzufügen“ →{" "}
+            <strong>Microsoft Graph</strong> →{" "}
+            <strong>Anwendungsberechtigungen</strong> → <strong>Mail.Send</strong>{" "}
+            hinzufügen → danach{" "}
+            <strong>„Administratorzustimmung erteilen“</strong> klicken
+            (grüner Haken).
+          </li>
+          <li>
+            „Zertifikate &amp; Geheimnisse“ → „Neuer geheimer
+            Clientschlüssel“ (z. B. 24 Monate) → den <strong>WERT</strong>{" "}
+            sofort kopieren (nur einmal sichtbar!) → oben als Schlüssel
+            eintragen. <strong>Wichtig:</strong> Vor Ablauf erneuern.
+          </li>
+          <li>
+            Absender-Adresse eintragen, speichern und mit{" "}
+            <strong>„Test-E-Mail an mich senden“</strong> prüfen.
+          </li>
+        </ol>
+      </Einklappbar>
+    </div>
+  );
+}
