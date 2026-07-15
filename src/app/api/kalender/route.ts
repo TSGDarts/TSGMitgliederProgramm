@@ -7,7 +7,37 @@ import type { Tournament } from "@/lib/extras";
 // Öffentlicher Abo-Kalender (ICS, ohne Login abrufbar): alle ÖFFENTLICHEN
 // Vereins- und Mannschaftstermine plus Turniere. Enthält bewusst KEINE
 // Geburtstage und keine internen Termine – die Adresse kann geteilt werden.
+//
+// Filter (stellen Mitglieder auf der Termine-Seite zusammen):
+//   ?team=<id>            nur die Termine dieser Mannschaft (Vereinstermine bleiben)
+//   ?arten=a,b,c          nur diese Kategorien: punktspiele, pokal, freundschaft,
+//                         training, verein, turniere, competitions
+// Ohne Parameter: alles (bestehende Abos laufen unverändert weiter).
 export const dynamic = "force-dynamic";
+
+const ALLE_ARTEN = [
+  "punktspiele",
+  "pokal",
+  "freundschaft",
+  "training",
+  "verein",
+  "turniere",
+  "competitions",
+] as const;
+
+/** Ordnet einen Termin einer Abo-Kategorie zu. */
+function eventKategorie(ev: EventRow): string {
+  // Aus der Competition-App gespiegelte Competition-Abende
+  if ((ev.source_uid ?? "").startsWith("comp-app:cd-")) return "competitions";
+  if (ev.team_id) {
+    if (ev.type === "match") return "punktspiele";
+    if (ev.type === "pokal") return "pokal";
+    if (ev.type === "friendly") return "freundschaft";
+    if (ev.type === "training") return "training";
+  }
+  // Vereinsweite Termine + Team-Besprechungen/Sonstiges
+  return "verein";
+}
 
 const berlinDay = new Intl.DateTimeFormat("sv-SE", {
   timeZone: "Europe/Berlin",
@@ -61,7 +91,7 @@ function fold(line: string): string {
   return out + rest;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   let admin;
   try {
     admin = createAdminSupabase();
@@ -70,6 +100,27 @@ export async function GET() {
       { error: "Kalender nicht konfiguriert." },
       { status: 503 },
     );
+  }
+
+  // Gewählte Filter aus der Adresse lesen (fehlen sie: alles liefern)
+  const params = new URL(request.url).searchParams;
+  const teamId = (params.get("team") ?? "").trim();
+  const artenRaw = (params.get("arten") ?? "").trim();
+  const arten = new Set(
+    artenRaw
+      ? artenRaw.split(",").filter((a) => (ALLE_ARTEN as readonly string[]).includes(a))
+      : ALLE_ARTEN,
+  );
+
+  // Kalendername: bei Mannschafts-Filter den Teamnamen mit aufnehmen
+  let kalName = "TSG 08 Roth Dart";
+  if (teamId) {
+    const { data: team } = await admin
+      .from("teams")
+      .select("name")
+      .eq("id", teamId)
+      .maybeSingle();
+    if (team?.name) kalName = `${team.name} (Dart)`;
   }
 
   // Ein Jahr zurück, damit Abo-Kalender auch die jüngere Vergangenheit zeigen
@@ -96,7 +147,7 @@ export async function GET() {
     "PRODID:-//TSG 08 Roth Dart//Mitglieder-App//DE",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
-    "X-WR-CALNAME:TSG 08 Roth Dart",
+    `X-WR-CALNAME:${icsEscape(kalName)}`,
     "X-WR-TIMEZONE:Europe/Berlin",
   ];
 
@@ -124,6 +175,9 @@ export async function GET() {
   }
 
   for (const ev of ((eventData as EventRow[]) ?? [])) {
+    // Gewählte Kategorien + Mannschafts-Filter anwenden
+    if (!arten.has(eventKategorie(ev))) continue;
+    if (teamId && ev.team_id && ev.team_id !== teamId) continue;
     const allDay =
       !!ev.time_tbd || berlinTime.format(new Date(ev.starts_at)) === "00:00";
     const description = [
@@ -143,7 +197,7 @@ export async function GET() {
     });
   }
 
-  for (const t of ((tourData as Tournament[]) ?? [])) {
+  for (const t of arten.has("turniere") ? ((tourData as Tournament[]) ?? []) : []) {
     // Von Hand archivierte Turniere („Anzeigen bis“ vor dem Turniertag) auslassen
     const startKey = berlinDay.format(new Date(t.starts_at));
     if (t.display_until && t.display_until < startKey) continue;

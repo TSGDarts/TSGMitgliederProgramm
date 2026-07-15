@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
-import { getMemberEvents } from "@/lib/member-queries";
+import { getMemberEvents, getAllTeams } from "@/lib/member-queries";
 import { siteUrl } from "@/lib/supabase/config";
 import { EventCard } from "@/components/EventCard";
 import { EventsCalendar } from "@/components/EventsCalendar";
@@ -19,6 +19,7 @@ export default async function MemberTerminePage({
   const { ansicht, monat, team } = await searchParams;
   const isCalendar = ansicht === "kalender";
   const profile = await requireProfile();
+  const teams = await getAllTeams();
 
   const viewChip = (active: boolean) =>
     `rounded-full px-4 py-1.5 text-sm font-medium ${
@@ -54,14 +55,17 @@ export default async function MemberTerminePage({
       >
         <p className="text-sm text-muted">
           Einmal abonnieren – neue und geänderte Termine kommen dann
-          automatisch in deinen Handy-Kalender. Enthalten sind alle
-          öffentlichen Vereins- und Spieltermine sowie Turniere; Geburtstage
-          und interne Termine bleiben außen vor. Klappt der Knopf nicht,
+          automatisch in deinen Handy-Kalender. Stell dir unten zusammen, was
+          drin sein soll (z. B. nur deine Mannschaft). Geburtstage und
+          interne Termine bleiben immer außen vor. Klappt der Knopf nicht,
           kopiere die Adresse und trage sie in deiner Kalender-App als
           Abo-Kalender ein.
         </p>
         <div className="mt-3">
-          <CalendarSubscribe icsUrl={`${siteUrl}/api/kalender`} />
+          <CalendarSubscribe
+            icsUrl={`${siteUrl}/api/kalender`}
+            teams={teams.map((t) => ({ id: t.id, name: t.name }))}
+          />
         </div>
       </Einklappbar>
 
