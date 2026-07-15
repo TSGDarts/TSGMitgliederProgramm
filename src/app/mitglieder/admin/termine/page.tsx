@@ -372,6 +372,9 @@ export default async function AdminEventsPage({
                       <Badge tone="primary">{EVENT_TYPE_LABELS[ev.type]}</Badge>
                       <Badge>{teamName(ev.team_id) ?? "Verein"}</Badge>
                       {ev.source === "nuliga" && <Badge>nuLiga</Badge>}
+                      {(ev.source_uid ?? "").startsWith("comp-app:") && (
+                        <Badge>🎯 aus der Competition-App</Badge>
+                      )}
                       {ev.home_away === "heim" && <Badge tone="ok">🏠 Heim</Badge>}
                       {ev.home_away === "auswaerts" && (
                         <Badge tone="warn">🚗 Auswärts</Badge>
@@ -395,39 +398,49 @@ export default async function AdminEventsPage({
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
-                    {feedEligible(ev) && (
-                      <form action={toggleFeedExport}>
-                        <input type="hidden" name="id" value={ev.id} />
-                        <input
-                          type="hidden"
-                          name="next"
-                          value={ev.feed_export === false ? "1" : "0"}
-                        />
-                        <button
-                          className={`text-sm hover:underline ${
-                            ev.feed_export === false
-                              ? "text-muted"
-                              : "text-ok"
-                          }`}
-                          title="Klicken zum Umschalten: Soll dieser Termin automatisch an die Competition-App übergeben werden?"
-                        >
-                          {ev.feed_export === false
-                            ? "📵 nicht an Competition-App"
-                            : "📤 an Competition-App"}
-                        </button>
-                      </form>
+                    {(ev.source_uid ?? "").startsWith("comp-app:") ? (
+                      <span className="text-sm text-muted">
+                        wird in der Competition-App gepflegt
+                      </span>
+                    ) : (
+                      <>
+                        {feedEligible(ev) && (
+                          <form action={toggleFeedExport}>
+                            <input type="hidden" name="id" value={ev.id} />
+                            <input
+                              type="hidden"
+                              name="next"
+                              value={ev.feed_export === false ? "1" : "0"}
+                            />
+                            <button
+                              className={`text-sm hover:underline ${
+                                ev.feed_export === false
+                                  ? "text-muted"
+                                  : "text-ok"
+                              }`}
+                              title="Klicken zum Umschalten: Soll dieser Termin automatisch an die Competition-App übergeben werden?"
+                            >
+                              {ev.feed_export === false
+                                ? "📵 nicht an Competition-App"
+                                : "📤 an Competition-App"}
+                            </button>
+                          </form>
+                        )}
+                        <form action={deleteEvent}>
+                          <input type="hidden" name="id" value={ev.id} />
+                          <button className="text-sm text-danger hover:underline">
+                            Löschen
+                          </button>
+                        </form>
+                      </>
                     )}
-                    <form action={deleteEvent}>
-                      <input type="hidden" name="id" value={ev.id} />
-                      <button className="text-sm text-danger hover:underline">
-                        Löschen
-                      </button>
-                    </form>
                   </div>
                 </div>
 
                 {/* Bearbeiten (aufklappbar, vorausgefüllt); Schlüssel
-                    wechselt nach dem Speichern → Feld klappt wieder zu */}
+                    wechselt nach dem Speichern → Feld klappt wieder zu.
+                    Gespiegelte Competition-Abende sind hier nicht bearbeitbar. */}
+                {!(ev.source_uid ?? "").startsWith("comp-app:") && (
                 <details
                   key={`${ev.id}-${gespeichert ?? ""}`}
                   className="rounded-lg border border-border"
@@ -580,6 +593,7 @@ export default async function AdminEventsPage({
                     <Button type="submit">Änderungen speichern</Button>
                   </form>
                 </details>
+                )}
               </CardBody>
             </Card>
           ))
