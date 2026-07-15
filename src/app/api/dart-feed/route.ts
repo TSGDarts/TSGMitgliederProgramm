@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import {
   TOURNAMENT_KIND_LABELS,
+  romanTeamNo,
   type Tournament,
   type Competition,
 } from "@/lib/extras";
+import type { EventRow } from "@/lib/types";
 
 // Öffentlicher, schreibgeschützter Feed (ohne Login) mit unseren
 // Competition-Terminen und Turnieren. Enthält KEINE Mitgliederdaten.
@@ -45,25 +47,43 @@ export async function GET() {
 
   const today = berlinDate.format(new Date()); // JJJJ-MM-TT
 
-  const [{ data: compData }, { data: tourData }, { data: weeklyData }] =
-    await Promise.all([
-      admin
-        .from("competition_dates")
-        .select("date, event_url, nr, boards")
-        .gte("date", today)
-        .order("date", { ascending: true }),
-      admin
-        .from("tournaments")
-        .select("*")
-        .gte("display_until", today)
-        .order("starts_at", { ascending: true }),
-      admin
-        .from("competitions")
-        .select("*")
-        .eq("is_active", true)
-        .order("weekday")
-        .order("start_time"),
-    ]);
+  const [
+    { data: compData },
+    { data: tourData },
+    { data: weeklyData },
+    { data: gamesData },
+    { data: teamsData },
+    { data: oppsData },
+  ] = await Promise.all([
+    admin
+      .from("competition_dates")
+      .select("date, event_url, nr, boards")
+      .gte("date", today)
+      .order("date", { ascending: true }),
+    admin
+      .from("tournaments")
+      .select("*")
+      .gte("display_until", today)
+      .order("starts_at", { ascending: true }),
+    admin
+      .from("competitions")
+      .select("*")
+      .eq("is_active", true)
+      .order("weekday")
+      .order("start_time"),
+    // Nur öffentliche Spieltermine der Mannschaften (keine Besprechungen,
+    // kein Training, keine internen/eingeschränkten Termine)
+    admin
+      .from("events")
+      .select("*")
+      .not("team_id", "is", null)
+      .eq("is_public", true)
+      .in("type", ["match", "pokal", "friendly"])
+      .gte("starts_at", new Date(Date.now() - 26 * 3600e3).toISOString())
+      .order("starts_at", { ascending: true }),
+    admin.from("teams").select("id, name"),
+    admin.from("opponents").select("id, name"),
+  ]);
 
   const kommendeCompetitions = (compData ?? []).map((c) => {
     const out: Record<string, unknown> = { datum: c.date as string };
@@ -113,8 +133,37 @@ export async function GET() {
     },
   );
 
+  // Spieltermine der Mannschaften
+  const teamNameById = new Map(
+    (teamsData ?? []).map((t) => [t.id as string, t.name as string]),
+  );
+  const oppNameById = new Map(
+    (oppsData ?? []).map((o) => [o.id as string, o.name as string]),
+  );
+  const spiele = (((gamesData as EventRow[]) ?? [])).flatMap((ev) => {
+    const start = new Date(ev.starts_at);
+    const datum = berlinDate.format(start);
+    if (datum < today) return [];
+    const out: Record<string, unknown> = { datum };
+    const uhrzeit = berlinTime.format(start);
+    if (uhrzeit !== "00:00") out.uhrzeit = uhrzeit;
+    const mannschaft = ev.team_id ? teamNameById.get(ev.team_id) : undefined;
+    if (mannschaft) out.mannschaft = mannschaft;
+    if (ev.opponent_id) {
+      const base = oppNameById.get(ev.opponent_id);
+      if (base) {
+        const suffix = romanTeamNo(ev.opponent_team_no);
+        out.gegner = suffix ? `${base} ${suffix}` : base;
+      }
+    }
+    if (ev.home_away === "heim") out.heim = true;
+    else if (ev.home_away === "auswaerts") out.heim = false;
+    if (ev.location) out.ort = ev.location;
+    return [out];
+  });
+
   return NextResponse.json(
-    { kommendeCompetitions, turniere, woechentlicheCompetitions },
+    { kommendeCompetitions, turniere, woechentlicheCompetitions, spiele },
     {
       headers: {
         ...CORS,
