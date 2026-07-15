@@ -1335,3 +1335,18 @@ create table if not exists public.secure_settings (
 
 alter table public.secure_settings enable row level security;
 
+
+-- ============================================================
+-- 43: Neue Termin-Art „Fest“ + Erinnerungs-Haken je eigener Antwort
+-- ============================================================
+
+alter table events
+  drop constraint if exists events_type_check;
+alter table events
+  add constraint events_type_check
+  check (type in ('match', 'pokal', 'friendly', 'training', 'meeting', 'fest', 'other'));
+
+alter table profiles
+  add column if not exists notify_trotz_zusage boolean not null default true;
+alter table profiles
+  add column if not exists notify_trotz_vielleicht boolean not null default true;

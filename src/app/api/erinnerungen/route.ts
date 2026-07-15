@@ -30,12 +30,23 @@ export async function GET() {
   // Abonnenten je (Kategorie, Vorlaufzeit) gruppieren
   const { data: abonnenten } = await admin
     .from("profiles")
-    .select("id, notify_erinnerungen, notify_trotz_absage")
+    .select("*")
     .eq("is_active", true);
-  // Wer den Haken „auch nach Absage erinnern“ gesetzt hat
+  // Erinnerung je nach eigener Antwort: Standard = bei Zusage und
+  // „Vielleicht“ erinnern, nach Absage nicht (drei Haken im Profil)
   const trotzAbsage = new Set(
     (abonnenten ?? [])
       .filter((p) => p.notify_trotz_absage)
+      .map((p) => p.id as string),
+  );
+  const ohneZusageErinnerung = new Set(
+    (abonnenten ?? [])
+      .filter((p) => p.notify_trotz_zusage === false)
+      .map((p) => p.id as string),
+  );
+  const ohneVielleichtErinnerung = new Set(
+    (abonnenten ?? [])
+      .filter((p) => p.notify_trotz_vielleicht === false)
       .map((p) => p.id as string),
   );
   const gruppen = new Map<string, Map<number, string[]>>();
@@ -93,7 +104,7 @@ export async function GET() {
     kader.set(row.team_id as string, set);
   }
   const eingeladene = new Map<string, Set<string>>();
-  const abgesagt = new Map<string, Set<string>>();
+  const antworten = new Map<string, Map<string, string>>();
   if (events.length) {
     const { data: invData } = await admin
       .from("event_invitees")
@@ -104,16 +115,16 @@ export async function GET() {
       set.add(row.profile_id as string);
       eingeladene.set(row.event_id as string, set);
     }
-    // Wer aktiv ABGESAGT hat, bekommt keine Erinnerung mehr
-    const { data: absagen } = await admin
+    // Bereits gegebene Antworten (Zusage/Vielleicht/Absage) je Termin
+    const { data: rsvpData } = await admin
       .from("rsvps")
-      .select("event_id, profile_id")
-      .eq("status", "no")
+      .select("event_id, profile_id, status")
       .in("event_id", events.map((e) => e.id));
-    for (const row of absagen ?? []) {
-      const set = abgesagt.get(row.event_id as string) ?? new Set<string>();
-      set.add(row.profile_id as string);
-      abgesagt.set(row.event_id as string, set);
+    for (const row of rsvpData ?? []) {
+      const map =
+        antworten.get(row.event_id as string) ?? new Map<string, string>();
+      map.set(row.profile_id as string, row.status as string);
+      antworten.set(row.event_id as string, map);
     }
   }
   const relevanteEmpfaenger = (ev: EventRow, ids: string[]): string[] => {
@@ -125,11 +136,17 @@ export async function GET() {
       const k = kader.get(ev.team_id);
       kandidaten = k ? kandidaten.filter((id) => k.has(id)) : [];
     }
-    const nein = abgesagt.get(ev.id);
-    if (nein) {
-      kandidaten = kandidaten.filter(
-        (id) => !nein.has(id) || trotzAbsage.has(id),
-      );
+    // Wer schon geantwortet hat, wird nur erinnert, wenn der passende
+    // Haken im Profil gesetzt ist; ohne Antwort wird immer erinnert.
+    const status = antworten.get(ev.id);
+    if (status) {
+      kandidaten = kandidaten.filter((id) => {
+        const antwort = status.get(id);
+        if (antwort === "no") return trotzAbsage.has(id);
+        if (antwort === "yes") return !ohneZusageErinnerung.has(id);
+        if (antwort === "maybe") return !ohneVielleichtErinnerung.has(id);
+        return true;
+      });
     }
     return kandidaten;
   };

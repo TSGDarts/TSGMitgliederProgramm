@@ -57,6 +57,7 @@ const eventChipClass: Record<EventType, string> = {
   friendly: "bg-ok/20 text-ok",
   training: "bg-warn/20 text-warn",
   meeting: "bg-border/70",
+  fest: "bg-pink-600 text-white",
   other: "bg-border/70",
 };
 

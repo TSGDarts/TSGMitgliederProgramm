@@ -13,7 +13,7 @@ import type { Tournament } from "@/lib/extras";
 // Filter (stellen Mitglieder auf der Termine-Seite zusammen):
 //   ?team=<id>            nur die Termine dieser Mannschaft (Vereinstermine bleiben)
 //   ?arten=a,b,c          nur diese Kategorien: punktspiele, pokal, freundschaft,
-//                         training, verein, turniere, competitions
+//                         training, feste, verein, turniere, competitions
 //   ?alle=pokal,…         diese Kategorien trotz Mannschafts-Filter von ALLEN
 //                         Mannschaften liefern (z. B. alle Pokalspiele)
 //   ?turnierarten=a,b     nur diese Turnierarten: ddv, bdv, bezirk, frei
@@ -27,6 +27,7 @@ const ALLE_ARTEN = [
   "pokal",
   "freundschaft",
   "training",
+  "feste",
   "verein",
   "turniere",
   "competitions",

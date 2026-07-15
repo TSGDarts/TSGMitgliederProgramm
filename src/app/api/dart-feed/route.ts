@@ -86,7 +86,7 @@ export async function GET() {
   ]);
 
   // Öffentliche Vereinstermine (z. B. Sommerfest): vereinsweit (ohne
-  // Mannschaft), Art "Sonstiges" – Besprechungen, Training und
+  // Mannschaft), Art "Sonstiges" oder "Fest" – Besprechungen, Training und
   // Mannschafts-Termine bleiben damit sicher draußen. Auch vergangene
   // mitliefern, damit das Archiv der Competition-App erhalten bleibt.
   const { data: clubEventsData } = await admin
@@ -94,7 +94,7 @@ export async function GET() {
     .select("*")
     .is("team_id", null)
     .eq("is_public", true)
-    .eq("type", "other")
+    .in("type", ["other", "fest"])
     .order("starts_at", { ascending: true });
 
   const kommendeCompetitions = (compData ?? []).map((c) => {

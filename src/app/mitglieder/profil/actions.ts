@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 export async function updateProfile(formData: FormData) {
@@ -23,7 +24,7 @@ export async function updateProfile(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase
+  const { error } = await supabase
     .from("profiles")
     .update({
       full_name,
@@ -33,6 +34,8 @@ export async function updateProfile(formData: FormData) {
       birthday_congrats,
       training_default_rsvp,
       notify_email: formData.get("notify_email") === "on",
+      notify_trotz_zusage: formData.get("notify_trotz_zusage") === "on",
+      notify_trotz_vielleicht: formData.get("notify_trotz_vielleicht") === "on",
       notify_trotz_absage: formData.get("notify_trotz_absage") === "on",
       notify_erinnerungen: (() => {
         // Komma-getrennte Tages-Listen (erinnerung_<art> = „14, 7, 1“) parsen
@@ -41,6 +44,7 @@ export async function updateProfile(formData: FormData) {
           "pokal",
           "freundschaft",
           "training",
+          "feste",
           "verein",
           "turniere",
         ];
@@ -62,6 +66,14 @@ export async function updateProfile(formData: FormData) {
     })
     .eq("id", user.id);
 
+  if (error) {
+    const text = /column|schema|relation/i.test(error.message)
+      ? "Bitte zuerst ALLE_ERWEITERUNGEN.sql im Supabase SQL-Editor ausführen."
+      : error.message;
+    redirect(`/mitglieder/profil?fehler=${encodeURIComponent(text)}`);
+  }
+
   revalidatePath("/mitglieder/profil");
   revalidatePath("/mitglieder");
+  redirect(`/mitglieder/profil?gespeichert=${Date.now()}`);
 }

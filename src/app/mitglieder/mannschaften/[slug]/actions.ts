@@ -12,6 +12,7 @@ const VALID_TYPES: EventType[] = [
   "friendly",
   "training",
   "meeting",
+  "fest",
   "other",
 ];
 

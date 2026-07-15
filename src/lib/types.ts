@@ -16,6 +16,7 @@ export type EventType =
   | "friendly"
   | "training"
   | "meeting"
+  | "fest"
   | "other";
 export type RsvpStatus = "yes" | "no" | "maybe";
 
@@ -35,6 +36,8 @@ export interface Profile {
   notify_turnier_tage?: number | null; // (alt) Erinnerung X Tage vor Turnieren
   notify_erinnerungen?: Record<string, number[]> | null; // z. B. {"turniere":[14,7,1]}
   notify_trotz_absage?: boolean | null; // Erinnerung auch nach eigener Absage
+  notify_trotz_zusage?: boolean | null; // Erinnerung auch nach eigener Zusage
+  notify_trotz_vielleicht?: boolean | null; // Erinnerung auch bei „Vielleicht“
   is_active: boolean;
   created_at: string;
 }
@@ -112,13 +115,15 @@ export function isCompSpiegel(ev: { source_uid?: string | null }): boolean {
 
 /**
  * Ordnet einen Termin einer Kategorie zu (für Kalender-Abo und
- * Erinnerungen): punktspiele, pokal, freundschaft, training,
+ * Erinnerungen): punktspiele, pokal, freundschaft, training, feste,
  * competitions (gespiegelte Competition-Abende) oder verein.
+ * Besprechungen und „Sonstiges“ zählen als Vereinstermine.
  */
 export function eventKategorie(
   ev: Pick<EventRow, "team_id" | "type" | "source_uid">,
 ): string {
   if (isCompSpiegel(ev)) return "competitions";
+  if (ev.type === "fest") return "feste";
   if (ev.team_id) {
     if (ev.type === "match") return "punktspiele";
     if (ev.type === "pokal") return "pokal";
@@ -160,6 +165,7 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   friendly: "Freundschaftsspiel",
   training: "Training",
   meeting: "Besprechung",
+  fest: "Fest",
   other: "Sonstiges",
 };
 

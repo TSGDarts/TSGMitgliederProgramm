@@ -34,12 +34,12 @@ export const metadata: Metadata = { title: "Termine verwalten" };
 
 /**
  * Landet dieser Termin überhaupt im Dart-Feed (Competition-App)?
- * Vereinstermine: Art „Sonstiges“ ohne Mannschaft. Spieltermine:
+ * Vereinstermine: Art „Sonstiges“ oder „Fest“ ohne Mannschaft. Spieltermine:
  * Punkt-/Pokal-/Freundschaftsspiele einer Mannschaft. Jeweils nur öffentlich.
  */
 function feedEligible(ev: EventRow): boolean {
   if (!ev.is_public) return false;
-  if (ev.team_id === null) return ev.type === "other";
+  if (ev.team_id === null) return ["other", "fest"].includes(ev.type);
   return ["match", "pokal", "friendly"].includes(ev.type);
 }
 

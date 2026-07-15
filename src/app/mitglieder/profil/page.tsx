@@ -20,16 +20,37 @@ const ERINNERUNG_ARTEN: { key: string; label: string }[] = [
   { key: "pokal", label: "🏆 Pokalspiele" },
   { key: "freundschaft", label: "🤝 Freundschaftsspiele" },
   { key: "training", label: "💪 Training" },
-  { key: "verein", label: "🏠 Vereinstermine" },
+  { key: "feste", label: "🎉 Feste" },
+  { key: "verein", label: "🏠 Vereinstermine (Sonstiges)" },
   { key: "turniere", label: "🏟 Turniere" },
 ];
 
-export default async function ProfilPage() {
+export default async function ProfilPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ fehler?: string; gespeichert?: string }>;
+}) {
   const profile = await requireProfile();
+  const { fehler, gespeichert } = await searchParams;
 
   return (
     <div className="max-w-lg space-y-6">
       <PageHeader title="Mein Profil" />
+
+      {fehler ? (
+        <Card className="border-danger/40 bg-danger/10">
+          <CardBody>
+            <p className="font-semibold text-danger">⚠️ Fehler beim Speichern</p>
+            <p className="mt-1 text-sm">{fehler}</p>
+          </CardBody>
+        </Card>
+      ) : null}
+
+      {gespeichert ? (
+        <Card className="border-ok/40 bg-ok/10">
+          <CardBody className="font-semibold text-ok">✓ Gespeichert.</CardBody>
+        </Card>
+      ) : null}
 
       <Card>
         <CardBody className="space-y-4">
@@ -154,6 +175,22 @@ export default async function ProfilPage() {
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
+                  name="notify_trotz_zusage"
+                  defaultChecked={profile.notify_trotz_zusage ?? true}
+                />
+                🔁 Auch erinnern, wenn ich schon zugesagt habe
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="notify_trotz_vielleicht"
+                  defaultChecked={profile.notify_trotz_vielleicht ?? true}
+                />
+                🔁 Auch erinnern, wenn ich „Vielleicht“ gewählt habe
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
                   name="notify_trotz_absage"
                   defaultChecked={profile.notify_trotz_absage ?? false}
                 />
@@ -161,8 +198,8 @@ export default async function ProfilPage() {
               </label>
               <p className="text-xs text-muted">
                 Ohne Haken bekommst du keine Erinnerung mehr zu Terminen, bei
-                denen du abgesagt hast. Zusagen und „Vielleicht“ werden immer
-                erinnert.
+                denen du die jeweilige Antwort gegeben hast. Wer noch gar
+                nicht geantwortet hat, wird immer erinnert.
               </p>
             </div>
             <Button type="submit">Speichern</Button>
