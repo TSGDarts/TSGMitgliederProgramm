@@ -3,14 +3,9 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAllTeams } from "@/lib/member-queries";
-import {
-  toggleSurvey,
-  assignTeam,
-  unassignTeam,
-  assignInviteTeam,
-  unassignInviteTeam,
-} from "../actions";
+import { toggleSurvey } from "../actions";
 import { PokalPlanner } from "./PokalPlanner";
+import { TeamPlanner } from "./TeamPlanner";
 import { ArchiveButton } from "./ArchiveButton";
 import { AdminSurveyForm } from "./AdminSurveyForm";
 import {
@@ -20,7 +15,6 @@ import {
   Button,
   Badge,
   EmptyState,
-  inputClass,
 } from "@/components/ui";
 import {
   surveyLabel,
@@ -578,9 +572,40 @@ export default async function AdminSeasonDetailPage({
             </div>
           </section>
 
-          {/* Planung */}
+          {/* Mannschafts-Planung */}
           <section className="space-y-3">
-            <h2 className="text-lg font-bold">Antworten & Mannschaftsplanung</h2>
+            <h2 className="text-lg font-bold">Mannschafts-Planung</h2>
+            <p className="text-sm text-muted">
+              Verschiebe die Leute per Klick zwischen den Mannschaften –
+              ✓ = jedes Spiel, ~ = wenn möglich, • = nach Bedarf, ✗ = nur
+              Backup, ? = keine Antwort. C! / C? = Kapitäns-Interesse,
+              💬 = hat Wünsche (Maus drüber).
+            </p>
+            {teams.length === 0 ? (
+              <EmptyState
+                title="Noch keine Mannschaften angelegt"
+                hint="Lege unter „Mannschaften verwalten“ zuerst die Teams an."
+              />
+            ) : (
+              <TeamPlanner
+                teams={teams.map((t) => ({ id: t.id, name: t.name }))}
+                persons={entries.map((e) => ({
+                  key: e.key,
+                  name: e.name,
+                  freq: e.r?.play_frequency ?? "",
+                  captain: e.r?.captain_interest ?? "",
+                  wishes: e.r?.team_wishes ?? "",
+                }))}
+                initialAssign={entries.flatMap((e) =>
+                  e.teamIds.map((teamId) => ({ teamId, key: e.key })),
+                )}
+              />
+            )}
+          </section>
+
+          {/* Antworten */}
+          <section className="space-y-3">
+            <h2 className="text-lg font-bold">Antworten im Detail</h2>
             <p className="text-sm text-muted">
               Sortiert: Kapitäns-Kandidaten zuerst, dann nach Einsatz-Bereitschaft.
               Auch vorab angelegte Namen (noch nicht registriert) sind dabei –
@@ -623,7 +648,6 @@ export default async function AdminSeasonDetailPage({
             )}
 
             {visible.map((e) => {
-              const available = teams.filter((t) => !e.teamIds.includes(t.id));
               return (
                 <Card key={e.key} className={e.r ? "" : "opacity-70"}>
                   <CardBody className="space-y-3">
@@ -689,71 +713,16 @@ export default async function AdminSeasonDetailPage({
                       </div>
                     </details>
 
-                    {/* Team-Zuordnung */}
-                    <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-                      {e.teamIds.map((tid) => {
-                        const t = teamById.get(tid);
-                        if (!t) return null;
-                        return (
-                          <form
-                            key={tid}
-                            action={
-                              e.kind === "profile"
-                                ? unassignTeam
-                                : unassignInviteTeam
-                            }
-                            className="inline-flex"
-                          >
-                            <input type="hidden" name="season_id" value={season.id} />
-                            <input type="hidden" name="team_id" value={tid} />
-                            {e.kind === "profile" ? (
-                              <input type="hidden" name="profile_id" value={e.id} />
-                            ) : (
-                              <input type="hidden" name="invite_id" value={e.id} />
-                            )}
-                            <button
-                              className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-3 py-1 text-sm text-primary hover:bg-primary/25"
-                              title="Aus Team entfernen"
-                            >
-                              {t.name} ✕
-                            </button>
-                          </form>
-                        );
-                      })}
-                      {available.length > 0 && (
-                        <form
-                          action={
-                            e.kind === "profile" ? assignTeam : assignInviteTeam
-                          }
-                          className="inline-flex items-center gap-1"
-                        >
-                          <input type="hidden" name="season_id" value={season.id} />
-                          {e.kind === "profile" ? (
-                            <input type="hidden" name="profile_id" value={e.id} />
-                          ) : (
-                            <input type="hidden" name="invite_id" value={e.id} />
-                          )}
-                          <select
-                            name="team_id"
-                            className={`${inputClass} w-auto py-1 text-sm`}
-                            defaultValue=""
-                            required
-                          >
-                            <option value="" disabled>
-                              + Team zuordnen …
-                            </option>
-                            {available.map((t) => (
-                              <option key={t.id} value={t.id}>
-                                {t.name}
-                              </option>
-                            ))}
-                          </select>
-                          <button className="rounded-lg border border-border px-2 py-1 text-sm hover:bg-border/40">
-                            OK
-                          </button>
-                        </form>
-                      )}
-                    </div>
+                    {/* Aktuelle Mannschaften (Zuordnung oben in der Mannschafts-Planung) */}
+                    {e.teamIds.length > 0 && (
+                      <p className="border-t border-border pt-3 text-sm text-muted">
+                        Mannschaft:{" "}
+                        {e.teamIds
+                          .map((tid) => teamById.get(tid)?.name)
+                          .filter(Boolean)
+                          .join(", ")}
+                      </p>
+                    )}
                   </CardBody>
                 </Card>
               );
