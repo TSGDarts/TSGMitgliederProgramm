@@ -6,9 +6,16 @@ import {
   getEvent,
   getEventParticipants,
   getTeamsMap,
+  getManageableTeamIds,
+  getTeamRoster,
 } from "@/lib/member-queries";
+import { getGegnerVorlage } from "@/lib/settings";
 import { RsvpButtons } from "@/components/RsvpButtons";
 import { AddressLine } from "@/components/AddressLine";
+import { CarpoolSection, type CarpoolFahrer } from "@/components/CarpoolSection";
+import { LineupSection } from "@/components/LineupSection";
+import { GegnerNachricht } from "@/components/GegnerNachricht";
+import type { LineupEintrag } from "@/app/mitglieder/termine/spieltag-actions";
 import { PageHeader, Card, CardBody, Badge } from "@/components/ui";
 import {
   EVENT_TYPE_LABELS,
@@ -16,7 +23,12 @@ import {
   isCompSpiegel,
   type RsvpStatus,
 } from "@/lib/types";
-import { formatDate, formatDateTime, formatUntil } from "@/lib/format";
+import {
+  formatDate,
+  formatDateTime,
+  formatTime,
+  formatUntil,
+} from "@/lib/format";
 
 const groups: { key: RsvpStatus | "open"; label: string; tone: string }[] = [
   { key: "yes", label: "Zusagen", tone: "text-ok" },
@@ -66,6 +78,100 @@ export default async function EventDetailPage({
       .in("id", event.contact_ids)
       .order("full_name");
     kontakte = (kontaktData ?? []) as typeof kontakte;
+  }
+
+  const spiegel = isCompSpiegel(event);
+
+  // Aufstellung (nur bei Mannschafts-Spielen)
+  const istSpiel =
+    !!event.team_id && ["match", "pokal", "friendly"].includes(event.type);
+  const canManage = event.team_id
+    ? (await getManageableTeamIds(profile)).has(event.team_id)
+    : false;
+  let lineupEntries: LineupEintrag[] = [];
+  let lineupReleased = false;
+  let roster: { id: string; name: string }[] = [];
+  if (istSpiel) {
+    const supabase = await createClient();
+    const { data: lineupData } = await supabase
+      .from("event_lineups")
+      .select("entries, released")
+      .eq("event_id", event.id)
+      .maybeSingle();
+    if (lineupData) {
+      lineupEntries = (lineupData.entries as LineupEintrag[]) ?? [];
+      lineupReleased = !!lineupData.released;
+    }
+    if (canManage) {
+      roster = (await getTeamRoster(event.team_id!)).map((m) => ({
+        id: m.profile_id,
+        name: m.profile.full_name || m.profile.email || "?",
+      }));
+    }
+  }
+  const lineupKopf = [
+    `📋 Aufstellung ${event.title}`,
+    event.time_tbd || formatTime(event.starts_at) === "00:00"
+      ? `${formatDate(event.starts_at)} – Uhrzeit folgt`
+      : `${formatDate(event.starts_at)}, Spielbeginn ${formatTime(event.starts_at)} Uhr`,
+    event.location ? `📍 ${event.location}` : "",
+    event.meet_home_time ? `🚌 Treffpunkt TSG: ${event.meet_home_time} Uhr` : "",
+    event.meet_venue_time
+      ? `🤝 Treffpunkt vor Ort: ${event.meet_venue_time} Uhr`
+      : "",
+  ].filter(Boolean);
+
+  // Fahrgemeinschaft
+  const fahrer: CarpoolFahrer[] = [];
+  const mitfahrerListe: string[] = [];
+  let meineRolle: "fahrer" | "mitfahrer" | null = null;
+  let meineSeats: number | null = null;
+  if (!spiegel) {
+    const supabase = await createClient();
+    const { data: carpoolData } = await supabase
+      .from("event_carpool")
+      .select("profile_id, role, seats, profiles(full_name)")
+      .eq("event_id", event.id);
+    for (const row of carpoolData ?? []) {
+      const name =
+        (row.profiles as unknown as { full_name: string } | null)?.full_name ??
+        "?";
+      if (row.profile_id === profile.id) {
+        meineRolle = row.role as "fahrer" | "mitfahrer";
+        meineSeats = (row.seats as number | null) ?? null;
+      }
+      if (row.role === "fahrer") {
+        fahrer.push({ name, seats: (row.seats as number | null) ?? null });
+      } else {
+        mitfahrerListe.push(name);
+      }
+    }
+  }
+
+  // Heimspiel-Nachricht an den Gegner (nur für Kapitän/Vize/Bearbeiter/Admin)
+  let gegnerText: string | null = null;
+  if (istSpiel && canManage && event.home_away === "heim") {
+    const supabase = await createClient();
+    let ansprech = "zusammen";
+    if (event.opponent_id) {
+      const { data: opp } = await supabase
+        .from("opponents")
+        .select("contact_name")
+        .eq("id", event.opponent_id)
+        .maybeSingle();
+      if (opp?.contact_name) ansprech = opp.contact_name as string;
+    }
+    const vorlage = await getGegnerVorlage();
+    const uhr =
+      event.time_tbd || formatTime(event.starts_at) === "00:00"
+        ? "…"
+        : formatTime(event.starts_at);
+    gegnerText = vorlage
+      .replaceAll("{ansprechpartner}", ansprech)
+      .replaceAll("{kapitaen}", profile.full_name || "Kapitän")
+      .replaceAll("{mannschaft}", teamName ?? "TSG 08 Roth")
+      .replaceAll("{datum}", formatDate(event.starts_at))
+      .replaceAll("{uhrzeit}", uhr);
   }
 
   const byStatus = (key: RsvpStatus | "open") =>
@@ -157,7 +263,7 @@ export default async function EventDetailPage({
 
       {/* Gespiegelte Competition-Abende: reine Anzeige, keine Zu-/Absage –
           die Anmeldung läuft über die Competition-App */}
-      {isCompSpiegel(event) ? (
+      {spiegel ? (
         <Card className="bg-primary/5">
           <CardBody className="text-sm text-muted">
             🎯 Dieser Competition-Abend wird in der Competition-App gepflegt –
@@ -179,6 +285,49 @@ export default async function EventDetailPage({
           />
         </CardBody>
       </Card>
+
+      {/* Aufstellung: Kapitän baut den Entwurf, gibt frei → Push an den Kader */}
+      {istSpiel && (canManage || (lineupReleased && lineupEntries.length > 0)) && (
+        <Card>
+          <CardBody className="space-y-2">
+            <p className="font-medium">📋 Aufstellung</p>
+            <LineupSection
+              eventId={event.id}
+              canManage={canManage}
+              released={lineupReleased}
+              initialEntries={lineupEntries}
+              roster={roster}
+              kopfzeilen={lineupKopf}
+            />
+          </CardBody>
+        </Card>
+      )}
+
+      {/* Fahrgemeinschaft */}
+      <Card>
+        <CardBody className="space-y-2">
+          <p className="font-medium">🚗 Fahrgemeinschaft</p>
+          <CarpoolSection
+            eventId={event.id}
+            meineRolle={meineRolle}
+            meineSeats={meineSeats}
+            fahrer={fahrer}
+            mitfahrer={mitfahrerListe}
+          />
+        </CardBody>
+      </Card>
+
+      {/* Heimspiel-Nachricht an den Gegner */}
+      {gegnerText && (
+        <details className="rounded-xl border border-border bg-surface">
+          <summary className="cursor-pointer px-5 py-4 font-semibold">
+            💬 Nachricht an den Gegner (Heimspiel)
+          </summary>
+          <div className="border-t border-border p-5">
+            <GegnerNachricht text={gegnerText} />
+          </div>
+        </details>
+      )}
 
       <section className="grid gap-4 sm:grid-cols-2">
         {groups.map((g) => {

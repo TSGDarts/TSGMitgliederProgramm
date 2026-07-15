@@ -6,8 +6,11 @@ import {
   updateOpponent,
   deleteOpponent,
   saveHomeAddress,
+  saveGegnerVorlage,
 } from "./actions";
+import { getGegnerVorlage } from "@/lib/settings";
 import { AddressLine } from "@/components/AddressLine";
+import { Einklappbar } from "@/components/Einklappbar";
 import {
   PageHeader,
   Card,
@@ -79,6 +82,7 @@ export default async function AdminOpponentsPage() {
     (settingsData ?? []).map((s) => [s.key as string, s.value as string]),
   );
   const homeAddress = settings.get("home_address") ?? "";
+  const gegnerVorlage = await getGegnerVorlage();
 
   return (
     <div className="space-y-8">
@@ -115,6 +119,33 @@ export default async function AdminOpponentsPage() {
         </CardBody>
       </Card>
 
+      {/* Vorlage für die Heimspiel-Nachricht */}
+      <Einklappbar
+        id="gegner-vorlage"
+        title="💬 Heimspiel-Nachricht an den Gegner (Vorlage)"
+        defaultOpen={false}
+      >
+        <p className="mb-2 text-sm text-muted">
+          Diese Vorlage steht den Kapitänen bei jedem Heimspiel-Termin fertig
+          ausgefüllt bereit (Kopieren/WhatsApp). Platzhalter werden
+          automatisch ersetzt:{" "}
+          <code className="text-xs">{"{ansprechpartner}"}</code>,{" "}
+          <code className="text-xs">{"{kapitaen}"}</code>,{" "}
+          <code className="text-xs">{"{mannschaft}"}</code>,{" "}
+          <code className="text-xs">{"{datum}"}</code>,{" "}
+          <code className="text-xs">{"{uhrzeit}"}</code>.
+        </p>
+        <form action={saveGegnerVorlage} className="space-y-3">
+          <textarea
+            name="vorlage"
+            rows={16}
+            defaultValue={gegnerVorlage}
+            className={`${inputClass} font-mono text-xs`}
+          />
+          <Button type="submit">Vorlage speichern</Button>
+        </form>
+      </Einklappbar>
+
       {/* Neuer Gegner */}
       <Card>
         <CardBody>
@@ -127,7 +158,13 @@ export default async function AdminOpponentsPage() {
               <input name="name" required className={inputClass} />
             </Field>
             <AddressFields />
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field
+                label="Ansprechpartner (optional)"
+                hint="Für die Heimspiel-Nachricht"
+              >
+                <input name="contact_name" className={inputClass} />
+              </Field>
               <Field label="Anzahl Boards (optional)" hint="Falls bekannt">
                 <input
                   name="boards"
@@ -180,6 +217,11 @@ export default async function AdminOpponentsPage() {
                         🎯 {o.boards} Boards
                       </p>
                     )}
+                    {o.contact_name && (
+                      <p className="mt-1 text-sm text-muted">
+                        👤 Ansprechpartner: {o.contact_name}
+                      </p>
+                    )}
                     {o.notes && (
                       <p className="mt-1 text-sm text-muted">💡 {o.notes}</p>
                     )}
@@ -216,7 +258,14 @@ export default async function AdminOpponentsPage() {
                         city: o.city ?? "",
                       }}
                     />
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <Field label="Ansprechpartner (optional)">
+                        <input
+                          name="contact_name"
+                          defaultValue={o.contact_name ?? ""}
+                          className={inputClass}
+                        />
+                      </Field>
                       <Field label="Anzahl Boards (optional)">
                         <input
                           name="boards"

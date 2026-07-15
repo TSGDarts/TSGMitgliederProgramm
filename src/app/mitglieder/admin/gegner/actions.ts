@@ -33,6 +33,7 @@ export async function createOpponent(formData: FormData) {
   await supabase.from("opponents").insert({
     name,
     ...readAddress(formData),
+    contact_name: String(formData.get("contact_name") ?? "").trim(),
     notes: String(formData.get("notes") ?? "").trim(),
   });
   revalidate();
@@ -50,6 +51,7 @@ export async function updateOpponent(formData: FormData) {
     .update({
       name,
       ...readAddress(formData),
+      contact_name: String(formData.get("contact_name") ?? "").trim(),
       notes: String(formData.get("notes") ?? "").trim(),
     })
     .eq("id", id);
@@ -63,6 +65,20 @@ export async function deleteOpponent(formData: FormData) {
 
   const supabase = await createClient();
   await supabase.from("opponents").delete().eq("id", id);
+  revalidate();
+}
+
+/** Vorlage für die Heimspiel-Nachricht an den Gegner speichern. */
+export async function saveGegnerVorlage(formData: FormData) {
+  await requireEditor();
+  const text = String(formData.get("vorlage") ?? "").trim();
+
+  const supabase = await createClient();
+  await supabase.from("app_settings").upsert({
+    key: "gegner_vorlage",
+    value: text,
+    updated_at: new Date().toISOString(),
+  });
   revalidate();
 }
 

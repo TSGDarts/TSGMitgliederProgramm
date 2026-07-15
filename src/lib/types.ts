@@ -67,6 +67,7 @@ export interface Opponent {
   zip?: string | null;
   city?: string | null;
   boards?: number | null; // Anzahl Dartboards beim Gegner
+  contact_name?: string | null; // Ansprechpartner (für die Heimspiel-Nachricht)
   notes: string;
   created_at: string;
 }
