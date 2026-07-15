@@ -26,6 +26,7 @@ import {
 import {
   surveyLabel,
   shortLabel,
+  SURVEY_QUESTIONS,
   type Season,
   type SurveyResponse,
   type SurveyAnswers,
@@ -42,6 +43,40 @@ const freqRank: Record<string, number> = {
   backup: 3,
 };
 
+/** Kleine Balken-Verteilung für die Auswertung. */
+function Dist({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: { label: string; count: number }[];
+}) {
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  return (
+    <div>
+      <h3 className="mb-2 font-semibold">{title}</h3>
+      <div className="space-y-1.5">
+        {rows.map((r) => (
+          <div key={r.label} className="text-sm">
+            <div className="mb-0.5 flex items-baseline justify-between gap-2">
+              <span className="min-w-0 flex-1 truncate text-muted" title={r.label}>
+                {r.label}
+              </span>
+              <span className="font-semibold">{r.count}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-border/60">
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{ width: `${(r.count / max) * 100}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Eine Person in der Planung: registriertes Mitglied ODER angelegter Name. */
 type PlanEntry = {
   key: string;
@@ -54,10 +89,13 @@ type PlanEntry = {
 
 export default async function AdminSeasonDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ zeige?: string }>;
 }) {
   const { id } = await params;
+  const { zeige } = await searchParams;
   await requireAdmin();
   const supabase = await createClient();
 
@@ -181,6 +219,48 @@ export default async function AdminSeasonDetailPage({
   });
 
   const answered = entries.filter((e) => e.r).length;
+
+  // ---------- Auswertung der Abfrage ----------
+  // Zählt pro Frage, wie oft jede Antwort gewählt wurde (inkl. Sonstiges).
+  const distFor = (field: "play_frequency" | "captain_interest" | "ambitions" | "sit_out") => {
+    const q = SURVEY_QUESTIONS.find((x) => x.field === field)!;
+    const rows = q.options.map((o) => ({
+      label: o.label,
+      count: entries.filter((e) => e.r?.[field] === o.value).length,
+    }));
+    const other = entries.filter(
+      (e) => e.r && e.r[field] && !q.options.some((o) => o.value === e.r![field]),
+    ).length;
+    if (other > 0) rows.push({ label: "Sonstiges", count: other });
+    return rows;
+  };
+
+  const pokalCount = (field: "pokal_ku" | "pokal_8er") => ({
+    yes: entries.filter((e) => e.r?.[field] === "yes").length,
+    ifNeeded: entries.filter((e) => e.r?.[field] === "if_needed").length,
+  });
+
+  const captains = entries.filter((e) => e.r?.captain_interest === "yes");
+  const captainsMaybe = entries.filter((e) => e.r?.captain_interest === "maybe");
+  const newInLeague = entries.filter((e) => e.r?.played_last_season === false);
+  const wishes = entries.filter((e) => e.r?.team_wishes);
+  const stammCount = entries.filter((e) => e.r?.play_frequency === "always").length;
+  const flexCount = entries.filter(
+    (e) => e.r?.play_frequency === "when_can" || e.r?.play_frequency === "as_needed",
+  ).length;
+
+  // ---------- Filter für die Personenliste ----------
+  const FILTERS: { key: string; label: string; test: (e: PlanEntry) => boolean }[] = [
+    { key: "kapitaene", label: "Kapitäns-Kandidaten", test: (e) => e.r?.captain_interest === "yes" || e.r?.captain_interest === "maybe" },
+    { key: "stamm", label: "Jedes Spiel da", test: (e) => e.r?.play_frequency === "always" },
+    { key: "flexibel", label: "Flexibel", test: (e) => e.r?.play_frequency === "when_can" || e.r?.play_frequency === "as_needed" },
+    { key: "backup", label: "Nur Backup", test: (e) => e.r?.play_frequency === "backup" },
+    { key: "neu", label: "Neu in der Liga", test: (e) => e.r?.played_last_season === false },
+    { key: "ohneteam", label: "Noch ohne Team", test: (e) => e.teamIds.length === 0 },
+    { key: "offen", label: "Ohne Antwort", test: (e) => !e.r },
+  ];
+  const activeFilter = FILTERS.find((f) => f.key === zeige) ?? null;
+  const visible = activeFilter ? sorted.filter(activeFilter.test) : sorted;
 
   // Pokal-Planung: Bereitschaft aus der Abfrage + aktuelle Kader
   const entryByKey = new Map(entries.map((e) => [e.key, e]));
@@ -310,6 +390,158 @@ export default async function AdminSeasonDetailPage({
             </CardBody>
           </Card>
 
+          {/* Auswertung */}
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-bold">Auswertung der Abfrage</h2>
+              <a
+                href={`/mitglieder/admin/saisons/${season.id}/export`}
+                className="inline-flex items-center rounded-lg border border-border px-4 py-1.5 text-sm font-medium hover:bg-border/40"
+              >
+                📥 Als CSV exportieren (Excel)
+              </a>
+            </div>
+
+            {/* Kennzahlen */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardBody className="py-4">
+                  <p className="text-2xl font-bold">
+                    {answered}
+                    <span className="text-base font-normal text-muted">
+                      /{entries.length}
+                    </span>
+                  </p>
+                  <p className="text-sm text-muted">Antworten erfasst</p>
+                </CardBody>
+              </Card>
+              <Card>
+                <CardBody className="py-4">
+                  <p className="text-2xl font-bold">
+                    {stammCount}
+                    <span className="text-base font-normal text-muted">
+                      {" "}
+                      + {flexCount} flexibel
+                    </span>
+                  </p>
+                  <p className="text-sm text-muted">
+                    Stammspieler (jedes Spiel) + Flexible
+                  </p>
+                </CardBody>
+              </Card>
+              <Card>
+                <CardBody className="py-4">
+                  <p className="text-2xl font-bold">
+                    {captains.length}
+                    <span className="text-base font-normal text-muted">
+                      {" "}
+                      + {captainsMaybe.length} evtl.
+                    </span>
+                  </p>
+                  <p className="text-sm text-muted">Kapitäns-Kandidaten</p>
+                </CardBody>
+              </Card>
+              <Card>
+                <CardBody className="py-4">
+                  <p className="text-2xl font-bold">
+                    {pokalCount("pokal_ku").yes + pokalCount("pokal_ku").ifNeeded}
+                    <span className="text-base font-normal text-muted">
+                      {" "}
+                      KU ·{" "}
+                    </span>
+                    {pokalCount("pokal_8er").yes +
+                      pokalCount("pokal_8er").ifNeeded}
+                    <span className="text-base font-normal text-muted">
+                      {" "}
+                      8ter
+                    </span>
+                  </p>
+                  <p className="text-sm text-muted">
+                    Pokal-Interesse (Ja + wenn nötig)
+                  </p>
+                </CardBody>
+              </Card>
+            </div>
+
+            {/* Verteilungen */}
+            <Card>
+              <CardBody className="grid gap-6 md:grid-cols-2">
+                <Dist title="Wie viel wollen sie spielen?" rows={distFor("play_frequency")} />
+                <Dist title="Ambitionen" rows={distFor("ambitions")} />
+                <Dist title="Aussetzen für den Team-Erfolg?" rows={distFor("sit_out")} />
+                <Dist title="Kapitän machen?" rows={distFor("captain_interest")} />
+              </CardBody>
+            </Card>
+
+            {/* Namenslisten */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardBody className="space-y-2">
+                  <h3 className="font-semibold">
+                    Kapitäns-Kandidaten{" "}
+                    <span className="text-sm font-normal text-muted">
+                      ({captains.length + captainsMaybe.length})
+                    </span>
+                  </h3>
+                  {captains.length + captainsMaybe.length === 0 ? (
+                    <p className="text-sm text-muted">Noch keine.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {captains.map((e) => (
+                        <Badge key={e.key} tone="primary">
+                          {e.name} – will!
+                        </Badge>
+                      ))}
+                      {captainsMaybe.map((e) => (
+                        <Badge key={e.key}>{e.name} – wenn nötig</Badge>
+                      ))}
+                    </div>
+                  )}
+                  {newInLeague.length > 0 && (
+                    <>
+                      <h3 className="pt-2 font-semibold">
+                        Neu in der Liga{" "}
+                        <span className="text-sm font-normal text-muted">
+                          ({newInLeague.length})
+                        </span>
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {newInLeague.map((e) => (
+                          <Badge key={e.key} tone="warn">
+                            {e.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </CardBody>
+              </Card>
+
+              <Card>
+                <CardBody className="space-y-2">
+                  <h3 className="font-semibold">
+                    Wünsche zur Mannschaftsbildung{" "}
+                    <span className="text-sm font-normal text-muted">
+                      ({wishes.length})
+                    </span>
+                  </h3>
+                  {wishes.length === 0 ? (
+                    <p className="text-sm text-muted">Noch keine Wünsche.</p>
+                  ) : (
+                    <ul className="space-y-1.5 text-sm">
+                      {wishes.map((e) => (
+                        <li key={e.key}>
+                          <strong>{e.name}:</strong>{" "}
+                          <span className="text-muted">{e.r!.team_wishes}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </CardBody>
+              </Card>
+            </div>
+          </section>
+
           {/* Pokal-Planung */}
           <section className="space-y-3">
             <h2 className="text-lg font-bold">Pokal-Planung</h2>
@@ -438,7 +670,42 @@ export default async function AdminSeasonDetailPage({
               deren Antworten wandern bei der Registrierung automatisch mit.
             </p>
 
-            {sorted.map((e) => {
+            {/* Filter */}
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={`/mitglieder/admin/saisons/${season.id}`}
+                className={`rounded-full px-3 py-1 text-sm font-medium ${
+                  !activeFilter
+                    ? "bg-primary text-primary-fg"
+                    : "border border-border text-muted hover:text-foreground"
+                }`}
+              >
+                Alle ({entries.length})
+              </Link>
+              {FILTERS.map((f) => {
+                const count = sorted.filter(f.test).length;
+                if (count === 0 && zeige !== f.key) return null;
+                return (
+                  <Link
+                    key={f.key}
+                    href={`/mitglieder/admin/saisons/${season.id}?zeige=${f.key}`}
+                    className={`rounded-full px-3 py-1 text-sm font-medium ${
+                      zeige === f.key
+                        ? "bg-primary text-primary-fg"
+                        : "border border-border text-muted hover:text-foreground"
+                    }`}
+                  >
+                    {f.label} ({count})
+                  </Link>
+                );
+              })}
+            </div>
+
+            {visible.length === 0 && (
+              <EmptyState title="Niemand passt zu diesem Filter" />
+            )}
+
+            {visible.map((e) => {
               const available = teams.filter((t) => !e.teamIds.includes(t.id));
               return (
                 <Card key={e.key} className={e.r ? "" : "opacity-70"}>
