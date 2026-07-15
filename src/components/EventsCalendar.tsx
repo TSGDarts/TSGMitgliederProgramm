@@ -47,6 +47,7 @@ function makeHref(base: string, params: Record<string, string | undefined>) {
 
 const eventChipClass: Record<EventType, string> = {
   match: "bg-primary text-primary-fg",
+  pokal: "bg-purple-600 text-white",
   friendly: "bg-ok/20 text-ok",
   training: "bg-warn/20 text-warn",
   meeting: "bg-border/70",
@@ -239,6 +240,9 @@ export async function EventsCalendar({
         Farben:{" "}
         <span className="rounded bg-primary px-1.5 py-0.5 text-primary-fg">
           Punktspiel
+        </span>{" "}
+        <span className="rounded bg-purple-600 px-1.5 py-0.5 text-white">
+          Pokalspiel
         </span>{" "}
         <span className="rounded bg-ok/20 px-1.5 py-0.5 text-ok">
           Freundschaftsspiel

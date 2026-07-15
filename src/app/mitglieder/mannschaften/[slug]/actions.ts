@@ -7,6 +7,7 @@ import type { EventType } from "@/lib/types";
 
 const VALID_TYPES: EventType[] = [
   "match",
+  "pokal",
   "friendly",
   "training",
   "meeting",

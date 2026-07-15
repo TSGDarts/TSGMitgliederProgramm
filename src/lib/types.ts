@@ -9,7 +9,13 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export const VALID_ROLES: Role[] = ["admin", "player", "member"];
-export type EventType = "match" | "friendly" | "training" | "meeting" | "other";
+export type EventType =
+  | "match"
+  | "pokal"
+  | "friendly"
+  | "training"
+  | "meeting"
+  | "other";
 export type RsvpStatus = "yes" | "no" | "maybe";
 
 export interface Profile {
@@ -87,6 +93,7 @@ export interface Answer {
 
 export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   match: "Punktspiel",
+  pokal: "Pokalspiel",
   friendly: "Freundschaftsspiel",
   training: "Training",
   meeting: "Besprechung",

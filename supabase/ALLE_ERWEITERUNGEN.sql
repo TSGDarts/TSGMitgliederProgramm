@@ -1,7 +1,7 @@
 -- =====================================================================
 -- SAMMEL-SKRIPT: Alle Datenbank-Erweiterungen in einem Rutsch
 -- ---------------------------------------------------------------------
--- Führt die Skripte 02 bis 13 zusammen aus. Kann GEFAHRLOS mehrfach
+-- Führt die Skripte 02 bis 14 zusammen aus. Kann GEFAHRLOS mehrfach
 -- ausgeführt werden - bestehende Tabellen/Regeln bleiben erhalten,
 -- Rahmentermine werden nur aktualisiert, nie doppelt angelegt.
 -- (Voraussetzung: schema.sql wurde einmal ausgeführt.)
@@ -521,3 +521,18 @@ alter table public.member_invites
 
 alter table public.member_invites
   add column if not exists vice_of uuid references public.teams (id) on delete set null;
+
+-- ###################### 14_termin_art_pokal.sql ######################
+
+-- =====================================================================
+-- Erweiterung: Termin-Art "Pokalspiel"
+-- ---------------------------------------------------------------------
+-- Im Supabase SQL-Editor EINMALIG ausführen.
+-- =====================================================================
+
+alter table public.events
+  drop constraint if exists events_type_check;
+
+alter table public.events
+  add constraint events_type_check
+  check (type in ('match', 'pokal', 'friendly', 'training', 'meeting', 'other'));
