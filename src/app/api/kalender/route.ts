@@ -16,6 +16,8 @@ import type { Tournament } from "@/lib/extras";
 //   ?alle=pokal,…         diese Kategorien trotz Mannschafts-Filter von ALLEN
 //                         Mannschaften liefern (z. B. alle Pokalspiele)
 //   ?turnierarten=a,b     nur diese Turnierarten: ddv, bdv, bezirk, frei
+//   ?punktspieleTeams=…   nur diese Mannschaften (Ids) bei Punktspielen
+//   ?pokalTeams=… / ?freundschaftTeams=…   dito für Pokal/Freundschaft
 // Ohne Parameter: alles (bestehende Abos laufen unverändert weiter).
 export const dynamic = "force-dynamic";
 
@@ -131,6 +133,16 @@ export async function GET(request: Request) {
       ? turnierartenRaw.split(",").filter((a) => TURNIER_ARTEN.includes(a))
       : TURNIER_ARTEN,
   );
+  // Mannschafts-Auswahl je Kategorie (fehlt der Parameter: alle Mannschaften)
+  const teamListe = (name: string): Set<string> | null => {
+    const raw = (params.get(name) ?? "").trim();
+    return raw ? new Set(raw.split(",").filter(Boolean)) : null;
+  };
+  const teamsJeArt: Record<string, Set<string> | null> = {
+    punktspiele: teamListe("punktspieleTeams"),
+    pokal: teamListe("pokalTeams"),
+    freundschaft: teamListe("freundschaftTeams"),
+  };
 
   // Kalendername: bei Mannschafts-Filter den Teamnamen mit aufnehmen
   let kalName = "TSG 08 Roth Dart";
@@ -205,6 +217,11 @@ export async function GET(request: Request) {
       !trotzTeam.has(kategorie)
     )
       continue;
+    // Mannschafts-Auswahl je Kategorie (z. B. nur 1. und 3. Mannschaft)
+    const gewaehlteTeams = teamsJeArt[kategorie];
+    if (gewaehlteTeams && ev.team_id && !gewaehlteTeams.has(ev.team_id)) {
+      continue;
+    }
     const allDay =
       !!ev.time_tbd || berlinTime.format(new Date(ev.starts_at)) === "00:00";
     const description = [
