@@ -195,7 +195,11 @@ export async function importNuligaIcal(
 ): Promise<ImportResult> {
   await requireEditor();
   const team_id = String(formData.get("team_id") ?? "");
-  const url = String(formData.get("ical_url") ?? "").trim();
+  // nuLiga liefert die Adresse als webcal://… („Zu Kalender hinzufügen“) –
+  // das ist dieselbe Adresse über https, also einfach umschreiben.
+  const url = String(formData.get("ical_url") ?? "")
+    .trim()
+    .replace(/^webcal:\/\//i, "https://");
   if (!team_id || !url) {
     return { ok: false, message: "Keine iCal-Adresse hinterlegt." };
   }

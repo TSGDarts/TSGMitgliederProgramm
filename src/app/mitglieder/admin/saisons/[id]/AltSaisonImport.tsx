@@ -33,7 +33,7 @@ export function AltSaisonImport({
           name="ical_url"
           type="url"
           required
-          placeholder="https://…/….ics (nuLiga-Kalender der damaligen Saison)"
+          placeholder="webcal://… oder https://… (Link hinter „Zu Kalender hinzufügen“)"
           className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
         />
         <Button type="submit" variant="secondary" disabled={pending}>

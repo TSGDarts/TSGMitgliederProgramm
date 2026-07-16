@@ -517,13 +517,14 @@ export default async function AdminSeasonDetailPage({
             </summary>
             <div className="space-y-3 border-t border-border p-5">
               <p className="text-sm text-muted">
-                Trage je Mannschaft die <strong>iCal-Adresse des
-                damaligen nuLiga-Kalenders</strong> ein und importiere – die
-                Spieltage landen mit ihrem echten Datum (inkl. Gegner und
-                Ort) als Termine und sind dann beim Zurückblättern im
-                Kalender sichtbar. Danach unten{" "}
-                <strong>„Statistik neu berechnen“</strong> drücken, damit
-                die Termine-Zahlen der Teams stimmen.
+                Auf der damaligen nuLiga-Mannschaftsseite mit der rechten
+                Maustaste auf <strong>„Zu Kalender hinzufügen“</strong>{" "}
+                klicken → <strong>Link kopieren</strong> (beginnt mit
+                webcal://… – passt so) und hier einfügen. Der Import legt
+                die Spieltage mit ihrem echten Datum (inkl. Gegner und Ort)
+                als Termine an – sichtbar beim Zurückblättern im Kalender.
+                Danach unten <strong>„Statistik neu berechnen“</strong>{" "}
+                drücken, damit die Termine-Zahlen der Teams stimmen.
               </p>
               <div className="space-y-2">
                 {teams.map((t) => (
