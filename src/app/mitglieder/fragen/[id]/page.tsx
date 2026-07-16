@@ -14,6 +14,7 @@ import {
 import { formatDateTime } from "@/lib/format";
 import { getFragenKontakt, waNummer } from "@/lib/settings";
 import { siteUrl } from "@/lib/supabase/config";
+import { frageArtLabel } from "@/lib/types";
 
 export default async function FrageDetailPage({
   params,
@@ -24,21 +25,42 @@ export default async function FrageDetailPage({
   await requireProfile();
   const supabase = await createClient();
 
-  const { data: question } = await supabase
-    .from("questions")
-    .select("id,title,body,created_at,author:profiles(full_name),team:teams(name)")
-    .eq("id", id)
-    .maybeSingle();
+  // kind gibt es erst nach Skript 44 – bei alten Datenbanken ohne die
+  // Spalte greift die Ersatz-Abfrage (alles zählt dann als Frage).
+  let question: unknown = (
+    await supabase
+      .from("questions")
+      .select(
+        "id,title,body,kind,created_at,author:profiles(full_name),team:teams(name)",
+      )
+      .eq("id", id)
+      .maybeSingle()
+  ).data;
+  if (!question) {
+    question = (
+      await supabase
+        .from("questions")
+        .select(
+          "id,title,body,created_at,author:profiles(full_name),team:teams(name)",
+        )
+        .eq("id", id)
+        .maybeSingle()
+    ).data;
+  }
 
   if (!question) notFound();
   const q = question as unknown as {
     id: string;
     title: string;
     body: string | null;
+    kind?: string | null;
     created_at: string;
     author: { full_name: string } | null;
     team: { name: string } | null;
   };
+  const artLabel = frageArtLabel(q.kind);
+  // Für Fließtext/Betreff: Label ohne führendes Emoji („Idee“ statt „💡 Idee“)
+  const artText = artLabel.replace(/^[^\p{L}]+/u, "");
 
   const { data: answersData } = await supabase
     .from("answers")
@@ -57,14 +79,14 @@ export default async function FrageDetailPage({
   // den Verein schicken (Kontakt pflegt der Admin unter „Einstellungen“).
   const kontakt = await getFragenKontakt();
   const zusammenfassung = [
-    `Frage von ${q.author?.full_name || "einem Mitglied"} (${q.team?.name ?? "Gesamter Verein"}):`,
+    `${artText} von ${q.author?.full_name || "einem Mitglied"} (${q.team?.name ?? "Gesamter Verein"}):`,
     q.title,
     ...(q.body ? ["", q.body] : []),
     "",
-    `Zur Frage in der App: ${siteUrl}/mitglieder/fragen/${q.id}`,
+    `Zum Beitrag in der App: ${siteUrl}/mitglieder/fragen/${q.id}`,
   ].join("\n");
   const mailtoLink = kontakt.email
-    ? `mailto:${kontakt.email}?subject=${encodeURIComponent(`Frage: ${q.title}`)}&body=${encodeURIComponent(zusammenfassung)}`
+    ? `mailto:${kontakt.email}?subject=${encodeURIComponent(`${artText}: ${q.title}`)}&body=${encodeURIComponent(zusammenfassung)}`
     : null;
   const waLink = kontakt.whatsapp
     ? `https://wa.me/${waNummer(kontakt.whatsapp)}?text=${encodeURIComponent(zusammenfassung)}`
@@ -76,12 +98,12 @@ export default async function FrageDetailPage({
         href="/mitglieder/fragen"
         className="text-sm text-primary hover:underline"
       >
-        ← Alle Fragen
+        ← Alle Beiträge
       </Link>
 
       <PageHeader
         title={q.title}
-        subtitle={`${q.author?.full_name || "Mitglied"} · ${formatDateTime(
+        subtitle={`${artLabel} · ${q.author?.full_name || "Mitglied"} · ${formatDateTime(
           q.created_at,
         )}`}
       />
@@ -96,7 +118,7 @@ export default async function FrageDetailPage({
 
       {(mailtoLink || waLink) && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-muted">Frage an den Verein senden:</span>
+          <span className="text-sm text-muted">An den Verein senden:</span>
           {mailtoLink && (
             <a
               href={mailtoLink}

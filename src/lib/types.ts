@@ -148,7 +148,22 @@ export interface Question {
   author_id: string | null;
   title: string;
   body: string | null;
+  kind?: string | null; // frage | lob | kritik | idee | problem
   created_at: string;
+}
+
+/** Arten auf der Seite „Fragen & Feedback“ (angelehnt an die Competition-App). */
+export const FRAGE_ARTEN: Record<string, string> = {
+  frage: "💬 Frage",
+  lob: "👍 Lob",
+  kritik: "🛠 Kritik / Verbesserung",
+  idee: "💡 Idee",
+  problem: "⚠️ Problem",
+};
+
+/** Art-Label ohne führendes Emoji (z. B. für Mail-Betreffzeilen). */
+export function frageArtLabel(kind?: string | null): string {
+  return FRAGE_ARTEN[kind ?? "frage"] ?? FRAGE_ARTEN.frage;
 }
 
 export interface Answer {

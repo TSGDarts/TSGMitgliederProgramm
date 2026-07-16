@@ -15,22 +15,45 @@ import {
   Badge,
 } from "@/components/ui";
 import { formatDate } from "@/lib/format";
+import { FRAGE_ARTEN, frageArtLabel } from "@/lib/types";
 
-export const metadata: Metadata = { title: "Fragen" };
+export const metadata: Metadata = { title: "Fragen & Feedback" };
 
-export default async function FragenPage() {
+export default async function FragenPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ fehler?: string }>;
+}) {
   await requireProfile();
+  const { fehler } = await searchParams;
   const teams = await getAllTeams();
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("questions")
-    .select("id,title,created_at,team_id,author:profiles(full_name),answers(count)")
-    .order("created_at", { ascending: false });
+  // kind gibt es erst nach Skript 44 – bei alten Datenbanken ohne die
+  // Spalte greift die Ersatz-Abfrage (alles zählt dann als Frage).
+  let data: unknown = (
+    await supabase
+      .from("questions")
+      .select(
+        "id,title,kind,created_at,team_id,author:profiles(full_name),answers(count)",
+      )
+      .order("created_at", { ascending: false })
+  ).data;
+  if (!data) {
+    data = (
+      await supabase
+        .from("questions")
+        .select(
+          "id,title,created_at,team_id,author:profiles(full_name),answers(count)",
+        )
+        .order("created_at", { ascending: false })
+    ).data;
+  }
 
   const questions = (data ?? []) as unknown as Array<{
     id: string;
     title: string;
+    kind?: string | null;
     created_at: string;
     team_id: string | null;
     author: { full_name: string } | null;
@@ -43,14 +66,32 @@ export default async function FragenPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Fragen"
-        subtitle="Stell eine Frage an den Verein oder deine Mannschaft"
+        title="Fragen & Feedback"
+        subtitle="Stell eine Frage oder gib Feedback – Lob, Kritik, Ideen und Vorschläge sind willkommen"
       />
+
+      {fehler ? (
+        <Card className="border-danger/40 bg-danger/10">
+          <CardBody>
+            <p className="font-semibold text-danger">⚠️ Fehler</p>
+            <p className="mt-1 text-sm">{fehler}</p>
+          </CardBody>
+        </Card>
+      ) : null}
 
       <Card>
         <CardBody>
           <form action={createQuestion} className="space-y-4">
-            <Field label="Frage">
+            <Field label="Art">
+              <select name="kind" className={inputClass} defaultValue="frage">
+                {Object.entries(FRAGE_ARTEN).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Frage / Anliegen">
               <input name="title" required className={inputClass} />
             </Field>
             <Field label="Details (optional)">
@@ -66,22 +107,26 @@ export default async function FragenPage() {
                 ))}
               </select>
             </Field>
-            <Button type="submit">Frage stellen</Button>
+            <Button type="submit">Abschicken</Button>
           </form>
         </CardBody>
       </Card>
 
       <section className="space-y-3">
         {questions.length === 0 ? (
-          <EmptyState title="Noch keine Fragen" hint="Stell die erste Frage!" />
+          <EmptyState
+            title="Noch keine Beiträge"
+            hint="Stell die erste Frage oder gib Feedback!"
+          />
         ) : (
           questions.map((q) => (
             <Link key={q.id} href={`/mitglieder/fragen/${q.id}`}>
               <Card className="transition hover:border-primary">
                 <CardBody className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{q.title}</span>
+                      <Badge tone="primary">{frageArtLabel(q.kind)}</Badge>
                       <Badge>{teamName(q.team_id) ?? "Verein"}</Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted">

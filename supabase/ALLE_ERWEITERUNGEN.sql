@@ -1350,3 +1350,16 @@ alter table profiles
   add column if not exists notify_trotz_zusage boolean not null default true;
 alter table profiles
   add column if not exists notify_trotz_vielleicht boolean not null default true;
+
+-- ============================================================
+-- 44: Fragen & Feedback – Beitrags-Art (Frage/Lob/Kritik/Idee/Problem)
+-- ============================================================
+
+alter table questions
+  add column if not exists kind text not null default 'frage';
+
+alter table questions
+  drop constraint if exists questions_kind_check;
+alter table questions
+  add constraint questions_kind_check
+  check (kind in ('frage', 'lob', 'kritik', 'idee', 'problem'));
