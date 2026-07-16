@@ -27,6 +27,7 @@ import { formatDate, formatTime, ergebnisTone } from "@/lib/format";
 import { berlinISOToLocalInput } from "@/lib/tz";
 import { SpielberichtImport } from "./SpielberichtImport";
 import { spielerBilanz, alsMatchStats } from "@/lib/spielbericht";
+import { teileInRunden } from "@/lib/runden";
 import { AdminSurveyForm } from "./AdminSurveyForm";
 import {
   PageHeader,
@@ -575,6 +576,15 @@ export default async function AdminSeasonDetailPage({
                 {teams.map((team) => {
                   const liste = spieltageJeTeam.get(team.id) ?? [];
                   if (liste.length === 0) return null;
+                  const runden = teileInRunden(liste);
+                  const gruppen = [
+                    { titel: "Hinrunde", spiele: runden.hinrunde },
+                    { titel: "Rückrunde", spiele: runden.rueckrunde },
+                    {
+                      titel: "Pokal & Freundschaftsspiele",
+                      spiele: runden.sonstige,
+                    },
+                  ].filter((g) => g.spiele.length > 0);
                   return (
                     <details
                       key={team.id}
@@ -588,8 +598,13 @@ export default async function AdminSeasonDetailPage({
                           mit Ergebnis)
                         </span>
                       </summary>
-                      <div className="space-y-1 border-t border-border p-3">
-                        {liste.map((ev) => {
+                      <div className="space-y-2 border-t border-border p-3">
+                        {gruppen.map((gruppe) => (
+                        <div key={gruppe.titel} className="space-y-1">
+                        <p className="px-1 pt-1 text-xs font-semibold uppercase tracking-wide text-muted">
+                          {gruppe.titel}
+                        </p>
+                        {gruppe.spiele.map((ev) => {
                           const lokal = berlinISOToLocalInput(ev.starts_at);
                           const [datum] = lokal.split("T");
                           const uhrzeit =
@@ -706,6 +721,8 @@ export default async function AdminSeasonDetailPage({
                             </details>
                           );
                         })}
+                        </div>
+                        ))}
                       </div>
                     </details>
                   );

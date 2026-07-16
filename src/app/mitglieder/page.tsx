@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import Link from "next/link";
 import { formatDate, ergebnisTone } from "@/lib/format";
+import { teileInRunden } from "@/lib/runden";
 import { isCompSpiegel, EVENT_TYPE_LABELS, type EventRow } from "@/lib/types";
 import type { Season } from "@/lib/season";
 
@@ -208,6 +209,15 @@ export default async function DashboardPage({
             teams.map((t) => {
               const liste = ergebnisseJeTeam.get(t.id) ?? [];
               const liga = archivLiga.get(t.name) || t.league;
+              const runden = teileInRunden(liste);
+              const gruppen = [
+                { titel: "Hinrunde", spiele: runden.hinrunde },
+                { titel: "Rückrunde", spiele: runden.rueckrunde },
+                {
+                  titel: "Pokal & Freundschaftsspiele",
+                  spiele: runden.sonstige,
+                },
+              ].filter((g) => g.spiele.length > 0);
               return (
                 <Einklappbar
                   key={t.id}
@@ -231,32 +241,41 @@ export default async function DashboardPage({
                       In dieser Saison noch keine gespielten Spiele.
                     </p>
                   ) : (
-                    <div className="space-y-1">
-                      {liste.map((ev) => (
-                        <Link
-                          key={ev.id}
-                          href={`/mitglieder/termine/${ev.id}`}
-                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-border/30"
-                        >
-                          <span className="min-w-0">
-                            <span className="text-muted">
-                              {formatDate(ev.starts_at)}
-                            </span>{" "}
-                            {ev.title}
-                            {ev.type !== "match" && (
-                              <span className="ml-1 text-xs text-muted">
-                                ({EVENT_TYPE_LABELS[ev.type]})
+                    <div className="space-y-3">
+                      {gruppen.map((gruppe) => (
+                        <div key={gruppe.titel} className="space-y-1">
+                          <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">
+                            {gruppe.titel}
+                          </p>
+                          {gruppe.spiele.map((ev) => (
+                            <Link
+                              key={ev.id}
+                              href={`/mitglieder/termine/${ev.id}`}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-border/30"
+                            >
+                              <span className="min-w-0">
+                                <span className="text-muted">
+                                  {formatDate(ev.starts_at)}
+                                </span>{" "}
+                                {ev.title}
+                                {ev.type !== "match" && (
+                                  <span className="ml-1 text-xs text-muted">
+                                    ({EVENT_TYPE_LABELS[ev.type]})
+                                  </span>
+                                )}
                               </span>
-                            )}
-                          </span>
-                          {(ev.result ?? "").trim() ? (
-                            <Badge tone={ergebnisTone((ev.result ?? "").trim())}>
-                              {ergebnisText((ev.result ?? "").trim())}
-                            </Badge>
-                          ) : (
-                            <Badge>Ergebnis folgt</Badge>
-                          )}
-                        </Link>
+                              {(ev.result ?? "").trim() ? (
+                                <Badge
+                                  tone={ergebnisTone((ev.result ?? "").trim())}
+                                >
+                                  {ergebnisText((ev.result ?? "").trim())}
+                                </Badge>
+                              ) : (
+                                <Badge>Ergebnis folgt</Badge>
+                              )}
+                            </Link>
+                          ))}
+                        </div>
                       ))}
                     </div>
                   )}
