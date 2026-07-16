@@ -78,6 +78,10 @@ export function CreateMemberForm({ teams }: { teams: Team[] }) {
             <input type="checkbox" name="is_trainer" />
             💪 Trainer – darf Trainings eintragen
           </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="is_planner" />
+            🧠 Saisonplaner – darf eigene Planungs-Entwürfe pflegen
+          </label>
 
           {teams.length > 0 && (
             <Field label="Mannschaften (optional)">

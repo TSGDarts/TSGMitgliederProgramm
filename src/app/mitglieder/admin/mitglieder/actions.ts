@@ -57,6 +57,7 @@ export async function createMember(
   const birthday_public = formData.get("birthday_public") === "on";
   const birthday_congrats = formData.get("birthday_congrats") === "on";
   const is_trainer = formData.get("is_trainer") === "on";
+  const is_planner = formData.get("is_planner") === "on";
 
   // Ohne E-Mail: Name für die Selbst-Anmeldung anlegen. Die Person
   // registriert sich später über den Beitritts-Link/QR und gibt ihre
@@ -78,6 +79,7 @@ export async function createMember(
         birthday_public,
         birthday_congrats,
         is_trainer,
+        is_planner,
       });
     if (error) {
       return {
@@ -135,6 +137,7 @@ export async function createMember(
       birthday_public,
       birthday_congrats,
       is_trainer,
+      is_planner,
     })
     .eq("id", userId);
 
@@ -214,6 +217,7 @@ export async function updateMemberData(formData: FormData) {
       birthday_public: formData.get("birthday_public") === "on",
       birthday_congrats: formData.get("birthday_congrats") === "on",
       is_trainer: formData.get("is_trainer") === "on",
+      is_planner: formData.get("is_planner") === "on",
     })
     .eq("id", id);
 

@@ -87,6 +87,7 @@ export async function claimMember(
       full_name: invite.full_name,
       role: invite.role,
       is_trainer: invite.is_trainer ?? false,
+      is_planner: invite.is_planner ?? false,
       email,
       phone,
       birthday,

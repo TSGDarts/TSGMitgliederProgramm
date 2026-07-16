@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { requireProfile } from "@/lib/auth";
+import { requireProfile, canPlanSeason } from "@/lib/auth";
 import { getManageableTeamIds } from "@/lib/member-queries";
 import {
   memberNav,
@@ -25,16 +25,27 @@ export default async function MemberLayout({
   const navItems = isAdmin ? adminNav : isEditor ? editorNav : undefined;
 
   // Locaboo-Reiter (Raumbelegung des Hauptvereins) nur für
-  // Kapitäne/Vize/Bearbeiter/Admins einblenden
+  // Kapitäne/Vize/Bearbeiter/Admins einblenden; Planungs-Reiter nur für
+  // Saisonplaner (Haken vom Admin) und Admins
   const zeigeLocaboo = (await getManageableTeamIds(profile)).size > 0;
-  const hauptNav = zeigeLocaboo
-    ? (() => {
-        const kopie: (typeof memberNav)[number][] = [...memberNav];
-        const i = kopie.findIndex((n) => n.href === "/mitglieder/nuliga");
-        kopie.splice(i + 1, 0, locabooNavItem);
-        return kopie;
-      })()
-    : memberNav;
+  const hauptNav = (() => {
+    const kopie: (typeof memberNav)[number][] = [...memberNav];
+    if (zeigeLocaboo) {
+      const i = kopie.findIndex((n) => n.href === "/mitglieder/nuliga");
+      kopie.splice(i + 1, 0, locabooNavItem);
+    }
+    if (canPlanSeason(profile)) {
+      const i = kopie.findIndex(
+        (n) => n.href === "/mitglieder/saisonabfrage",
+      );
+      kopie.splice(i + 1, 0, {
+        href: "/mitglieder/planung",
+        label: "Planung",
+        icon: "clipboard",
+      });
+    }
+    return kopie;
+  })();
 
   // Name + Abmelden + Theme: in der Desktop-Seitenleiste unten,
   // am Handy unten in der Menü-Schublade.

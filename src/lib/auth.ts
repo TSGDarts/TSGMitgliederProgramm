@@ -62,6 +62,20 @@ export async function requireEditor(): Promise<Profile> {
   return profile;
 }
 
+/** Darf Saisonplanungs-Entwürfe pflegen: Planer-Haken oder Admin. */
+export function canPlanSeason(profile: Profile): boolean {
+  return profile.role === "admin" || !!profile.is_planner;
+}
+
+/** Erzwingt einen Saisonplaner (oder Admin). Leitet sonst um. */
+export async function requirePlanner(): Promise<Profile> {
+  const profile = await requireProfile("/mitglieder");
+  if (!canPlanSeason(profile)) {
+    redirect("/mitglieder");
+  }
+  return profile;
+}
+
 /** Darf Trainings verwalten: Trainer-Haken oder Admin/Bearbeiter. */
 export function canManageTrainings(profile: Profile): boolean {
   return (

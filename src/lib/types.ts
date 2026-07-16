@@ -30,6 +30,7 @@ export interface Profile {
   birthday_congrats?: boolean | null; // in der Mitgliedergruppe gratulieren ok?
   role: Role;
   is_trainer?: boolean | null; // darf Trainings eintragen (Haken vom Admin)
+  is_planner?: boolean | null; // darf Saisonplanungs-Entwürfe pflegen
   training_default_rsvp?: string | null; // ''|yes|maybe|no – Vorbelegung für Trainings
   notify_email?: boolean | null; // Benachrichtigungen zusätzlich per E-Mail
   notify_turnier_woche?: boolean | null; // (alt) Erinnerung 1 Woche vor Turnieren

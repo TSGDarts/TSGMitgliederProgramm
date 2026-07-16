@@ -46,6 +46,7 @@ export default async function AdminMembersPage() {
     birthday_public?: boolean | null;
     birthday_congrats?: boolean | null;
     is_trainer?: boolean | null;
+    is_planner?: boolean | null;
   }>;
   const teamName = (id: string) => teams.find((t) => t.id === id)?.name ?? "";
 
@@ -81,6 +82,7 @@ export default async function AdminMembersPage() {
                       )}
                       {inv.role === "member" && <Badge>ohne Liga</Badge>}
                       {inv.is_trainer && <Badge tone="ok">💪 Trainer</Badge>}
+                      {inv.is_planner && <Badge tone="ok">🧠 Saisonplaner</Badge>}
                       <Badge tone="warn">noch nicht angemeldet</Badge>
                       {inv.team_ids?.length > 0 && (
                         <span className="text-sm text-muted">
@@ -197,6 +199,14 @@ export default async function AdminMembersPage() {
                         />
                         💪 Trainer – darf Trainings eintragen
                       </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="is_planner"
+                          defaultChecked={inv.is_planner ?? false}
+                        />
+                        🧠 Saisonplaner – darf eigene Planungs-Entwürfe pflegen
+                      </label>
                       <Button type="submit">Änderungen speichern</Button>
                     </form>
                   </details>
@@ -241,6 +251,7 @@ export default async function AdminMembersPage() {
                     )}
                     {m.role === "member" && <Badge>ohne Liga</Badge>}
                     {m.is_trainer && <Badge tone="ok">💪 Trainer</Badge>}
+                    {m.is_planner && <Badge tone="ok">🧠 Saisonplaner</Badge>}
                     {!m.is_active && <Badge tone="danger">inaktiv</Badge>}
                   </div>
                   <p className="text-sm text-muted">
@@ -354,6 +365,14 @@ export default async function AdminMembersPage() {
                       defaultChecked={m.is_trainer ?? false}
                     />
                     💪 Trainer – darf Trainings eintragen
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name="is_planner"
+                      defaultChecked={m.is_planner ?? false}
+                    />
+                    🧠 Saisonplaner – darf eigene Planungs-Entwürfe pflegen
                   </label>
                   <Button type="submit">Speichern</Button>
                 </form>

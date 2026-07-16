@@ -1365,3 +1365,24 @@ alter table questions
 alter table questions
   add constraint questions_kind_check
   check (kind in ('frage', 'lob', 'kritik', 'idee', 'problem'));
+
+-- ============================================================
+-- 45: Saisonplaner – Berechtigung + eigene Planungs-Entwürfe
+-- ============================================================
+
+alter table profiles
+  add column if not exists is_planner boolean not null default false;
+alter table member_invites
+  add column if not exists is_planner boolean not null default false;
+
+create table if not exists season_plans (
+  id uuid primary key default gen_random_uuid(),
+  season_id uuid not null references seasons(id) on delete cascade,
+  owner_id uuid not null references profiles(id) on delete cascade,
+  notes text not null default '',
+  data jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  unique (season_id, owner_id)
+);
+alter table season_plans enable row level security;
