@@ -12,6 +12,14 @@ export interface BerichtSpiel {
   gewonnen: boolean;
 }
 
+export interface Bestleistung {
+  kategorie: "180" | "highfinish" | "lowdarts";
+  anzahl: number;
+  wert: number;
+  name: string; // "Nachname, Vorname"
+  mannschaft: string;
+}
+
 export interface Spielbericht {
   heim: string;
   gast: string;
@@ -19,7 +27,19 @@ export interface Spielbericht {
   ergebnis: string; // Spiele gesamt aus unserer Sicht, z. B. "12:6"
   legsGesamt: string; // aus unserer Sicht
   spiele: BerichtSpiel[];
+  bestleistungen?: Bestleistung[]; // 180er, High Finishes, Low Darts
   uebersprungen: number; // unvollständige Zeilen (z. B. kampflos)
+}
+
+/**
+ * "Nachname, Vorname" und "Vorname Nachname" auf dieselbe Form bringen –
+ * zum Abgleich der Spielbericht-Namen mit den Mitglieder-Profilen.
+ */
+export function normalisiereName(n: string): string {
+  const teile = n.split(",");
+  const name =
+    teile.length === 2 ? `${teile[1].trim()} ${teile[0].trim()}` : n.trim();
+  return name.toLowerCase().replace(/\s+/g, " ");
 }
 
 const istScore = (t: string) => /^\d+:\d+$/.test(t);
@@ -148,6 +168,31 @@ export function parseSpielbericht(
       : `${spiele.length - siege}:${siege}`;
   }
 
+  // Bestleistungen (180er, High Finishes, Low Darts): Zeilen
+  // "Anzahl  Wert  Spieler  Mannschaft" unter der jeweiligen Überschrift
+  const bestleistungen: Bestleistung[] = [];
+  let kategorie: Bestleistung["kategorie"] | "" = "";
+  for (const zeile of zeilen) {
+    const z = zeile.trim();
+    if (/^Bestleistungen 180er/i.test(z)) kategorie = "180";
+    else if (/^Bestleistungen High Finishes/i.test(z)) kategorie = "highfinish";
+    else if (/^Bestleistungen Low Darts/i.test(z)) kategorie = "lowdarts";
+    else if (/^(Spielbeginn|Bemerkungen|Spielbericht)/i.test(z)) kategorie = "";
+    if (!kategorie) continue;
+    const tokens = zeilenTokens(zeile);
+    if (tokens.length < 4) continue;
+    const anzahl = Number(tokens[0]);
+    const wert = Number(tokens[1]);
+    if (!Number.isFinite(anzahl) || !Number.isFinite(wert)) continue;
+    bestleistungen.push({
+      kategorie,
+      anzahl,
+      wert,
+      name: tokens[2],
+      mannschaft: tokens.slice(3).join(" "),
+    });
+  }
+
   return {
     ok: true,
     bericht: {
@@ -157,6 +202,7 @@ export function parseSpielbericht(
       ergebnis: dreh(ergebnisHeim, !wirSindHeim),
       legsGesamt: dreh(legsGesamt, !wirSindHeim),
       spiele,
+      bestleistungen,
       uebersprungen,
     },
   };

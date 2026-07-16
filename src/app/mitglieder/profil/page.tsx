@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { requireProfile } from "@/lib/auth";
 import { updateProfile } from "./actions";
+import { sammleLigaStatistik } from "@/lib/statistik";
+import { Einklappbar } from "@/components/Einklappbar";
 import { PushSettings } from "@/components/PushSettings";
 import {
   PageHeader,
@@ -32,6 +34,7 @@ export default async function ProfilPage({
 }) {
   const profile = await requireProfile();
   const { fehler, gespeichert } = await searchParams;
+  const statistik = await sammleLigaStatistik(profile.full_name ?? "");
 
   return (
     <div className="max-w-lg space-y-6">
@@ -206,6 +209,63 @@ export default async function ProfilPage({
           </form>
         </CardBody>
       </Card>
+
+      <Einklappbar id="profil-statistik" title="📊 Meine Liga-Statistik">
+        {statistik.spieltage === 0 ? (
+          <p className="text-sm text-muted">
+            Noch keine Spielberichte mit dir erfasst. Sobald der Admin die
+            nuLiga-Spielberichte einspielt, zählt hier alles automatisch
+            zusammen.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-lg border border-border p-3 text-center">
+                <p className="text-2xl font-bold">{statistik.spieltage}</p>
+                <p className="text-xs text-muted">Spieltage</p>
+              </div>
+              <div className="rounded-lg border border-border p-3 text-center">
+                <p className="text-2xl font-bold">
+                  {statistik.einzelSiege}–{statistik.einzelNiederlagen}
+                </p>
+                <p className="text-xs text-muted">Einzel (S–N)</p>
+              </div>
+              <div className="rounded-lg border border-border p-3 text-center">
+                <p className="text-2xl font-bold">
+                  {statistik.doppelSiege}–{statistik.doppelNiederlagen}
+                </p>
+                <p className="text-xs text-muted">Doppel (S–N)</p>
+              </div>
+              <div className="rounded-lg border border-border p-3 text-center">
+                <p className="text-2xl font-bold">
+                  {statistik.legsGewonnen}:{statistik.legsVerloren}
+                </p>
+                <p className="text-xs text-muted">Legs</p>
+              </div>
+              <div className="rounded-lg border border-border p-3 text-center">
+                <p className="text-2xl font-bold">{statistik.anzahl180}</p>
+                <p className="text-xs text-muted">180er</p>
+              </div>
+              <div className="rounded-lg border border-border p-3 text-center">
+                <p className="text-2xl font-bold">
+                  {statistik.besterFinish ?? "–"}
+                </p>
+                <p className="text-xs text-muted">Bester Finish</p>
+              </div>
+              <div className="rounded-lg border border-border p-3 text-center">
+                <p className="text-2xl font-bold">
+                  {statistik.besterLowDarts ?? "–"}
+                </p>
+                <p className="text-xs text-muted">Kürzestes Leg (Darts)</p>
+              </div>
+            </div>
+            <p className="text-xs text-muted">
+              Automatisch zusammengezählt aus den eingespielten
+              nuLiga-Spielberichten (Einzel + Doppel, alle Saisons).
+            </p>
+          </div>
+        )}
+      </Einklappbar>
 
       <Card>
         <CardBody className="space-y-2">
