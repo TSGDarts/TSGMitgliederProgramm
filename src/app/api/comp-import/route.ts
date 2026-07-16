@@ -151,9 +151,14 @@ export async function GET() {
   // Übrig gebliebene comp-app-Einträge gibt es in der Competition-App nicht mehr.
   // Aufräumen aber NUR, wenn der Datenblock wirklich gelesen wurde – sonst würde
   // eine noch nicht veröffentlichte Seite alle Einträge fälschlich löschen.
+  // VERGANGENE Abende bleiben immer erhalten (Archiv im Kalender).
   const blockOk = !!m && !hinweis;
   if (blockOk) {
+    const heute = berlinDatum.format(new Date());
     for (const rest of byUid.values()) {
+      if (berlinDatum.format(new Date(rest.starts_at as string)) < heute) {
+        continue;
+      }
       await admin.from("events").delete().eq("id", rest.id);
       entfernt++;
     }
