@@ -6,7 +6,12 @@ import { CreateMemberForm } from "./CreateMemberForm";
 import { RegenerateLink } from "./RegenerateLink";
 import { MemberActionButtons } from "./MemberActionButtons";
 import { setMemberRole, updateMemberData } from "./actions";
-import { deleteInvite, updateInvite } from "../beitritt/actions";
+import {
+  deleteInvite,
+  updateInvite,
+  reaktiviereInvite,
+} from "../beitritt/actions";
+import { istAusgetreten } from "@/lib/invites";
 import {
   PageHeader,
   Card,
@@ -47,7 +52,12 @@ export default async function AdminMembersPage() {
     birthday_congrats?: boolean | null;
     is_trainer?: boolean | null;
     is_planner?: boolean | null;
+    left_on?: string | null;
   }>;
+  const wartende = openInvites.filter((i) => !istAusgetreten(i.left_on));
+  const ausgetreteneNamen = openInvites.filter((i) =>
+    istAusgetreten(i.left_on),
+  );
 
   return (
     <div className="space-y-8">
@@ -58,16 +68,16 @@ export default async function AdminMembersPage() {
 
       <CreateMemberForm />
 
-      {openInvites.length > 0 && (
+      {wartende.length > 0 && (
         <section>
           <h2 className="mb-3 text-lg font-bold">
             Angelegt – warten auf Selbst-Anmeldung{" "}
             <span className="text-sm font-normal text-muted">
-              ({openInvites.length})
+              ({wartende.length})
             </span>
           </h2>
           <div className="space-y-2">
-            {openInvites.map((inv) => (
+            {wartende.map((inv) => (
               <Card key={inv.id} className="border-dashed">
                 <CardBody className="space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -83,6 +93,9 @@ export default async function AdminMembersPage() {
                       {inv.is_trainer && <Badge tone="ok">💪 Trainer</Badge>}
                       {inv.is_planner && <Badge tone="ok">🧠 Saisonplaner</Badge>}
                       <Badge tone="warn">noch nicht angemeldet</Badge>
+                      {inv.left_on && (
+                        <Badge tone="warn">👋 Austritt zum {inv.left_on}</Badge>
+                      )}
                       {inv.birthday ? (
                         <span className="text-sm text-muted">
                           🎂 {inv.birthday}
@@ -137,6 +150,17 @@ export default async function AdminMembersPage() {
                             name="birthday"
                             type="date"
                             defaultValue={inv.birthday ?? ""}
+                            className={inputClass}
+                          />
+                        </Field>
+                        <Field
+                          label="Austritt zum (optional)"
+                          hint="Ab diesem Tag nicht mehr wählbar/planbar – wandert zu „Ehemalige Mitglieder“"
+                        >
+                          <input
+                            name="left_on"
+                            type="date"
+                            defaultValue={inv.left_on ?? ""}
                             className={inputClass}
                           />
                         </Field>
@@ -374,13 +398,13 @@ export default async function AdminMembersPage() {
         </div>
       </section>
 
-      {/* Ehemalige / deaktivierte Mitglieder */}
-      {ehemalige.length > 0 && (
+      {/* Ehemalige / deaktivierte Mitglieder + ausgetretene Namen */}
+      {(ehemalige.length > 0 || ausgetreteneNamen.length > 0) && (
         <details className="rounded-xl border border-border bg-surface">
           <summary className="cursor-pointer px-5 py-4 font-semibold">
             👋 Ehemalige Mitglieder{" "}
             <span className="text-sm font-normal text-muted">
-              ({ehemalige.length})
+              ({ehemalige.length + ausgetreteneNamen.length})
             </span>
           </summary>
           <div className="space-y-3 border-t border-border p-5">
@@ -411,6 +435,31 @@ export default async function AdminMembersPage() {
                     isActive={m.is_active}
                     isSelf={m.id === me.id}
                   />
+                </CardBody>
+              </Card>
+            ))}
+            {ausgetreteneNamen.map((inv) => (
+              <Card key={inv.id} className="border-dashed opacity-80">
+                <CardBody className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{inv.full_name}</span>
+                    <Badge tone="warn">ausgetreten zum {inv.left_on}</Badge>
+                    <Badge>war noch nicht angemeldet</Badge>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <form action={reaktiviereInvite}>
+                      <input type="hidden" name="id" value={inv.id} />
+                      <button className="text-sm text-ok hover:underline">
+                        Wieder aktivieren
+                      </button>
+                    </form>
+                    <form action={deleteInvite}>
+                      <input type="hidden" name="id" value={inv.id} />
+                      <button className="text-sm text-danger hover:underline">
+                        Entfernen
+                      </button>
+                    </form>
+                  </div>
                 </CardBody>
               </Card>
             ))}

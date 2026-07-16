@@ -52,12 +52,30 @@ export async function isValidJoinToken(token: string): Promise<boolean> {
 
 export type UnclaimedInvite = { id: string; full_name: string };
 
+/** Heutiger Kalendertag in Berlin (JJJJ-MM-TT) – für Austritts-Vergleiche. */
+export function berlinHeute(): string {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+/** Ist die Person (Profil oder Name) zum Stichtag ausgetreten? */
+export function istAusgetreten(leftOn?: string | null): boolean {
+  return !!leftOn && leftOn <= berlinHeute();
+}
+
 export async function listUnclaimedInvites(): Promise<UnclaimedInvite[]> {
   const admin = createAdminSupabase();
   const { data } = await admin
     .from("member_invites")
-    .select("id, full_name")
+    .select("id, full_name, left_on")
     .eq("claimed", false)
     .order("full_name");
-  return (data as UnclaimedInvite[]) ?? [];
+  // Ausgetretene Namen sind bei der Selbst-Anmeldung nicht mehr wählbar
+  return ((data as (UnclaimedInvite & { left_on?: string | null })[]) ?? [])
+    .filter((i) => !istAusgetreten(i.left_on))
+    .map(({ id, full_name }) => ({ id, full_name }));
 }

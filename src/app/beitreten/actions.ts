@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { isValidJoinToken } from "@/lib/invites";
+import { isValidJoinToken, istAusgetreten } from "@/lib/invites";
 
 export type ClaimResult = { ok: boolean; message: string };
 
@@ -52,7 +52,11 @@ export async function claimMember(
     .eq("id", inviteId)
     .maybeSingle();
 
-  if (!invite || invite.claimed) {
+  if (
+    !invite ||
+    invite.claimed ||
+    istAusgetreten(invite.left_on as string | null)
+  ) {
     return {
       ok: false,
       message: "Dieser Name ist nicht mehr verfügbar. Bitte lade die Seite neu.",

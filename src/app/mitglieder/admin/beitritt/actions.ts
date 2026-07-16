@@ -8,13 +8,29 @@ import { regenerateJoinToken } from "@/lib/invites";
 
 function readInviteBirthday(formData: FormData) {
   const raw = String(formData.get("birthday") ?? "");
+  const leftRaw = String(formData.get("left_on") ?? "");
   return {
     birthday: /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null,
     birthday_public: formData.get("birthday_public") === "on",
     birthday_congrats: formData.get("birthday_congrats") === "on",
     is_trainer: formData.get("is_trainer") === "on",
     is_planner: formData.get("is_planner") === "on",
+    left_on: /^\d{4}-\d{2}-\d{2}$/.test(leftRaw) ? leftRaw : null,
   };
+}
+
+/** Ausgetretenen Namen wieder aktivieren (Austrittsdatum löschen). */
+export async function reaktiviereInvite(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const supabase = await createClient();
+  await supabase
+    .from("member_invites")
+    .update({ left_on: null })
+    .eq("id", id);
+  revalidatePath("/mitglieder/admin/beitritt");
+  revalidatePath("/mitglieder/admin/mitglieder");
 }
 
 export async function addInviteName(formData: FormData) {

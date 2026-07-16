@@ -3,6 +3,7 @@ import { requirePlanner } from "@/lib/auth";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { formatDateTime } from "@/lib/format";
 import { Einklappbar } from "@/components/Einklappbar";
+import { istAusgetreten } from "@/lib/invites";
 import { PlanungsEntwurf } from "./PlanungsEntwurf";
 import { PokalEntwurf } from "./PokalEntwurf";
 import { UebernehmenKnopf } from "./UebernehmenKnopf";
@@ -275,6 +276,7 @@ export default async function PlanungPage() {
       .eq("claimed", false)
       .neq("role", "member")
       .order("full_name"),
+    // Hinweis: ausgetretene Namen werden unten herausgefiltert
     admin.from("teams").select("*").order("sort_order"),
     admin.from("survey_responses").select("*").eq("season_id", season.id),
     admin
@@ -289,7 +291,9 @@ export default async function PlanungPage() {
   ]);
 
   const profiles = (profData as Profile[]) ?? [];
-  const invites = (invData ?? []) as Array<{ id: string; full_name: string }>;
+  const invites = ((invData ?? []).filter(
+    (inv) => !istAusgetreten((inv as { left_on?: string | null }).left_on),
+  )) as Array<{ id: string; full_name: string }>;
   const teams = ((teamData as Team[]) ?? []).map((t) => ({
     id: t.id,
     name: t.name,

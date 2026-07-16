@@ -12,6 +12,7 @@ import {
 import { AltSaisonImport } from "./AltSaisonImport";
 import { ArchivKaderFeld } from "./ArchivKaderFeld";
 import { Einklappbar } from "@/components/Einklappbar";
+import { istAusgetreten } from "@/lib/invites";
 import { formatHomeMatch } from "@/lib/extras";
 import { PokalPlanner } from "./PokalPlanner";
 import { TeamPlanner } from "./TeamPlanner";
@@ -132,13 +133,16 @@ export default async function AdminSeasonDetailPage({
   const profiles = (profData as Profile[]) ?? [];
 
   // Noch nicht registrierte, vorab angelegte Namen + deren Antworten
+  // (ausgetretene Namen spielen in der Planung keine Rolle mehr)
   const { data: invData } = await supabase
     .from("member_invites")
     .select("*")
     .eq("claimed", false)
     .neq("role", "member")
     .order("full_name");
-  const invites = (invData ?? []) as Array<{
+  const invites = ((invData ?? []).filter(
+    (inv) => !istAusgetreten((inv as { left_on?: string | null }).left_on),
+  )) as Array<{
     id: string;
     full_name: string;
     role: string;

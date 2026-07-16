@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getOrCreateJoinToken } from "@/lib/invites";
+import { getOrCreateJoinToken, istAusgetreten } from "@/lib/invites";
 import { siteUrl } from "@/lib/supabase/config";
 import { JoinLinkCard } from "./JoinLinkCard";
 import { addInviteName, updateInvite, deleteInvite } from "./actions";
@@ -27,6 +27,8 @@ type Invite = {
   birthday_public?: boolean | null;
   birthday_congrats?: boolean | null;
   is_trainer?: boolean | null;
+  is_planner?: boolean | null;
+  left_on?: string | null;
   claimed: boolean;
 };
 
@@ -48,7 +50,9 @@ export default async function AdminBeitrittPage({
     .order("full_name");
   const invites = (data as Invite[]) ?? [];
 
-  const open = invites.filter((i) => !i.claimed);
+  // Ausgetretene Namen erscheinen hier nicht mehr (Pflege unter
+  // „Mitglieder verwalten“ → Ehemalige Mitglieder)
+  const open = invites.filter((i) => !i.claimed && !istAusgetreten(i.left_on));
   const done = invites.filter((i) => i.claimed);
 
   return (
@@ -227,7 +231,18 @@ export default async function AdminBeitrittPage({
                             className={inputClass}
                           />
                         </Field>
-                        <label className="flex items-center gap-2 self-end pb-2 text-sm">
+                        <Field
+                          label="Austritt zum (optional)"
+                          hint="Ab dann nicht mehr wählbar – siehe „Ehemalige Mitglieder“"
+                        >
+                          <input
+                            name="left_on"
+                            type="date"
+                            defaultValue={inv.left_on ?? ""}
+                            className={inputClass}
+                          />
+                        </Field>
+                        <label className="flex items-center gap-2 text-sm">
                           <input
                             type="checkbox"
                             name="birthday_public"
@@ -255,6 +270,14 @@ export default async function AdminBeitrittPage({
                           defaultChecked={inv.is_trainer ?? false}
                         />
                         💪 Trainer – darf Trainings eintragen
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="is_planner"
+                          defaultChecked={inv.is_planner ?? false}
+                        />
+                        🧠 Saisonplaner – darf eigene Planungs-Entwürfe pflegen
                       </label>
                       <Button type="submit">Änderungen speichern</Button>
                     </form>

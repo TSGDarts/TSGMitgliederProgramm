@@ -1370,3 +1370,10 @@ where notify_erinnerungen = '{}'::jsonb
 
 alter table profiles
   add column if not exists left_on date;
+
+-- ============================================================
+-- 50: Austrittsdatum auch für vorab angelegte Namen
+-- ============================================================
+
+alter table member_invites
+  add column if not exists left_on date;
