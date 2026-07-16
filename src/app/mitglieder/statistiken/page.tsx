@@ -7,6 +7,7 @@ import {
 } from "@/lib/statistik";
 import { LigaStatistikKacheln } from "@/components/LigaStatistik";
 import { Bestenliste } from "@/components/Bestenliste";
+import { SpielerVergleich } from "@/components/SpielerVergleich";
 import { Einklappbar } from "@/components/Einklappbar";
 import { PageHeader, EmptyState } from "@/components/ui";
 
@@ -15,10 +16,11 @@ export const metadata: Metadata = { title: "Statistiken" };
 export default async function StatistikenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ spieler?: string }>;
+  searchParams: Promise<{ spieler?: string; tab?: string }>;
 }) {
   await requireProfile();
-  const { spieler } = await searchParams;
+  const { spieler, tab } = await searchParams;
+  const zeigeVergleich = tab === "vergleich";
 
   // Detail-Ansicht einer Person (gleiche Kacheln wie im eigenen Profil)
   if (spieler) {
@@ -52,16 +54,44 @@ export default async function StatistikenPage({
         subtitle="Vereinsweite Liga-Statistik – Spieler antippen für alle Details"
       />
 
-      <Einklappbar id="statistiken-bestenliste" title="🏆 Bestenliste">
-        {liste.length === 0 ? (
-          <EmptyState
-            title="Noch keine Spielberichte eingespielt"
-            hint="Sobald der Admin nuLiga-Spielberichte einspielt, füllt sich die Liste automatisch."
-          />
-        ) : (
+      {/* Reiter: Bestenliste / Vergleich */}
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href="/mitglieder/statistiken"
+          className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+            !zeigeVergleich
+              ? "bg-primary text-primary-fg"
+              : "border border-border text-muted hover:text-foreground"
+          }`}
+        >
+          🏆 Bestenliste
+        </Link>
+        <Link
+          href="/mitglieder/statistiken?tab=vergleich"
+          className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+            zeigeVergleich
+              ? "bg-primary text-primary-fg"
+              : "border border-border text-muted hover:text-foreground"
+          }`}
+        >
+          ⚖️ Vergleich
+        </Link>
+      </div>
+
+      {liste.length === 0 ? (
+        <EmptyState
+          title="Noch keine Spielberichte eingespielt"
+          hint="Sobald der Admin nuLiga-Spielberichte einspielt, füllt sich die Liste automatisch."
+        />
+      ) : zeigeVergleich ? (
+        <Einklappbar id="statistiken-vergleich" title="⚖️ Spieler vergleichen">
+          <SpielerVergleich liste={liste} />
+        </Einklappbar>
+      ) : (
+        <Einklappbar id="statistiken-bestenliste" title="🏆 Bestenliste">
           <Bestenliste liste={liste} />
-        )}
-      </Einklappbar>
+        </Einklappbar>
+      )}
     </div>
   );
 }

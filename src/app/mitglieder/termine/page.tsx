@@ -50,6 +50,32 @@ export default async function MemberTerminePage({
         </Link>
       </div>
 
+      {isCalendar ? (
+        <EventsCalendar
+          base="/mitglieder/termine?ansicht=kalender"
+          monat={monat}
+          team={team}
+        />
+      ) : (
+        <ListView profileId={profile.id} />
+      )}
+
+      <Einklappbar
+        id="termine-rahmenterminplan"
+        title="📄 Rahmenterminplan 2026/27 & 2027/28"
+        defaultOpen={false}
+      >
+        <p className="mb-3 text-sm text-muted">
+          Der offizielle Rahmenterminplan (Mittelfranken / BDV / DDV) – die
+          Spielwochen stehen auch oben im Kalender.
+        </p>
+        <PdfPan
+          src="/rahmenterminplan.pdf"
+          titel="Rahmenterminplan 2026/27 & 2027/28"
+          seiten={2}
+        />
+      </Einklappbar>
+
       <Einklappbar
         id="termine-kalender-abo"
         title="📅 Kalender-Abo fürs Handy"
@@ -70,32 +96,6 @@ export default async function MemberTerminePage({
           />
         </div>
       </Einklappbar>
-
-      <Einklappbar
-        id="termine-rahmenterminplan"
-        title="📄 Rahmenterminplan 2026/27 & 2027/28"
-        defaultOpen={false}
-      >
-        <p className="mb-3 text-sm text-muted">
-          Der offizielle Rahmenterminplan (Mittelfranken / BDV / DDV) – die
-          Spielwochen stehen auch unten im Kalender.
-        </p>
-        <PdfPan
-          src="/rahmenterminplan.pdf"
-          titel="Rahmenterminplan 2026/27 & 2027/28"
-          seiten={2}
-        />
-      </Einklappbar>
-
-      {isCalendar ? (
-        <EventsCalendar
-          base="/mitglieder/termine?ansicht=kalender"
-          monat={monat}
-          team={team}
-        />
-      ) : (
-        <ListView profileId={profile.id} />
-      )}
     </div>
   );
 }
