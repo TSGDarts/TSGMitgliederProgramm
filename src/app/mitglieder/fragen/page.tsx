@@ -17,6 +17,8 @@ import {
 import { formatDate } from "@/lib/format";
 import { FRAGE_ARTEN, frageArtLabel } from "@/lib/types";
 import { Einklappbar } from "@/components/Einklappbar";
+import { FeedbackSenden } from "@/components/FeedbackSenden";
+import { getFragenKontakt, waNummer } from "@/lib/settings";
 
 export const metadata: Metadata = { title: "Fragen & Feedback" };
 
@@ -25,9 +27,10 @@ export default async function FragenPage({
 }: {
   searchParams: Promise<{ fehler?: string }>;
 }) {
-  await requireProfile();
+  const profile = await requireProfile();
   const { fehler } = await searchParams;
   const teams = await getAllTeams();
+  const kontakt = await getFragenKontakt();
   const supabase = await createClient();
 
   // kind gibt es erst nach Skript 44 – bei alten Datenbanken ohne die
@@ -108,6 +111,11 @@ export default async function FragenPage({
               </select>
             </Field>
             <Button type="submit">Abschicken</Button>
+            <FeedbackSenden
+              email={kontakt.email}
+              waZiel={waNummer(kontakt.whatsapp)}
+              absender={profile.full_name || "einem Mitglied"}
+            />
         </form>
       </Einklappbar>
 
