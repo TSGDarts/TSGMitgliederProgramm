@@ -98,24 +98,16 @@ export async function toggleSurvey(formData: FormData) {
 }
 
 /**
- * Schließt eine Saison ab: erstellt für jedes Team einen Archiv-Schnappschuss
- * (Kader + Termin-/Zusagen-Statistik) und markiert die Saison als archiviert.
- * Die Teams selbst bleiben bestehen und können für die neue Saison
- * angepasst werden.
+ * Archiv-Schnappschuss der AKTUELLEN Mannschaften für eine Saison anlegen:
+ * Kader (inkl. Kapitän/Vize) und Termin-/Zusagen-Statistik im angegebenen
+ * Zeitraum (ohne Zeitraum: alle vorhandenen Termine des Teams).
  */
-export async function archiveSeason(formData: FormData) {
-  await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  if (!id) return;
-
-  const supabase = await createClient();
-  const { data: season } = await supabase
-    .from("seasons")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  if (!season || season.status === "archived") return;
-
+async function schnappschussTeams(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  id: string,
+  startsOn: string | null,
+  endsOn: string | null,
+) {
   const { data: teamsData } = await supabase.from("teams").select("*");
   const teams = teamsData ?? [];
 
@@ -139,8 +131,8 @@ export async function archiveSeason(formData: FormData) {
       .from("events")
       .select("id")
       .eq("team_id", team.id);
-    if (season.starts_on) evQuery = evQuery.gte("starts_at", season.starts_on);
-    if (season.ends_on) evQuery = evQuery.lte("starts_at", `${season.ends_on}T23:59:59Z`);
+    if (startsOn) evQuery = evQuery.gte("starts_at", startsOn);
+    if (endsOn) evQuery = evQuery.lte("starts_at", `${endsOn}T23:59:59Z`);
     const { data: events } = await evQuery;
     const eventIds = ((events as Pick<EventRow, "id">[]) ?? []).map((e) => e.id);
 
@@ -193,6 +185,33 @@ export async function archiveSeason(formData: FormData) {
       },
     });
   }
+}
+
+/**
+ * Schließt eine Saison ab: erstellt für jedes Team einen Archiv-Schnappschuss
+ * (Kader + Termin-/Zusagen-Statistik) und markiert die Saison als archiviert.
+ * Die Teams selbst bleiben bestehen und können für die neue Saison
+ * angepasst werden.
+ */
+export async function archiveSeason(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const supabase = await createClient();
+  const { data: season } = await supabase
+    .from("seasons")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (!season || season.status === "archived") return;
+
+  await schnappschussTeams(
+    supabase,
+    id,
+    (season.starts_on as string | null) ?? null,
+    (season.ends_on as string | null) ?? null,
+  );
 
   // Pokal-Kader ebenfalls ins Archiv übernehmen (je Team ein Eintrag)
   const { data: squadRows } = await supabase
@@ -244,4 +263,37 @@ export async function archiveSeason(formData: FormData) {
 
   revalidatePath("/mitglieder/admin/saisons");
   revalidatePath(`/mitglieder/admin/saisons/${id}`);
+}
+
+/**
+ * Vergangene Saison nachtragen: legt die Saison SOFORT als Archiv an und
+ * macht den Schnappschuss der AKTUELLEN Mannschaften (Kader, Kapitäne,
+ * Spieltags-Statistik im angegebenen Zeitraum). Aktive Saison, Teams und
+ * Planung bleiben komplett unberührt.
+ */
+export async function nachtrageArchivSaison(formData: FormData) {
+  await requireAdmin();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  const starts_on = String(formData.get("starts_on") ?? "") || null;
+  const ends_on = String(formData.get("ends_on") ?? "") || null;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("seasons")
+    .insert({ name, starts_on, ends_on, status: "archived", survey_open: false })
+    .select("id")
+    .single();
+  if (error || !data?.id) {
+    redirect(
+      `/mitglieder/admin/saisons?fehler=${encodeURIComponent(
+        error?.message ?? "Saison konnte nicht angelegt werden.",
+      )}`,
+    );
+  }
+
+  await schnappschussTeams(supabase, data.id as string, starts_on, ends_on);
+
+  revalidatePath("/mitglieder/admin/saisons");
+  redirect(`/mitglieder/admin/saisons/${data.id}`);
 }

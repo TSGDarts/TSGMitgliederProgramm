@@ -2,7 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { createSeason } from "./actions";
+import { createSeason, nachtrageArchivSaison } from "./actions";
+import { Einklappbar } from "@/components/Einklappbar";
 import {
   PageHeader,
   Card,
@@ -17,8 +18,13 @@ import type { Season } from "@/lib/season";
 
 export const metadata: Metadata = { title: "Saisonplanung" };
 
-export default async function AdminSeasonsPage() {
+export default async function AdminSeasonsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ fehler?: string }>;
+}) {
   await requireAdmin();
+  const { fehler } = await searchParams;
   const supabase = await createClient();
   const { data } = await supabase
     .from("seasons")
@@ -36,25 +42,81 @@ export default async function AdminSeasonsPage() {
         subtitle="Saisons anlegen, Saisonabfrage durchführen, Teams planen und archivieren"
       />
 
-      <Card>
-        <CardBody>
-          <form action={createSeason} className="space-y-4">
-            <h2 className="font-semibold">Neue Saison anlegen</h2>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Name" hint="z. B. Saison 2026/27">
-                <input name="name" required className={inputClass} />
-              </Field>
-              <Field label="Beginn (optional)">
-                <input name="starts_on" type="date" className={inputClass} />
-              </Field>
-              <Field label="Ende (optional)">
-                <input name="ends_on" type="date" className={inputClass} />
-              </Field>
-            </div>
-            <Button type="submit">Saison anlegen</Button>
-          </form>
-        </CardBody>
-      </Card>
+      {fehler ? (
+        <Card className="border-danger/40 bg-danger/10">
+          <CardBody>
+            <p className="font-semibold text-danger">⚠️ Fehler</p>
+            <p className="mt-1 text-sm">{fehler}</p>
+          </CardBody>
+        </Card>
+      ) : null}
+
+      <Einklappbar id="saisons-neu" title="➕ Neue Saison anlegen">
+        <form action={createSeason} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Name" hint="z. B. Saison 2026/27">
+              <input name="name" required className={inputClass} />
+            </Field>
+            <Field label="Beginn (optional)">
+              <input name="starts_on" type="date" className={inputClass} />
+            </Field>
+            <Field label="Ende (optional)">
+              <input name="ends_on" type="date" className={inputClass} />
+            </Field>
+          </div>
+          <Button type="submit">Saison anlegen</Button>
+        </form>
+      </Einklappbar>
+
+      <Einklappbar
+        id="saisons-nachtragen"
+        title="🗂 Vergangene Saison nachtragen"
+        defaultOpen={false}
+      >
+        <form action={nachtrageArchivSaison} className="space-y-4">
+          <p className="text-sm text-muted">
+            Legt die Saison <strong>direkt als Archiv-Saison</strong> an –
+            mit einem Schnappschuss der <strong>aktuellen</strong>{" "}
+            Mannschaften (Kader, Kapitäne/Vize) und der
+            Spieltags-Statistik aus den Terminen im angegebenen Zeitraum.
+            Die aktive Saison, die Mannschaften und die laufende Planung
+            werden dabei <strong>nicht</strong> verändert.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Name">
+              <input
+                name="name"
+                required
+                defaultValue="Saison 2025/26"
+                className={inputClass}
+              />
+            </Field>
+            <Field
+              label="Beginn"
+              hint="Statistik zählt nur Termine ab diesem Tag"
+            >
+              <input
+                name="starts_on"
+                type="date"
+                defaultValue="2025-09-01"
+                className={inputClass}
+              />
+            </Field>
+            <Field
+              label="Ende"
+              hint="… bis zu diesem Tag (danach zählt die neue Saison)"
+            >
+              <input
+                name="ends_on"
+                type="date"
+                defaultValue="2026-06-30"
+                className={inputClass}
+              />
+            </Field>
+          </div>
+          <Button type="submit">Als Archiv-Saison anlegen</Button>
+        </form>
+      </Einklappbar>
 
       <section className="space-y-3">
         <h2 className="text-lg font-bold">Aktuelle Saisons</h2>
