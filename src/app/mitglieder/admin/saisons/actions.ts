@@ -111,8 +111,16 @@ async function schnappschussTeams(
   const { data: teamsData } = await supabase.from("teams").select("*");
   const teams = teamsData ?? [];
 
+  // Vorab angelegte Namen (noch nicht registriert) gehören mit in den
+  // Kader – ihre Zuordnung steckt in member_invites.team_ids.
+  const { data: invData } = await supabase
+    .from("member_invites")
+    .select("full_name, team_ids, captain_of, vice_of")
+    .eq("claimed", false);
+  const invites = invData ?? [];
+
   for (const team of teams) {
-    // Kader
+    // Kader: registrierte Mitglieder …
     const { data: members } = await supabase
       .from("team_members")
       .select("profile_id,is_captain,is_vice_captain,profiles(full_name,email)")
@@ -125,6 +133,21 @@ async function schnappschussTeams(
         vice: Boolean(m.is_vice_captain),
       };
     });
+    // … plus vorab angelegte Namen dieses Teams
+    for (const inv of invites) {
+      if (!((inv.team_ids as string[]) ?? []).includes(team.id)) continue;
+      roster.push({
+        name: (inv.full_name as string) || "?",
+        captain: inv.captain_of === team.id,
+        vice: inv.vice_of === team.id,
+      });
+    }
+    roster.sort(
+      (a, b) =>
+        Number(b.captain) - Number(a.captain) ||
+        Number(b.vice) - Number(a.vice) ||
+        a.name.localeCompare(b.name),
+    );
 
     // Termine im Saison-Zeitraum (falls kein Zeitraum: alle bisherigen)
     let evQuery = supabase
@@ -296,4 +319,102 @@ export async function nachtrageArchivSaison(formData: FormData) {
 
   revalidatePath("/mitglieder/admin/saisons");
   redirect(`/mitglieder/admin/saisons/${data.id}`);
+}
+
+/** Saison komplett löschen (inkl. Archiv, Antworten, Pokal, Entwürfen). */
+export async function deleteSeason(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("seasons").delete().eq("id", id);
+  if (error) {
+    redirect(
+      `/mitglieder/admin/saisons?fehler=${encodeURIComponent(error.message)}`,
+    );
+  }
+  revalidatePath("/mitglieder/admin/saisons");
+  redirect("/mitglieder/admin/saisons");
+}
+
+/**
+ * Archiv-Eintrag bearbeiten: Name, Liga, Kader (eine Person je Zeile,
+ * optional „C“/„VC“ am Zeilenende) und die Statistik-Summen.
+ */
+export async function updateArchivTeam(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const seasonId = String(formData.get("season_id") ?? "");
+  const team_name = String(formData.get("team_name") ?? "").trim();
+  if (!id || !team_name) return;
+  const league = String(formData.get("league") ?? "").trim();
+
+  const roster = String(formData.get("roster") ?? "")
+    .split(/\r?\n/)
+    .map((z) => z.trim())
+    .filter(Boolean)
+    .map((zeile) => {
+      const m = zeile.match(/^(.*?)[\s,;]+(C|VC)$/i);
+      const rolle = m ? m[2].toUpperCase() : "";
+      return {
+        name: (m ? m[1] : zeile).trim(),
+        captain: rolle === "C",
+        vice: rolle === "VC",
+      };
+    });
+
+  const zahl = (feld: string) =>
+    Math.max(0, Math.round(Number(formData.get(feld))) || 0);
+
+  const supabase = await createClient();
+  const { data: alt } = await supabase
+    .from("season_team_archive")
+    .select("stats")
+    .eq("id", id)
+    .maybeSingle();
+  const stats = {
+    ...((alt?.stats as Record<string, unknown>) ?? {}),
+    termine: zahl("termine"),
+    zusagen: zahl("zusagen"),
+    absagen: zahl("absagen"),
+    vielleicht: zahl("vielleicht"),
+  };
+
+  await supabase
+    .from("season_team_archive")
+    .update({ team_name, league, roster, stats })
+    .eq("id", id);
+  revalidatePath(`/mitglieder/admin/saisons/${seasonId}`);
+}
+
+/** Leeren Archiv-Eintrag (Team) zu einer archivierten Saison hinzufügen. */
+export async function addArchivTeam(formData: FormData) {
+  await requireAdmin();
+  const seasonId = String(formData.get("season_id") ?? "");
+  const team_name = String(formData.get("team_name") ?? "").trim();
+  if (!seasonId || !team_name) return;
+  const league = String(formData.get("league") ?? "").trim();
+
+  const supabase = await createClient();
+  await supabase.from("season_team_archive").insert({
+    season_id: seasonId,
+    team_name,
+    league,
+    roster: [],
+    stats: {},
+  });
+  revalidatePath(`/mitglieder/admin/saisons/${seasonId}`);
+}
+
+/** Einzelnen Archiv-Eintrag löschen. */
+export async function deleteArchivTeam(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const seasonId = String(formData.get("season_id") ?? "");
+  if (!id) return;
+
+  const supabase = await createClient();
+  await supabase.from("season_team_archive").delete().eq("id", id);
+  revalidatePath(`/mitglieder/admin/saisons/${seasonId}`);
 }

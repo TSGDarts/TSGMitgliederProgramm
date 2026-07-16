@@ -3,11 +3,15 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAllTeams } from "@/lib/member-queries";
-import { toggleSurvey } from "../actions";
+import { toggleSurvey, updateArchivTeam, addArchivTeam } from "../actions";
 import { formatHomeMatch } from "@/lib/extras";
 import { PokalPlanner } from "./PokalPlanner";
 import { TeamPlanner } from "./TeamPlanner";
 import { ArchiveButton } from "./ArchiveButton";
+import {
+  SaisonLoeschenKnopf,
+  ArchivEintragLoeschenKnopf,
+} from "./ArchivKnoepfe";
 import { AdminSurveyForm } from "./AdminSurveyForm";
 import {
   PageHeader,
@@ -16,6 +20,8 @@ import {
   Button,
   Badge,
   EmptyState,
+  Field,
+  inputClass,
 } from "@/components/ui";
 import {
   surveyLabel,
@@ -371,10 +377,149 @@ export default async function AdminSeasonDetailPage({
                       </div>
                     </details>
                   )}
+
+                  {/* Nachträglich bearbeiten (z. B. nachgetragene Saisons) */}
+                  <details className="rounded-lg border border-border">
+                    <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-primary">
+                      ✏️ Bearbeiten
+                    </summary>
+                    <div className="space-y-3 border-t border-border p-4">
+                      <form action={updateArchivTeam} className="space-y-3">
+                        <input type="hidden" name="id" value={t.id} />
+                        <input type="hidden" name="season_id" value={season.id} />
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <Field label="Team-Name">
+                            <input
+                              name="team_name"
+                              required
+                              defaultValue={t.team_name}
+                              className={inputClass}
+                            />
+                          </Field>
+                          <Field label="Liga">
+                            <input
+                              name="league"
+                              defaultValue={t.league}
+                              className={inputClass}
+                            />
+                          </Field>
+                        </div>
+                        <Field
+                          label="Kader"
+                          hint="Eine Person pro Zeile – dahinter optional C (Kapitän) oder VC (Vize), z. B. „Max Muster C“"
+                        >
+                          <textarea
+                            name="roster"
+                            rows={8}
+                            defaultValue={t.roster
+                              .map(
+                                (r) =>
+                                  r.name +
+                                  (r.captain ? " C" : r.vice ? " VC" : ""),
+                              )
+                              .join("\n")}
+                            className={inputClass}
+                          />
+                        </Field>
+                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                          <Field label="Termine">
+                            <input
+                              name="termine"
+                              type="number"
+                              min={0}
+                              defaultValue={t.stats.termine ?? 0}
+                              className={inputClass}
+                            />
+                          </Field>
+                          <Field label="Zusagen">
+                            <input
+                              name="zusagen"
+                              type="number"
+                              min={0}
+                              defaultValue={t.stats.zusagen ?? 0}
+                              className={inputClass}
+                            />
+                          </Field>
+                          <Field label="Absagen">
+                            <input
+                              name="absagen"
+                              type="number"
+                              min={0}
+                              defaultValue={t.stats.absagen ?? 0}
+                              className={inputClass}
+                            />
+                          </Field>
+                          <Field label="Vielleicht">
+                            <input
+                              name="vielleicht"
+                              type="number"
+                              min={0}
+                              defaultValue={t.stats.vielleicht ?? 0}
+                              className={inputClass}
+                            />
+                          </Field>
+                        </div>
+                        <Button type="submit">Speichern</Button>
+                      </form>
+                      <div className="border-t border-border pt-3">
+                        <ArchivEintragLoeschenKnopf
+                          id={t.id}
+                          seasonId={season.id}
+                          name={t.team_name}
+                        />
+                      </div>
+                    </div>
+                  </details>
                 </CardBody>
               </Card>
             ))
           )}
+
+          {/* Team nachtragen */}
+          <details className="rounded-xl border border-border bg-surface">
+            <summary className="cursor-pointer px-5 py-4 font-semibold">
+              ➕ Team nachtragen
+            </summary>
+            <form
+              action={addArchivTeam}
+              className="space-y-3 border-t border-border p-5"
+            >
+              <input type="hidden" name="season_id" value={season.id} />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Team-Name">
+                  <input
+                    name="team_name"
+                    required
+                    placeholder="z. B. TSG 08 Roth VII"
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Liga (optional)">
+                  <input name="league" className={inputClass} />
+                </Field>
+              </div>
+              <Button type="submit">Anlegen</Button>
+              <p className="text-xs text-muted">
+                Danach über „✏️ Bearbeiten“ am neuen Eintrag den Kader und
+                die Statistik eintragen.
+              </p>
+            </form>
+          </details>
+
+          {/* Saison löschen */}
+          <Card className="border-danger/40">
+            <CardBody className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold">Saison löschen</p>
+                <p className="text-sm text-muted">
+                  Entfernt die Saison samt Archiv-Einträgen, Antworten und
+                  Entwürfen endgültig – z. B. wenn beim Nachtragen etwas
+                  schiefging und du neu anfangen willst.
+                </p>
+              </div>
+              <SaisonLoeschenKnopf id={season.id} name={season.name} />
+            </CardBody>
+          </Card>
         </section>
       ) : (
         /* ================= PLANUNGS-ANSICHT ================= */
