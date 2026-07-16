@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { parseSurveyAnswers } from "@/lib/season";
+import { berlinLocalToISO } from "@/lib/tz";
 import type { EventRow } from "@/lib/types";
 
 export type AdminSurveyResult = { ok: boolean; message: string };
@@ -468,6 +469,48 @@ export async function addArchivTeam(formData: FormData) {
     stats: {},
   });
   revalidatePath(`/mitglieder/admin/saisons/${seasonId}`);
+}
+
+/**
+ * Spieltag einer (Archiv-)Saison bearbeiten: Titel, Datum/Uhrzeit und
+ * Endergebnis (z. B. "8:10").
+ */
+export async function updateArchivSpieltag(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const seasonId = String(formData.get("season_id") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  const datum = String(formData.get("datum") ?? "");
+  if (!id || !title || !/^\d{4}-\d{2}-\d{2}$/.test(datum)) return;
+  const zeit = String(formData.get("zeit") ?? "").trim();
+  const starts_at =
+    berlinLocalToISO(`${datum}T${/^\d{2}:\d{2}$/.test(zeit) ? zeit : "00:00"}`) ??
+    `${datum}T00:00:00Z`;
+
+  const supabase = await createClient();
+  await supabase
+    .from("events")
+    .update({
+      title,
+      starts_at,
+      time_tbd: !/^\d{2}:\d{2}$/.test(zeit),
+      result: String(formData.get("result") ?? "").trim(),
+    })
+    .eq("id", id);
+  revalidatePath(`/mitglieder/admin/saisons/${seasonId}`);
+  revalidatePath("/mitglieder/termine");
+}
+
+/** Spieltag löschen (z. B. doppelt importiert). */
+export async function deleteArchivSpieltag(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const seasonId = String(formData.get("season_id") ?? "");
+  if (!id) return;
+  const supabase = await createClient();
+  await supabase.from("events").delete().eq("id", id);
+  revalidatePath(`/mitglieder/admin/saisons/${seasonId}`);
+  revalidatePath("/mitglieder/termine");
 }
 
 /** Einzelnen Archiv-Eintrag löschen. */

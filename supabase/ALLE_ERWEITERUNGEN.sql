@@ -1377,3 +1377,10 @@ alter table profiles
 
 alter table member_invites
   add column if not exists left_on date;
+
+-- ============================================================
+-- 51: Endergebnis am Spieltermin (z. B. "8:10")
+-- ============================================================
+
+alter table events
+  add column if not exists result text not null default '';

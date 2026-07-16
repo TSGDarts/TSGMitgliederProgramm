@@ -255,6 +255,12 @@ export default async function EventDetailPage({
         <p className="text-sm text-muted">🎯 {modusZeilen.join(" · ")}</p>
       )}
 
+      {(event.result ?? "").trim() && (
+        <p className="text-sm font-semibold">
+          🏁 Endergebnis: {(event.result ?? "").trim()}
+        </p>
+      )}
+
       {event.location && (
         <AddressLine address={event.location} className="text-sm" />
       )}

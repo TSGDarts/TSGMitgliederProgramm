@@ -8,6 +8,7 @@ import {
   updateArchivTeam,
   addArchivTeam,
   refreshArchivStatistik,
+  updateArchivSpieltag,
 } from "../actions";
 import { AltSaisonImport } from "./AltSaisonImport";
 import { ArchivKaderFeld } from "./ArchivKaderFeld";
@@ -20,7 +21,10 @@ import { ArchiveButton } from "./ArchiveButton";
 import {
   SaisonLoeschenKnopf,
   ArchivEintragLoeschenKnopf,
+  SpieltagLoeschenKnopf,
 } from "./ArchivKnoepfe";
+import { formatDate, formatTime } from "@/lib/format";
+import { berlinISOToLocalInput } from "@/lib/tz";
 import { AdminSurveyForm } from "./AdminSurveyForm";
 import {
   PageHeader,
@@ -41,7 +45,7 @@ import {
   type SurveyAnswers,
   type ArchivedTeam,
 } from "@/lib/season";
-import type { Profile } from "@/lib/types";
+import type { EventRow, Profile } from "@/lib/types";
 
 // Sortier-Hilfen für die Planungsansicht
 const captainRank: Record<string, number> = { yes: 0, maybe: 1 };
@@ -222,6 +226,27 @@ export default async function AdminSeasonDetailPage({
       .eq("season_id", id)
       .order("team_name");
     archive = (data as ArchivedTeam[]) ?? [];
+  }
+
+  // Spieltage im Saison-Zeitraum (für die Archiv-Ansicht: ansehen,
+  // Ergebnis eintragen, korrigieren, löschen)
+  let spieltage: EventRow[] = [];
+  if (season.status === "archived") {
+    let q = supabase
+      .from("events")
+      .select("*")
+      .not("team_id", "is", null)
+      .in("type", ["match", "pokal", "friendly"])
+      .order("starts_at");
+    if (season.starts_on) q = q.gte("starts_at", season.starts_on);
+    if (season.ends_on) q = q.lte("starts_at", `${season.ends_on}T23:59:59Z`);
+    spieltage = ((await q).data as EventRow[]) ?? [];
+  }
+  const spieltageJeTeam = new Map<string, EventRow[]>();
+  for (const ev of spieltage) {
+    const list = spieltageJeTeam.get(ev.team_id!) ?? [];
+    list.push(ev);
+    spieltageJeTeam.set(ev.team_id!, list);
   }
 
   // Alle angelegten Namen für die Kader-Auswahl beim Bearbeiten von
@@ -530,6 +555,133 @@ export default async function AdminSeasonDetailPage({
                 </div>
               </Einklappbar>
             ))
+          )}
+
+          {/* Spieltage dieser Saison: ansehen, Ergebnis eintragen, korrigieren */}
+          {spieltage.length > 0 && (
+            <Einklappbar
+              id={`archiv-spieltage-${season.id}`}
+              title={`📅 Spieltage dieser Saison (${spieltage.length})`}
+            >
+              <div className="space-y-4">
+                <p className="text-sm text-muted">
+                  Aufklappen zum <strong>Ergebnis eintragen</strong> oder
+                  Korrigieren – Grundlage für die kommende
+                  Spielerstatistik. Die Spieltage sind normale Termine und
+                  stehen auch im Kalender (zurückblättern).
+                </p>
+                {teams.map((team) => {
+                  const liste = spieltageJeTeam.get(team.id) ?? [];
+                  if (liste.length === 0) return null;
+                  return (
+                    <details
+                      key={team.id}
+                      className="rounded-lg border border-border"
+                    >
+                      <summary className="cursor-pointer px-4 py-2 text-sm font-semibold">
+                        {team.name}{" "}
+                        <span className="font-normal text-muted">
+                          ({liste.length} Spieltage ·{" "}
+                          {liste.filter((ev) => (ev.result ?? "").trim()).length}{" "}
+                          mit Ergebnis)
+                        </span>
+                      </summary>
+                      <div className="space-y-1 border-t border-border p-3">
+                        {liste.map((ev) => {
+                          const lokal = berlinISOToLocalInput(ev.starts_at);
+                          const [datum] = lokal.split("T");
+                          const uhrzeit =
+                            ev.time_tbd || formatTime(ev.starts_at) === "00:00"
+                              ? ""
+                              : lokal.split("T")[1] ?? "";
+                          return (
+                            <details
+                              key={ev.id}
+                              className="rounded-lg border border-border"
+                            >
+                              <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+                                <span className="min-w-0">
+                                  <span className="text-muted">
+                                    {formatDate(ev.starts_at)}
+                                  </span>{" "}
+                                  {ev.title}
+                                </span>
+                                {(ev.result ?? "").trim() ? (
+                                  <Badge tone="primary">
+                                    🎯 {(ev.result ?? "").trim()}
+                                  </Badge>
+                                ) : (
+                                  <Badge>Ergebnis fehlt</Badge>
+                                )}
+                              </summary>
+                              <div className="space-y-3 border-t border-border p-3">
+                                <form
+                                  action={updateArchivSpieltag}
+                                  className="space-y-3"
+                                >
+                                  <input type="hidden" name="id" value={ev.id} />
+                                  <input
+                                    type="hidden"
+                                    name="season_id"
+                                    value={season.id}
+                                  />
+                                  <Field label="Titel / Begegnung">
+                                    <input
+                                      name="title"
+                                      required
+                                      defaultValue={ev.title}
+                                      className={inputClass}
+                                    />
+                                  </Field>
+                                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                                    <Field label="Datum">
+                                      <input
+                                        name="datum"
+                                        type="date"
+                                        required
+                                        defaultValue={datum}
+                                        className={inputClass}
+                                      />
+                                    </Field>
+                                    <Field label="Uhrzeit">
+                                      <input
+                                        name="zeit"
+                                        type="time"
+                                        defaultValue={uhrzeit}
+                                        className={inputClass}
+                                      />
+                                    </Field>
+                                    <Field
+                                      label="Endergebnis"
+                                      hint="z. B. 8:10 (aus unserer Sicht)"
+                                    >
+                                      <input
+                                        name="result"
+                                        defaultValue={ev.result ?? ""}
+                                        placeholder="8:10"
+                                        className={inputClass}
+                                      />
+                                    </Field>
+                                  </div>
+                                  <Button type="submit">Speichern</Button>
+                                </form>
+                                <div className="border-t border-border pt-2">
+                                  <SpieltagLoeschenKnopf
+                                    id={ev.id}
+                                    seasonId={season.id}
+                                    name={`${formatDate(ev.starts_at)} – ${ev.title}`}
+                                  />
+                                </div>
+                              </div>
+                            </details>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  );
+                })}
+              </div>
+            </Einklappbar>
           )}
 
           {/* Spieltage der damaligen Saison importieren */}

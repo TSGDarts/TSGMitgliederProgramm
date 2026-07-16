@@ -1,6 +1,10 @@
 "use client";
 
-import { deleteSeason, deleteArchivTeam } from "../actions";
+import {
+  deleteSeason,
+  deleteArchivTeam,
+  deleteArchivSpieltag,
+} from "../actions";
 import { Button } from "@/components/ui";
 
 /** Ganze Saison löschen – mit Sicherheitsabfrage. */
@@ -21,6 +25,33 @@ export function SaisonLoeschenKnopf({ id, name }: { id: string; name: string }) 
       <Button type="submit" variant="secondary" className="text-danger">
         🗑 Saison löschen
       </Button>
+    </form>
+  );
+}
+
+/** Einzelnen Spieltag löschen – mit Sicherheitsabfrage. */
+export function SpieltagLoeschenKnopf({
+  id,
+  seasonId,
+  name,
+}: {
+  id: string;
+  seasonId: string;
+  name: string;
+}) {
+  return (
+    <form
+      action={deleteArchivSpieltag}
+      onSubmit={(e) => {
+        if (!confirm(`Spieltag „${name}“ wirklich löschen?`))
+          e.preventDefault();
+      }}
+    >
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="season_id" value={seasonId} />
+      <button type="submit" className="text-sm text-danger hover:underline">
+        Spieltag löschen
+      </button>
     </form>
   );
 }
