@@ -101,6 +101,13 @@ export default async function AdminEinstellungenPage({
               verschickt (Modern Auth). Der geheime Schlüssel wird sicher
               gespeichert und ist für Mitglieder nicht einsehbar.
             </p>
+            <p className="mt-1 text-sm text-muted">
+              <strong>Benötigte Berechtigung in Microsoft Entra:</strong>{" "}
+              Microsoft Graph → <strong>Mail.Send</strong> als{" "}
+              <strong>Anwendungsberechtigung</strong> inkl.{" "}
+              <strong>Administratorzustimmung</strong> – Schritt für Schritt
+              in der Anleitung unten.
+            </p>
           </div>
           <form action={saveMailEinstellungen} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -221,12 +228,35 @@ export default async function AdminEinstellungenPage({
             eintragen.
           </li>
           <li>
-            „API-Berechtigungen“ → „Berechtigung hinzufügen“ →{" "}
-            <strong>Microsoft Graph</strong> →{" "}
-            <strong>Anwendungsberechtigungen</strong> → <strong>Mail.Send</strong>{" "}
-            hinzufügen → danach{" "}
-            <strong>„Administratorzustimmung erteilen“</strong> klicken
-            (grüner Haken).
+            <strong>Berechtigungen setzen:</strong> „API-Berechtigungen“ →
+            „Berechtigung hinzufügen“ → <strong>Microsoft Graph</strong> →{" "}
+            <strong>Anwendungsberechtigungen</strong> (wichtig: NICHT
+            „Delegierte Berechtigungen“!) → in der Suche{" "}
+            <strong>Mail.Send</strong> eintippen → Haken setzen →
+            „Berechtigungen hinzufügen“.
+            <ul className="mt-1 list-inside list-disc space-y-1 pl-4">
+              <li>
+                Danach auf{" "}
+                <strong>
+                  „Administratorzustimmung für &lt;Organisation&gt; erteilen“
+                </strong>{" "}
+                klicken – in der Spalte „Status“ muss bei Mail.Send ein{" "}
+                <strong>grüner Haken „Gewährt“</strong> stehen, sonst lehnt
+                Microsoft den Versand ab (Fehler 403).
+              </li>
+              <li>
+                Mehr braucht die App nicht: <strong>nur Mail.Send</strong>.
+                Die automatisch eingetragene Berechtigung „User.Read
+                (Delegiert)“ kann einfach stehen bleiben.
+              </li>
+              <li>
+                Hinweis: Mail.Send als Anwendungsberechtigung erlaubt der App
+                technisch den Versand über jedes Postfach der Organisation.
+                Wer das einschränken will, kann in Exchange Online eine
+                „Application Access Policy“ auf das Absender-Postfach setzen –
+                für den Vereinsbetrieb aber nicht zwingend nötig.
+              </li>
+            </ul>
           </li>
           <li>
             „Zertifikate &amp; Geheimnisse“ → „Neuer geheimer
