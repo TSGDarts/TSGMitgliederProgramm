@@ -16,6 +16,7 @@ import {
 } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 import { FRAGE_ARTEN, frageArtLabel } from "@/lib/types";
+import { Einklappbar } from "@/components/Einklappbar";
 
 export const metadata: Metadata = { title: "Fragen & Feedback" };
 
@@ -79,9 +80,8 @@ export default async function FragenPage({
         </Card>
       ) : null}
 
-      <Card>
-        <CardBody>
-          <form action={createQuestion} className="space-y-4">
+      <Einklappbar id="fragen-neuer-beitrag" title="✍️ Neuer Beitrag">
+        <form action={createQuestion} className="space-y-4">
             <Field label="Art">
               <select name="kind" className={inputClass} defaultValue="frage">
                 {Object.entries(FRAGE_ARTEN).map(([value, label]) => (
@@ -108,9 +108,8 @@ export default async function FragenPage({
               </select>
             </Field>
             <Button type="submit">Abschicken</Button>
-          </form>
-        </CardBody>
-      </Card>
+        </form>
+      </Einklappbar>
 
       <section className="space-y-3">
         {questions.length === 0 ? (

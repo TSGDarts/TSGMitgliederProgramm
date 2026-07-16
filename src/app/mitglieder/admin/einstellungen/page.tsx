@@ -115,10 +115,19 @@ export default async function AdminEinstellungenPage({
         </Card>
       ) : null}
 
-      <Card>
-        <CardBody className="space-y-4">
+      {ablaufWarnung ? (
+        <Card className="border-danger/40 bg-danger/10">
+          <CardBody className="text-sm">⚠️ {ablaufWarnung}</CardBody>
+        </Card>
+      ) : null}
+
+      <Einklappbar
+        id="einstellungen-mail"
+        title="📧 E-Mail-Versand (Microsoft 365)"
+        zuklappBei={gespeichert?.startsWith("mail-") ? gespeichert : undefined}
+      >
+        <div className="space-y-4">
           <div>
-            <h2 className="font-semibold">📧 E-Mail-Versand (Microsoft 365)</h2>
             <p className="text-sm text-muted">
               Benachrichtigungen werden über euer Microsoft-365-Postfach
               verschickt (Modern Auth). Der geheime Schlüssel wird sicher
@@ -132,11 +141,6 @@ export default async function AdminEinstellungenPage({
               in der Anleitung unten.
             </p>
           </div>
-          {ablaufWarnung ? (
-            <div className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm">
-              ⚠️ {ablaufWarnung}
-            </div>
-          ) : null}
           <form action={saveMailEinstellungen} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Verzeichnis-ID (Mandant)">
@@ -202,20 +206,21 @@ export default async function AdminEinstellungenPage({
               ✉️ Test-E-Mail an mich senden
             </Button>
           </form>
-        </CardBody>
-      </Card>
+        </div>
+      </Einklappbar>
 
-      <Card>
-        <CardBody className="space-y-4">
-          <div>
-            <h2 className="font-semibold">❓ Fragen weiterleiten</h2>
-            <p className="text-sm text-muted">
-              Bei jeder Frage unter „Fragen“ erscheinen Knöpfe, mit denen
-              Mitglieder die Frage direkt per E-Mail oder WhatsApp an den
-              Verein schicken können. Hier festlegen, wohin – leere Felder
-              blenden den jeweiligen Knopf aus.
-            </p>
-          </div>
+      <Einklappbar
+        id="einstellungen-fragen"
+        title="❓ Fragen weiterleiten"
+        zuklappBei={gespeichert?.startsWith("fragen-") ? gespeichert : undefined}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            Bei jedem Beitrag unter „Fragen &amp; Feedback“ erscheinen
+            Knöpfe, mit denen Mitglieder ihn direkt per E-Mail oder WhatsApp
+            an den Verein schicken können. Hier festlegen, wohin – leere
+            Felder blenden den jeweiligen Knopf aus.
+          </p>
           <form action={saveFragenEinstellungen} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field
@@ -245,8 +250,8 @@ export default async function AdminEinstellungenPage({
             </div>
             <Button type="submit">Speichern</Button>
           </form>
-        </CardBody>
-      </Card>
+        </div>
+      </Einklappbar>
 
       <Einklappbar
         id="einstellungen-m365-anleitung"

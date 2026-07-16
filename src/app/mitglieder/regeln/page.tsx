@@ -72,29 +72,35 @@ export default async function RegelnPage({
         </Card>
       ) : null}
 
-      {abschnitte.map((a, i) => (
-        <Card key={i}>
-          <CardBody className="space-y-3">
-            {a.titel && <h2 className="font-semibold">{a.titel}</h2>}
-            <ul className="space-y-2">
-              {a.zeilen.map((z, j) =>
-                z.art === "regel" ? (
-                  <li key={j} className="flex gap-2 text-sm">
-                    <span aria-hidden className="shrink-0 text-primary">
-                      🎯
-                    </span>
-                    <span>{z.text}</span>
-                  </li>
-                ) : (
-                  <li key={j} className="text-sm text-muted">
-                    {z.text}
-                  </li>
-                ),
-              )}
-            </ul>
-          </CardBody>
-        </Card>
-      ))}
+      {abschnitte.map((a, i) => {
+        const liste = (
+          <ul className="space-y-2">
+            {a.zeilen.map((z, j) =>
+              z.art === "regel" ? (
+                <li key={j} className="flex gap-2 text-sm">
+                  <span aria-hidden className="shrink-0 text-primary">
+                    🎯
+                  </span>
+                  <span>{z.text}</span>
+                </li>
+              ) : (
+                <li key={j} className="text-sm text-muted">
+                  {z.text}
+                </li>
+              ),
+            )}
+          </ul>
+        );
+        return a.titel ? (
+          <Einklappbar key={i} id={`regeln-${i}`} title={a.titel}>
+            {liste}
+          </Einklappbar>
+        ) : (
+          <Card key={i}>
+            <CardBody>{liste}</CardBody>
+          </Card>
+        );
+      })}
 
       {profile.role === "admin" && (
         <Einklappbar

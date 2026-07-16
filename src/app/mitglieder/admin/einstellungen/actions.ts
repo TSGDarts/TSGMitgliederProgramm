@@ -46,7 +46,7 @@ export async function saveMailEinstellungen(formData: FormData) {
   }
 
   revalidatePath(PFAD);
-  redirect(`${PFAD}?gespeichert=${Date.now()}`);
+  redirect(`${PFAD}?gespeichert=mail-${Date.now()}`);
 }
 
 /** Kontakt für das Weiterleiten von Fragen speichern (nur Admins). */
@@ -73,7 +73,7 @@ export async function saveFragenEinstellungen(formData: FormData) {
 
   revalidatePath(PFAD);
   revalidatePath("/mitglieder/fragen");
-  redirect(`${PFAD}?gespeichert=${Date.now()}`);
+  redirect(`${PFAD}?gespeichert=fragen-${Date.now()}`);
 }
 
 /** Test-E-Mail an die eigene Adresse schicken. */
