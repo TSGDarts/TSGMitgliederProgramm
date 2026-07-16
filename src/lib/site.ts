@@ -20,13 +20,14 @@ export const publicNav = [
 
 export const memberNav = [
   { href: "/mitglieder", label: "Übersicht", icon: "home" },
+  { href: "/mitglieder/kalender", label: "Kalender", icon: "calendar" },
   { href: "/mitglieder?ansicht=ergebnisse", label: "Ergebnisse", icon: "target" },
-  { href: "/mitglieder/statistiken", label: "Statistiken", icon: "chart" },
   { href: "/mitglieder/termine", label: "Termine & Zusagen", icon: "calendar" },
   { href: "/mitglieder/training", label: "Training", icon: "dumbbell" },
   { href: "/mitglieder/mannschaften", label: "Mannschaften", icon: "users" },
   { href: "/mitglieder/turniere", label: "Turniere", icon: "trophy" },
   { href: "/mitglieder/competitions", label: "Competitions", icon: "target" },
+  { href: "/mitglieder/statistiken", label: "Statistiken", icon: "chart" },
   { href: "/mitglieder/saisonabfrage", label: "Saisonabfrage", icon: "clipboard" },
   { href: "/mitglieder/nuliga", label: "nuLiga", icon: "table" },
   { href: "/mitglieder/fragen", label: "Fragen & Feedback", icon: "chat" },

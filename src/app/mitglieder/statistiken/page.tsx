@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
 import {
-  sammleVereinsStatistik,
+  sammleVereinsStatistikSaisons,
   sammleLigaStatistikSaisons,
 } from "@/lib/statistik";
 import { LigaStatistikKacheln } from "@/components/LigaStatistik";
@@ -46,7 +46,7 @@ export default async function StatistikenPage({
     );
   }
 
-  const liste = await sammleVereinsStatistik();
+  const saisonListen = await sammleVereinsStatistikSaisons();
   return (
     <div className="space-y-6">
       <PageHeader
@@ -78,18 +78,18 @@ export default async function StatistikenPage({
         </Link>
       </div>
 
-      {liste.length === 0 ? (
+      {saisonListen[0].liste.length === 0 ? (
         <EmptyState
           title="Noch keine Spielberichte eingespielt"
           hint="Sobald der Admin nuLiga-Spielberichte einspielt, füllt sich die Liste automatisch."
         />
       ) : zeigeVergleich ? (
         <Einklappbar id="statistiken-vergleich" title="⚖️ Spieler vergleichen">
-          <SpielerVergleich liste={liste} />
+          <SpielerVergleich saisons={saisonListen} />
         </Einklappbar>
       ) : (
         <Einklappbar id="statistiken-bestenliste" title="🏆 Bestenliste">
-          <Bestenliste liste={liste} />
+          <Bestenliste saisons={saisonListen} />
         </Einklappbar>
       )}
     </div>

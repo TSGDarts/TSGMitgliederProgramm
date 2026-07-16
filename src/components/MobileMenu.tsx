@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useNavOrder } from "./navOrder";
 
 type Item = { href: string; label: string; external?: boolean };
 
@@ -21,9 +22,11 @@ export function MobileMenu({
   footer?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [anpassen, setAnpassen] = useState(false);
   const pathname = usePathname();
   const search = useSearchParams();
   const suchtext = search.toString();
+  const { sorted, move, reset, angepasst } = useNavOrder(items);
 
   // Beim Seitenwechsel automatisch schließen (auch bei ?-Wechsel)
   useEffect(() => {
@@ -112,7 +115,52 @@ export function MobileMenu({
               </button>
             </div>
             <nav className="flex flex-col gap-1">
-              {items.map(link)}
+              {anpassen
+                ? sorted.map((item, index) => (
+                    <div
+                      key={item.href}
+                      className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm"
+                    >
+                      <span className="min-w-0 truncate">{item.label}</span>
+                      <span className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => move(item.href, -1)}
+                          disabled={index === 0}
+                          className="rounded border border-border px-2 py-0.5 hover:bg-border/40 disabled:opacity-30"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => move(item.href, 1)}
+                          disabled={index === sorted.length - 1}
+                          className="rounded border border-border px-2 py-0.5 hover:bg-border/40 disabled:opacity-30"
+                        >
+                          ↓
+                        </button>
+                      </span>
+                    </div>
+                  ))
+                : sorted.map(link)}
+              <div className="flex items-center gap-3 px-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setAnpassen(!anpassen)}
+                  className="text-xs text-muted hover:text-foreground"
+                >
+                  {anpassen ? "✓ Fertig" : "⚙️ Menü anpassen"}
+                </button>
+                {anpassen && angepasst && (
+                  <button
+                    type="button"
+                    onClick={reset}
+                    className="text-xs text-muted hover:text-foreground"
+                  >
+                    Standard
+                  </button>
+                )}
+              </div>
               {adminItems && adminItems.length > 0 && (
                 <>
                   <div className="mb-1 mt-3 px-3 text-xs font-semibold uppercase tracking-wide text-muted">

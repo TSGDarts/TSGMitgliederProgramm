@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { SpielerZeile } from "@/lib/statistik";
+import type { SpielerZeile, VereinsSaison } from "@/lib/statistik";
 
 // Spieler-Vergleich: Personen auswählen, Werte nebeneinander sehen –
 // der beste Wert jeder Zeile wird grün hervorgehoben.
@@ -72,9 +72,11 @@ const METRIKEN: {
   },
 ];
 
-export function SpielerVergleich({ liste }: { liste: SpielerZeile[] }) {
+export function SpielerVergleich({ saisons }: { saisons: VereinsSaison[] }) {
   const [namen, setNamen] = useState<string[]>([]);
   const [auswahl, setAuswahl] = useState("");
+  const [saisonIndex, setSaisonIndex] = useState(0);
+  const liste = saisons[saisonIndex]?.liste ?? saisons[0].liste;
 
   const gewaehlt = namen
     .map((n) => liste.find((s) => s.anzeige === n))
@@ -88,6 +90,24 @@ export function SpielerVergleich({ liste }: { liste: SpielerZeile[] }) {
 
   return (
     <div className="space-y-3">
+      {saisons.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {saisons.map((s, i) => (
+            <button
+              key={s.label}
+              type="button"
+              onClick={() => setSaisonIndex(i)}
+              className={`rounded-full px-3 py-1 text-sm font-medium ${
+                saisonIndex === i
+                  ? "bg-primary text-primary-fg"
+                  : "border border-border text-muted hover:text-foreground"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <select
           value={auswahl}

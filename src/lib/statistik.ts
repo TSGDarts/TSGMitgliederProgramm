@@ -201,16 +201,10 @@ export interface SpielerZeile {
 }
 
 /**
- * Vereinsweite Bestenliste: alle TSG-Spieler aus den eingespielten
- * Spielberichten, sortiert nach Siegen (Einzel + Doppel).
+ * Vereinsweite Bestenliste aus einer Menge von Spieltagen: alle
+ * TSG-Spieler, sortiert nach Siegen (Einzel + Doppel).
  */
-export async function sammleVereinsStatistik(): Promise<SpielerZeile[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("events")
-    .select("id, title, starts_at, result, match_stats")
-    .not("match_stats", "is", null);
-
+function vereinsAggregat(rows: EventZeile[]): SpielerZeile[] {
   const spieler = new Map<string, SpielerZeile & { key: string }>();
   const hole = (name: string) => {
     const key = normalisiereName(name);
@@ -234,7 +228,7 @@ export async function sammleVereinsStatistik(): Promise<SpielerZeile[]> {
     return e;
   };
 
-  for (const row of (data as EventZeile[]) ?? []) {
+  for (const row of rows) {
     const stats = alsMatchStats(row.match_stats);
     const bericht = stats?.nuliga;
     if (!bericht?.spiele) continue;
@@ -285,6 +279,47 @@ export async function sammleVereinsStatistik(): Promise<SpielerZeile[]> {
       b.einzelSiege + b.doppelSiege - (a.einzelSiege + a.doppelSiege) ||
       a.anzeige.localeCompare(b.anzeige),
   );
+}
+
+export interface VereinsSaison {
+  label: string; // "Gesamt" oder Saison-Name
+  liste: SpielerZeile[];
+}
+
+/**
+ * Vereins-Bestenliste: „Gesamt“ plus je Saison (Zuordnung über den
+ * Saison-Zeitraum; Saisons ohne erfasste Spiele erscheinen nicht).
+ */
+export async function sammleVereinsStatistikSaisons(): Promise<VereinsSaison[]> {
+  const supabase = await createClient();
+  const [{ data: eventData }, { data: saisonData }] = await Promise.all([
+    supabase
+      .from("events")
+      .select("id, title, starts_at, result, match_stats")
+      .not("match_stats", "is", null),
+    supabase
+      .from("seasons")
+      .select("name, starts_on, ends_on")
+      .order("created_at", { ascending: false }),
+  ]);
+  const rows = (eventData as EventZeile[]) ?? [];
+
+  const ergebnis: VereinsSaison[] = [
+    { label: "Gesamt", liste: vereinsAggregat(rows) },
+  ];
+  for (const s of saisonData ?? []) {
+    const inSaison = rows.filter((r) => {
+      const tag = r.starts_at.slice(0, 10);
+      if (s.starts_on && tag < (s.starts_on as string)) return false;
+      if (s.ends_on && tag > (s.ends_on as string)) return false;
+      return true;
+    });
+    const liste = vereinsAggregat(inSaison);
+    if (liste.length > 0) {
+      ergebnis.push({ label: s.name as string, liste });
+    }
+  }
+  return ergebnis;
 }
 
 /**

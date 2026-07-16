@@ -2,7 +2,6 @@ import { requireProfile } from "@/lib/auth";
 import { getMemberEvents, getAllTeams } from "@/lib/member-queries";
 import { createClient } from "@/lib/supabase/server";
 import { EventCard } from "@/components/EventCard";
-import { EventsCalendar } from "@/components/EventsCalendar";
 import { Einklappbar } from "@/components/Einklappbar";
 import {
   PageHeader,
@@ -28,7 +27,7 @@ export default async function DashboardPage({
     saison?: string;
   }>;
 }) {
-  const { monat, team, ansicht, saison } = await searchParams;
+  const { ansicht, saison } = await searchParams;
   const zeigeErgebnisse = ansicht === "ergebnisse";
   const profile = await requireProfile();
   const events = await getMemberEvents(profile.id, { limit: 5 });
@@ -297,12 +296,9 @@ export default async function DashboardPage({
           )}
         </section>
       ) : (
-        /* ============ TERMINE: Kalender + nächste Termine ============ */
+        /* ============ TERMINE: nächste Termine (Kalender hat eine
+           eigene Seite im Menü) ============ */
         <>
-          <Einklappbar id="uebersicht-kalender" title="Kalender">
-            <EventsCalendar base="/mitglieder" monat={monat} team={team} />
-          </Einklappbar>
-
           <section>
             <div className="mb-4 flex items-end justify-between">
               <h2 className="text-lg font-bold">Nächste Termine</h2>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { SpielerZeile } from "@/lib/statistik";
+import type { SpielerZeile, VereinsSaison } from "@/lib/statistik";
 
 // Vereins-Bestenliste: Klick auf eine Spaltenüberschrift sortiert danach
 // (nochmal klicken dreht die Richtung um). Standard: Siege gesamt.
@@ -63,10 +63,12 @@ const SPALTEN: {
   },
 ];
 
-export function Bestenliste({ liste }: { liste: SpielerZeile[] }) {
+export function Bestenliste({ saisons }: { saisons: VereinsSaison[] }) {
   const [sortKey, setSortKey] = useState<SpaltenKey | null>(null);
   const [richtung, setRichtung] = useState<"asc" | "desc">("desc");
   const [markiert, setMarkiert] = useState<Set<string>>(new Set());
+  const [saisonIndex, setSaisonIndex] = useState(0);
+  const liste = saisons[saisonIndex]?.liste ?? saisons[0].liste;
 
   function markieren(name: string) {
     setMarkiert((alt) => {
@@ -109,7 +111,26 @@ export function Bestenliste({ liste }: { liste: SpielerZeile[] }) {
     sortKey === key ? (richtung === "asc" ? " ▲" : " ▼") : "";
 
   return (
-    <div className="overflow-x-auto">
+    <div className="space-y-3">
+      {saisons.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {saisons.map((s, i) => (
+            <button
+              key={s.label}
+              type="button"
+              onClick={() => setSaisonIndex(i)}
+              className={`rounded-full px-3 py-1 text-sm font-medium ${
+                saisonIndex === i
+                  ? "bg-primary text-primary-fg"
+                  : "border border-border text-muted hover:text-foreground"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="overflow-x-auto">
       <table className="w-full whitespace-nowrap text-sm">
         <thead>
           <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
@@ -177,6 +198,7 @@ export function Bestenliste({ liste }: { liste: SpielerZeile[] }) {
         (bleibt beim Umsortieren erhalten) · Name antippen öffnet die
         Detail-Statistik.
       </p>
+      </div>
     </div>
   );
 }
