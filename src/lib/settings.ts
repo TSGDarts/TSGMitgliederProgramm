@@ -71,6 +71,49 @@ export async function getSpielModi(): Promise<{
 }
 
 /**
+ * Standard-Regelwerk für die Regeln-Seite. Der Admin kann den Text direkt
+ * auf der Seite anpassen (app_settings-Schlüssel regeln_text). Aufbau:
+ * Zeilen mit „# “ werden Überschriften, Zeilen mit „- “ werden Regeln,
+ * alles andere normale Absätze.
+ */
+export const REGELN_STANDARD = `# 🤝 Fairplay & Verhalten
+- Wir gehen respektvoll und freundlich miteinander um – auf und neben dem Board.
+- Während des Wurfs wird nicht reingesprochen – egal für wen.
+- Der wartende Spieler bleibt hinter dem Werfenden und bewegt sich nicht in dessen Sichtfeld.
+- Vor und nach dem Spiel gibt man sich die Hand.
+- Entscheidungen werden ruhig und sachlich besprochen – nicht während eines laufenden Legs.
+
+# 📅 Termine & Zusagen
+- Bitte bei jedem Termin rechtzeitig zu- oder absagen – die Kapitäne planen mit euren Antworten.
+- Wer zugesagt hat, ist pünktlich da – bei Heimspielen am besten schon zum Aufbau.
+- Kurzfristige Änderungen bitte direkt dem Kapitän melden (Anruf/WhatsApp).
+
+# 🏠 Heimspiele & Seminarraum
+- Auf- und Abbau machen wir gemeinsam – jeder packt mit an.
+- Der Seminarraum wird sauber hinterlassen: Gläser wegräumen, Müll entsorgen, Material ordentlich verstauen.
+- Getränke und Essen werden bar bezahlt.
+- Wir sind Gäste im TSG-Gebäude: Rücksicht auf andere Abteilungen und Nachbarn.
+
+# 💪 Training
+- Training ist für alle da – Anfänger sind ausdrücklich willkommen.
+- Boards und Material nach dem Training wieder aufräumen.
+
+# 📱 App & Kommunikation
+- Fragen gerne über die Fragen-Seite stellen – so haben alle etwas davon.
+- Bitte das Profil aktuell halten (Handynummer, Benachrichtigungen), damit euch nichts entgeht.`;
+
+/** Regelwerk-Text (Admin-Anpassung aus app_settings, sonst Standard). */
+export async function getRegelnText(): Promise<string> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", "regeln_text")
+    .maybeSingle();
+  return (data?.value as string)?.trim() || REGELN_STANDARD;
+}
+
+/**
  * Kontakt für das Weiterleiten von Fragen (Pflege unter „Einstellungen“):
  * E-Mail-Adresse und WhatsApp-Nummer des Vereins/Vorstands. Leere Werte
  * blenden den jeweiligen Knopf aus.
