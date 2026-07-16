@@ -597,46 +597,10 @@ alter table public.tournaments
   add column if not exists doors_time text not null default '';
 
 -- ---------------- Startbestand aus mitglieder-feed-start.json ----------------
-
-insert into public.competition_dates (date, event_url, nr)
-select v.d::date, v.u, v.n::int
-from (values
-  ('2026-07-20', 'https://www.2k-dart-software.com/frontend/events/4/event/50736/participants', 3),
-  ('2026-07-27', 'https://www.2k-dart-software.com/frontend/events/4/event/50737/participants', null)
-) as v(d, u, n)
-where not exists (
-  select 1 from public.competition_dates c where c.date = v.d::date
-);
-
-insert into public.tournaments
-  (title, kind, mode, starts_at, entry_deadline, doors_time, location,
-   flyer_url, register_url, info_url, display_until)
-select v.title, v.kind, v.mode, v.starts_at::timestamptz,
-       nullif(v.deadline, '')::timestamptz, v.doors, '', '',
-       v.reg, v.info, v.starts_at::date
-from (values
-  ('Sommerturnier NesselbacherSchbiggerSyndikat', 'frei', 'einzel',
-   '2026-07-25T10:00:00+02:00', '', '',
-   'https://www.darthelfer.de/public/tournament/515a986b-531c-4e7c-8d67-557b3d432303',
-   'https://www.darthelfer.de/public/tournament/515a986b-531c-4e7c-8d67-557b3d432303'),
-  ('11. Kleinloher Steeldarts Open', 'frei', 'einzel',
-   '2026-08-01T13:00:00+02:00', '2026-07-31T23:59:00+02:00', '12:00',
-   'https://www.2k-dart-software.com/frontend/events/1/registration/237/register',
-   'https://www.2k-dart-software.com/frontend/events/1/event/35148/participants'),
-  ('Rothsee Dart Masters Allersberg', 'frei', 'einzel',
-   '2026-08-02T10:00:00+02:00', '', '', '', ''),
-  ('Doppel Rothsee Dart Masters Allersberg', 'frei', 'doppel',
-   '2026-08-01T12:00:00+02:00', '', '', '', ''),
-  ('2. Golden Arrows Einzelturnier Schwabach', 'frei', 'einzel',
-   '2026-08-29T10:00:00+02:00', '', '09:00',
-   'https://2k-dart-software.com/frontend/events/2/registration/697/register',
-   'https://2k-dart-software.com/frontend/events/2/event/33348/participants')
-) as v(title, kind, mode, starts_at, deadline, doors, reg, info)
-where not exists (
-  select 1 from public.tournaments t
-  where t.title = v.title
-    and t.starts_at::date = v.starts_at::timestamptz::date
-);
+-- HIER BEWUSST ENTFERNT: Der Einmal-Import (2 Competition-Termine +
+-- 5 Turniere) hat gelöschte oder umdatierte Einträge bei jedem Lauf
+-- wieder neu angelegt (Abgleich war Titel+Datum). Er lief am 2026-07-15
+-- einmalig und wird nicht mehr gebraucht.
 
 -- ###################### 18_details.sql ######################
 
@@ -773,33 +737,12 @@ alter table public.member_invites
 
 -- ###################### 24_termine_einmalimport.sql ######################
 
--- =====================================================================
--- Einmal-Import: Vereinstermine aus der Competition-App übernehmen
--- ---------------------------------------------------------------------
--- Im Supabase SQL-Editor EINMALIG ausführen.
--- Gleicht ab: Termine, die es (gleicher Titel + gleicher Tag) schon als
--- vereinsweiten Termin gibt, werden NICHT doppelt angelegt – mehrfaches
--- Ausführen ist daher ungefährlich.
--- Ab jetzt gilt: Vereinstermine werden NUR noch hier (Mitglieder-App)
--- gepflegt – die Competition-App holt sie sich über den dart-feed.
--- =====================================================================
-
-insert into public.events (team_id, title, type, starts_at, is_public, source)
-select null, t.title, 'other', t.starts_at, true, 'manual'
-from (values
-  ('Meldeschluss für Liga/Pokal für Mitglieder', timestamptz '2026-07-12 00:00:00 Europe/Berlin'),
-  ('Sommerfest Dartabteilung',                   timestamptz '2026-07-18 00:00:00 Europe/Berlin'),
-  ('Kirchweihumzug Roth',                        timestamptz '2026-08-10 00:00:00 Europe/Berlin'),
-  ('Ligabeginn 26/27',                           timestamptz '2026-09-18 00:00:00 Europe/Berlin')
-) as t (title, starts_at)
-where not exists (
-  select 1 from public.events e
-  where e.team_id is null
-    and e.type = 'other'
-    and lower(trim(e.title)) = lower(trim(t.title))
-    and (e.starts_at at time zone 'Europe/Berlin')::date
-      = (t.starts_at at time zone 'Europe/Berlin')::date
-);
+-- Einmal-Import der vier Start-Vereinstermine: HIER BEWUSST ENTFERNT.
+-- Er hat die Termine bei jedem Lauf NEU angelegt, sobald das Original
+-- bearbeitet worden war (z. B. Art auf „Fest“ umgestellt, Datum/Titel
+-- geändert oder gelöscht) – dadurch tauchten plötzlich doppelte
+-- Vereinstermine auf. Der Import lief am 2026-07-15 einmalig und wird
+-- nicht mehr gebraucht (Original: supabase/24_termine_einmalimport.sql).
 
 -- ###################### 24_uhrzeit_folgt.sql ######################
 

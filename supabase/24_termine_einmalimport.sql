@@ -17,11 +17,12 @@ from (values
   ('Kirchweihumzug Roth',                        timestamptz '2026-08-10 00:00:00 Europe/Berlin'),
   ('Ligabeginn 26/27',                           timestamptz '2026-09-18 00:00:00 Europe/Berlin')
 ) as t (title, starts_at)
+-- ACHTUNG: bewusst NUR über den Titel abgeglichen (ohne Art/Datum) –
+-- sonst legt ein erneuter Lauf die Termine doppelt an, sobald das
+-- Original bearbeitet wurde (z. B. Art „Fest“, anderes Datum).
+-- In ALLE_ERWEITERUNGEN.sql ist dieser Import komplett entfernt.
 where not exists (
   select 1 from public.events e
   where e.team_id is null
-    and e.type = 'other'
     and lower(trim(e.title)) = lower(trim(t.title))
-    and (e.starts_at at time zone 'Europe/Berlin')::date
-      = (t.starts_at at time zone 'Europe/Berlin')::date
 );
