@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { requireProfile } from "@/lib/auth";
 import { updateProfile } from "./actions";
 import { sammleLigaStatistik } from "@/lib/statistik";
+import { LigaStatistikKacheln } from "@/components/LigaStatistik";
 import { Einklappbar } from "@/components/Einklappbar";
 import { PushSettings } from "@/components/PushSettings";
 import {
@@ -218,52 +219,7 @@ export default async function ProfilPage({
             zusammen.
           </p>
         ) : (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-lg border border-border p-3 text-center">
-                <p className="text-2xl font-bold">{statistik.spieltage}</p>
-                <p className="text-xs text-muted">Spieltage</p>
-              </div>
-              <div className="rounded-lg border border-border p-3 text-center">
-                <p className="text-2xl font-bold">
-                  {statistik.einzelSiege}–{statistik.einzelNiederlagen}
-                </p>
-                <p className="text-xs text-muted">Einzel (S–N)</p>
-              </div>
-              <div className="rounded-lg border border-border p-3 text-center">
-                <p className="text-2xl font-bold">
-                  {statistik.doppelSiege}–{statistik.doppelNiederlagen}
-                </p>
-                <p className="text-xs text-muted">Doppel (S–N)</p>
-              </div>
-              <div className="rounded-lg border border-border p-3 text-center">
-                <p className="text-2xl font-bold">
-                  {statistik.legsGewonnen}:{statistik.legsVerloren}
-                </p>
-                <p className="text-xs text-muted">Legs</p>
-              </div>
-              <div className="rounded-lg border border-border p-3 text-center">
-                <p className="text-2xl font-bold">{statistik.anzahl180}</p>
-                <p className="text-xs text-muted">180er</p>
-              </div>
-              <div className="rounded-lg border border-border p-3 text-center">
-                <p className="text-2xl font-bold">
-                  {statistik.besterFinish ?? "–"}
-                </p>
-                <p className="text-xs text-muted">Bester Finish</p>
-              </div>
-              <div className="rounded-lg border border-border p-3 text-center">
-                <p className="text-2xl font-bold">
-                  {statistik.besterLowDarts ?? "–"}
-                </p>
-                <p className="text-xs text-muted">Kürzestes Leg (Darts)</p>
-              </div>
-            </div>
-            <p className="text-xs text-muted">
-              Automatisch zusammengezählt aus den eingespielten
-              nuLiga-Spielberichten (Einzel + Doppel, alle Saisons).
-            </p>
-          </div>
+          <LigaStatistikKacheln statistik={statistik} />
         )}
       </Einklappbar>
 
