@@ -15,6 +15,7 @@ import { formatDateTime } from "@/lib/format";
 import { getFragenKontakt, waNummer } from "@/lib/settings";
 import { siteUrl } from "@/lib/supabase/config";
 import { frageArtLabel } from "@/lib/types";
+import { WhatsAppIcon } from "@/components/WhatsAppIcon";
 
 export default async function FrageDetailPage({
   params,
@@ -132,9 +133,9 @@ export default async function FrageDetailPage({
               href={waLink}
               target="_blank"
               rel="noreferrer"
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:opacity-90"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
             >
-              💬 Per WhatsApp
+              <WhatsAppIcon /> Per WhatsApp
             </a>
           )}
         </div>

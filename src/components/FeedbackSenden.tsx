@@ -1,5 +1,7 @@
 "use client";
 
+import { WhatsAppIcon } from "@/components/WhatsAppIcon";
+
 /**
  * Direkt-Senden-Knöpfe im „Neuer Beitrag“-Formular (Fragen & Feedback):
  * liest die aktuellen Feldwerte aus und öffnet E-Mail bzw. den
@@ -76,9 +78,9 @@ export function FeedbackSenden({
               "noopener",
             );
           }}
-          className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-border/40"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
         >
-          💬 Per WhatsApp
+          <WhatsAppIcon /> Per WhatsApp
         </button>
       ) : null}
     </div>

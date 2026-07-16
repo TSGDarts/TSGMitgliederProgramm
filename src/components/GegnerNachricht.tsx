@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { WhatsAppIcon } from "@/components/WhatsAppIcon";
 
 /**
  * Vorgefertigte Nachricht an den Gegner vor Heimspielen (Platzhalter sind
@@ -37,9 +38,9 @@ export function GegnerNachricht({ text }: { text: string }) {
           href={`https://wa.me/?text=${encodeURIComponent(nachricht)}`}
           target="_blank"
           rel="noreferrer"
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg hover:opacity-90"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
         >
-          💬 In WhatsApp öffnen
+          <WhatsAppIcon /> In WhatsApp öffnen
         </a>
       </div>
       <p className="text-xs text-muted">
