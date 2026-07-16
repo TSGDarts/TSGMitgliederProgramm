@@ -17,6 +17,12 @@ export type EntwurfZuordnung = {
   role: "captain" | "vice" | null;
 };
 
+export type PokalEntwurf = {
+  kind: string; // "ku" | "8er"
+  teams: number; // Anzahl Pokal-Teams (1–6)
+  zuordnungen: { teamNo: number; key: string; captain: boolean }[];
+};
+
 function bereinigeZuordnungen(roh: unknown): EntwurfZuordnung[] {
   if (!Array.isArray(roh)) return [];
   const sauber: EntwurfZuordnung[] = [];
@@ -34,11 +40,33 @@ function bereinigeZuordnungen(roh: unknown): EntwurfZuordnung[] {
   return sauber;
 }
 
-/** Eigenen Entwurf speichern (Zuordnungen + Notizen). */
+function bereinigePokal(roh: unknown): PokalEntwurf | null {
+  const p = roh as PokalEntwurf | null;
+  if (!p || (p.kind !== "ku" && p.kind !== "8er")) return null;
+  const teams = Math.min(Math.max(Math.round(Number(p.teams)) || 1, 1), 6);
+  const zuordnungen = (Array.isArray(p.zuordnungen) ? p.zuordnungen : [])
+    .slice(0, 200)
+    .flatMap((z) => {
+      const key = String(z?.key ?? "");
+      const teamNo = Math.min(Math.max(Math.round(Number(z?.teamNo)) || 1, 1), 6);
+      if (!/^[pi]:.+/.test(key)) return [];
+      return [{ teamNo, key, captain: !!z?.captain }];
+    });
+  return { kind: p.kind, teams, zuordnungen };
+}
+
+/**
+ * Eigenen Entwurf speichern. Es wird nur der mitgeschickte Teil geändert
+ * (Mannschaften, Notizen oder EIN Pokal) – der Rest des Entwurfs bleibt,
+ * damit sich die Bereiche nicht gegenseitig überschreiben.
+ */
 export async function speicherEntwurf(
   seasonId: string,
-  zuordnungen: EntwurfZuordnung[],
-  notizen: string,
+  patch: {
+    assign?: EntwurfZuordnung[];
+    notes?: string;
+    pokal?: PokalEntwurf;
+  },
 ): Promise<Res> {
   const profile = await requireProfile();
   if (!canPlanSeason(profile)) {
@@ -53,12 +81,37 @@ export async function speicherEntwurf(
     return { ok: false, message: "SUPABASE_SERVICE_ROLE_KEY fehlt." };
   }
 
+  const { data: vorhanden } = await admin
+    .from("season_plans")
+    .select("data, notes")
+    .eq("season_id", seasonId)
+    .eq("owner_id", profile.id)
+    .maybeSingle();
+  const daten = ((vorhanden?.data as Record<string, unknown>) ?? {});
+
+  if (patch.assign !== undefined) {
+    daten.assign = bereinigeZuordnungen(patch.assign);
+  }
+  if (patch.pokal !== undefined) {
+    const pokal = bereinigePokal(patch.pokal);
+    if (pokal) {
+      daten.pokal = {
+        ...((daten.pokal as Record<string, unknown>) ?? {}),
+        [pokal.kind]: pokal,
+      };
+    }
+  }
+  const notes =
+    patch.notes !== undefined
+      ? String(patch.notes ?? "").slice(0, 5000)
+      : ((vorhanden?.notes as string) ?? "");
+
   const { error } = await admin.from("season_plans").upsert(
     {
       season_id: seasonId,
       owner_id: profile.id,
-      data: { assign: bereinigeZuordnungen(zuordnungen) },
-      notes: String(notizen ?? "").slice(0, 5000),
+      data: daten,
+      notes,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "season_id,owner_id" },
@@ -154,9 +207,48 @@ export async function uebernehmeEntwurf(planId: string): Promise<Res> {
     if (error) return { ok: false, message: error.message };
   }
 
+  // 3) Pokal-Entwürfe (falls im Entwurf enthalten): Kader ersetzen
+  const pokalDaten = ((plan.data as { pokal?: Record<string, unknown> })
+    ?.pokal ?? {}) as Record<
+    string,
+    { teams?: number; zuordnungen?: { teamNo: number; key: string; captain: boolean }[] }
+  >;
+  for (const kind of ["ku", "8er"]) {
+    const p = pokalDaten[kind];
+    if (!p) continue;
+    const teams = Math.min(Math.max(Math.round(Number(p.teams)) || 1, 1), 6);
+    const spalte = kind === "ku" ? "pokal_ku_teams" : "pokal_8er_teams";
+    await admin
+      .from("seasons")
+      .update({ [spalte]: teams })
+      .eq("id", plan.season_id);
+    const { error: delPokal } = await admin
+      .from("pokal_squads")
+      .delete()
+      .eq("season_id", plan.season_id)
+      .eq("kind", kind);
+    if (delPokal) return { ok: false, message: delPokal.message };
+    for (const z of p.zuordnungen ?? []) {
+      const key = String(z?.key ?? "");
+      if (!/^[pi]:.+/.test(key)) continue;
+      const id = key.slice(2);
+      await admin.from("pokal_squads").insert({
+        season_id: plan.season_id,
+        kind,
+        team_no: Math.min(Math.max(Math.round(Number(z.teamNo)) || 1, 1), 6),
+        profile_id: key.startsWith("p:") ? id : null,
+        invite_id: key.startsWith("i:") ? id : null,
+        is_captain: !!z.captain,
+      });
+    }
+  }
+
   revalidatePath("/mitglieder/planung");
   revalidatePath("/mitglieder/mannschaften");
   revalidatePath("/mitglieder/admin/mannschaften");
   revalidatePath(`/mitglieder/admin/saisons/${plan.season_id}`);
-  return { ok: true, message: "Entwurf wurde in die Mannschaften übernommen." };
+  return {
+    ok: true,
+    message: "Entwurf wurde in die Mannschaften (und Pokale) übernommen.",
+  };
 }

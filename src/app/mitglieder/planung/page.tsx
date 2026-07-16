@@ -4,12 +4,14 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import { formatDateTime } from "@/lib/format";
 import { Einklappbar } from "@/components/Einklappbar";
 import { PlanungsEntwurf } from "./PlanungsEntwurf";
+import { PokalEntwurf } from "./PokalEntwurf";
 import { UebernehmenKnopf } from "./UebernehmenKnopf";
 import type { EntwurfZuordnung } from "./actions";
 import { PageHeader, Card, CardBody, Badge, EmptyState } from "@/components/ui";
 import {
   surveyLabel,
   shortLabel,
+  SURVEY_QUESTIONS,
   type Season,
   type SurveyResponse,
   type SurveyAnswers,
@@ -18,23 +20,84 @@ import type { Profile, Team } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Saisonplanung" };
 
+type PokalDaten = {
+  teams?: number;
+  zuordnungen?: { teamNo: number; key: string; captain: boolean }[];
+};
+
 type PlanRow = {
   id: string;
   season_id: string;
   owner_id: string;
   notes: string;
-  data: { assign?: EntwurfZuordnung[] } | null;
+  data: {
+    assign?: EntwurfZuordnung[];
+    pokal?: Record<string, PokalDaten>;
+  } | null;
   updated_at: string;
 };
 
-/** Ein Entwurf zum Nachlesen: Teams mit Chips, dazu die Notizen. */
+const POKALE = [
+  {
+    kind: "ku",
+    title: "Klaus Unterberg Pokal",
+    hint: "Mittelfranken-Pokal · 4 Spieler",
+    field: "pokal_ku" as const,
+    size: 4,
+  },
+  {
+    kind: "8er",
+    title: "8ter Cup",
+    hint: "BDV-Pokal · 8 Spieler",
+    field: "pokal_8er" as const,
+    size: 8,
+  },
+];
+
+/** Kleine Balken-Verteilung für die Auswertung (wie auf der Admin-Seite). */
+function Dist({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: { label: string; count: number }[];
+}) {
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  return (
+    <div>
+      <h3 className="mb-2 font-semibold">{title}</h3>
+      <div className="space-y-1.5">
+        {rows.map((r) => (
+          <div key={r.label} className="text-sm">
+            <div className="mb-0.5 flex items-baseline justify-between gap-2">
+              <span className="min-w-0 flex-1 truncate text-muted" title={r.label}>
+                {r.label}
+              </span>
+              <span className="font-semibold">{r.count}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-border/60">
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{ width: `${(r.count / max) * 100}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Ein Entwurf zum Nachlesen: Teams mit Chips, Pokale, dazu die Notizen. */
 function EntwurfAnsicht({
   assign,
+  pokal,
   notes,
   teams,
   nameFor,
 }: {
   assign: EntwurfZuordnung[];
+  pokal?: Record<string, PokalDaten>;
   notes: string;
   teams: { id: string; name: string }[];
   nameFor: (key: string) => string;
@@ -96,6 +159,51 @@ function EntwurfAnsicht({
           );
         })}
       </div>
+      {POKALE.map((pk) => {
+        const p = pokal?.[pk.kind];
+        if (!p?.zuordnungen?.length) return null;
+        const proTeamNo = new Map<number, typeof p.zuordnungen>();
+        for (const z of p.zuordnungen) {
+          const list = proTeamNo.get(z.teamNo) ?? [];
+          list.push(z);
+          proTeamNo.set(z.teamNo, list);
+        }
+        return (
+          <div key={pk.kind} className="rounded-lg border border-border p-3">
+            <p className="mb-2 text-sm font-semibold">🏆 {pk.title}</p>
+            <div className="space-y-2">
+              {[...proTeamNo.keys()]
+                .sort((a, b) => a - b)
+                .map((no) => (
+                  <div key={no} className="flex flex-wrap items-center gap-2">
+                    {proTeamNo.size > 1 && (
+                      <span className="text-xs text-muted">Team {no}:</span>
+                    )}
+                    {(proTeamNo.get(no) ?? [])
+                      .sort(
+                        (x, y) =>
+                          Number(y.captain) - Number(x.captain) ||
+                          nameFor(x.key).localeCompare(nameFor(y.key)),
+                      )
+                      .map((z) => (
+                        <span
+                          key={z.key}
+                          className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm ${
+                            z.captain
+                              ? "bg-primary text-primary-fg"
+                              : "bg-primary/15 text-primary"
+                          }`}
+                        >
+                          {z.captain && <span title="Pokal-Kapitän">👑</span>}
+                          {nameFor(z.key)}
+                        </span>
+                      ))}
+                  </div>
+                ))}
+            </div>
+          </div>
+        );
+      })}
       {notes && (
         <p className="whitespace-pre-line rounded-lg bg-border/20 px-3 py-2 text-sm">
           📝 {notes}
@@ -230,6 +338,26 @@ export default async function PlanungPage() {
   const eigenerPlan = plaene.find((p) => p.owner_id === profile.id) ?? null;
   const anderePlaene = plaene.filter((p) => p.owner_id !== profile.id);
 
+  // ---------- Auswertung der Abfrage (wie auf der Admin-Seite) ----------
+  const distFor = (
+    field: "play_frequency" | "captain_interest" | "ambitions" | "sit_out",
+  ) => {
+    const q = SURVEY_QUESTIONS.find((x) => x.field === field)!;
+    const rows = q.options.map((o) => ({
+      label: o.label,
+      count: entries.filter((e) => e.r?.[field] === o.value).length,
+    }));
+    const other = entries.filter(
+      (e) => e.r && e.r[field] && !q.options.some((o) => o.value === e.r![field]),
+    ).length;
+    if (other > 0) rows.push({ label: "Sonstiges", count: other });
+    return rows;
+  };
+  const captains = entries.filter((e) => e.r?.captain_interest === "yes");
+  const captainsMaybe = entries.filter((e) => e.r?.captain_interest === "maybe");
+  const newInLeague = entries.filter((e) => e.r?.played_last_season === false);
+  const wishes = entries.filter((e) => e.r?.team_wishes);
+
   const beantwortet = entries.filter((e) => e.r).length;
   const sortiert = [...entries].sort((a, b) => {
     if (!a.r && !b.r) return a.name.localeCompare(b.name);
@@ -244,6 +372,82 @@ export default async function PlanungPage() {
         title="🧠 Saisonplanung"
         subtitle={`${season.name} · Jeder Planer entwirft seine eigene Idee – vergleichen, diskutieren, und am Ende übernimmt der Admin einen Entwurf.`}
       />
+
+      {/* Auswertung der Abfrage – Grundlage für die eigenen Ideen */}
+      <Einklappbar
+        id="planung-auswertung"
+        title={`📈 Auswertung der Abfrage (${beantwortet}/${entries.length} Antworten)`}
+      >
+        <div className="space-y-4">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Dist title="Wie viel wollen sie spielen?" rows={distFor("play_frequency")} />
+            <Dist title="Ambitionen" rows={distFor("ambitions")} />
+            <Dist title="Aussetzen für den Team-Erfolg?" rows={distFor("sit_out")} />
+            <Dist title="Kapitän machen?" rows={distFor("captain_interest")} />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <h3 className="font-semibold">
+                Kapitäns-Kandidaten{" "}
+                <span className="text-sm font-normal text-muted">
+                  ({captains.length + captainsMaybe.length})
+                </span>
+              </h3>
+              {captains.length + captainsMaybe.length === 0 ? (
+                <p className="text-sm text-muted">Noch keine.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {captains.map((e) => (
+                    <Badge key={e.key} tone="primary">
+                      {e.name} – will!
+                    </Badge>
+                  ))}
+                  {captainsMaybe.map((e) => (
+                    <Badge key={e.key}>{e.name} – wenn nötig</Badge>
+                  ))}
+                </div>
+              )}
+              {newInLeague.length > 0 && (
+                <>
+                  <h3 className="pt-2 font-semibold">
+                    Neu in der Liga{" "}
+                    <span className="text-sm font-normal text-muted">
+                      ({newInLeague.length})
+                    </span>
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {newInLeague.map((e) => (
+                      <Badge key={e.key} tone="warn">
+                        {e.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <h3 className="font-semibold">
+                Wünsche zur Mannschaftsbildung{" "}
+                <span className="text-sm font-normal text-muted">
+                  ({wishes.length})
+                </span>
+              </h3>
+              {wishes.length === 0 ? (
+                <p className="text-sm text-muted">Noch keine Wünsche.</p>
+              ) : (
+                <ul className="space-y-1.5 text-sm">
+                  {wishes.map((e) => (
+                    <li key={e.key}>
+                      <strong>{e.name}:</strong>{" "}
+                      <span className="text-muted">{e.r!.team_wishes}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      </Einklappbar>
 
       {/* Eigener Entwurf */}
       <Einklappbar id="planung-eigener-entwurf" title="✏️ Mein Entwurf">
@@ -271,6 +475,44 @@ export default async function PlanungPage() {
             )}
           </div>
         )}
+      </Einklappbar>
+
+      {/* Pokal-Entwurf (KU + 8ter Cup) */}
+      <Einklappbar id="planung-pokal-entwurf" title="🏆 Mein Pokal-Entwurf">
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            Gleiche Idee wie bei den Mannschaften: nur dein Entwurf, die
+            echten Pokal-Kader bleiben unberührt. ✓ = Ja, ~ = wenn nötig,
+            ✗ = Nein, ? = keine Antwort · 👑 am Chip = Pokal-Kapitän.
+          </p>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {POKALE.map((pk) => (
+              <PokalEntwurf
+                key={pk.kind}
+                seasonId={season.id}
+                kind={pk.kind}
+                title={pk.title}
+                hint={pk.hint}
+                size={pk.size}
+                initialTeams={
+                  eigenerPlan?.data?.pokal?.[pk.kind]?.teams ??
+                  ((pk.kind === "ku"
+                    ? season.pokal_ku_teams
+                    : season.pokal_8er_teams) ??
+                    1)
+                }
+                persons={entries.map((e) => ({
+                  key: e.key,
+                  name: e.name,
+                  answer: e.r?.[pk.field] ?? "",
+                }))}
+                initialZuordnungen={(
+                  eigenerPlan?.data?.pokal?.[pk.kind]?.zuordnungen ?? []
+                ).filter((z) => nameByKey.has(z.key))}
+              />
+            ))}
+          </div>
+        </div>
       </Einklappbar>
 
       {/* Entwürfe der anderen */}
@@ -303,6 +545,7 @@ export default async function PlanungPage() {
                   assign={(plan.data?.assign ?? []).filter((a) =>
                     teams.some((t) => t.id === a.teamId),
                   )}
+                  pokal={plan.data?.pokal}
                   notes={plan.notes}
                   teams={teams}
                   nameFor={nameFor}

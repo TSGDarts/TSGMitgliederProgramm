@@ -105,7 +105,10 @@ export function PlanungsEntwurf({
     setStatus("speichert");
     const lauf = ++speicherLauf.current;
     startTransition(async () => {
-      const res = await speicherEntwurf(seasonId, next, nextNotes);
+      const res = await speicherEntwurf(seasonId, {
+        assign: next,
+        notes: nextNotes,
+      });
       if (lauf !== speicherLauf.current) return; // es läuft schon ein neuerer
       if (res.ok) {
         setStatus("ok");
