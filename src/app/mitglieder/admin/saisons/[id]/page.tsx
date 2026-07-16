@@ -219,14 +219,28 @@ export default async function AdminSeasonDetailPage({
     archive = (data as ArchivedTeam[]) ?? [];
   }
 
-  // Alle angelegten Namen (registriert + vorab angelegt) für die
-  // Kader-Auswahl beim Bearbeiten von Archiv-Einträgen
-  const alleNamen = [
-    ...new Set([
-      ...profiles.map((p) => p.full_name || p.email || "?"),
-      ...invites.map((i) => i.full_name),
-    ]),
-  ].sort((a, b) => a.localeCompare(b));
+  // Alle angelegten Namen für die Kader-Auswahl beim Bearbeiten von
+  // Archiv-Einträgen – bewusst OHNE Rollen-Filter: Wer heute „Mitglied
+  // (ohne Liga)“ ist, kann in einer früheren Saison Liga gespielt haben.
+  let alleNamen: string[] = [];
+  if (season.status === "archived") {
+    const [{ data: alleProf }, { data: alleInv }] = await Promise.all([
+      supabase.from("profiles").select("full_name, email").order("full_name"),
+      supabase
+        .from("member_invites")
+        .select("full_name")
+        .eq("claimed", false)
+        .order("full_name"),
+    ]);
+    alleNamen = [
+      ...new Set([
+        ...(alleProf ?? []).map(
+          (p) => (p.full_name as string) || (p.email as string) || "?",
+        ),
+        ...(alleInv ?? []).map((i) => i.full_name as string),
+      ]),
+    ].sort((a, b) => a.localeCompare(b));
+  }
 
   // Gemeinsame Liste: Mitglieder + angelegte Namen
   const entries: PlanEntry[] = [
