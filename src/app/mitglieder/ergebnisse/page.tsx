@@ -7,8 +7,50 @@ import { Einklappbar } from "@/components/Einklappbar";
 import { PageHeader, EmptyState, Badge } from "@/components/ui";
 import { formatDate, ergebnisTone } from "@/lib/format";
 import { teileInRunden } from "@/lib/runden";
+import { vereinsAggregat } from "@/lib/statistik";
 import { EVENT_TYPE_LABELS, type EventRow } from "@/lib/types";
 import type { Season } from "@/lib/season";
+
+/** Team-Bilanz aus den Spielen mit Ergebnis (Siege-Unentschieden-Niederlagen). */
+function teamBilanz(spiele: EventRow[]) {
+  const zaehle = (liste: EventRow[]) => {
+    let s = 0;
+    let u = 0;
+    let n = 0;
+    for (const ev of liste) {
+      const r = (ev.result ?? "").trim();
+      if (!r) continue;
+      const t = ergebnisTone(r);
+      if (t === "ok") s++;
+      else if (t === "danger") n++;
+      else u++;
+    }
+    return { s, u, n };
+  };
+  const gesamt = zaehle(spiele);
+  const heim = zaehle(spiele.filter((ev) => ev.home_away === "heim"));
+  const ausw = zaehle(spiele.filter((ev) => ev.home_away === "auswaerts"));
+  // Aktuelle Serie (neueste zuerst): gleiche Ausgänge zählen
+  let serie = 0;
+  let serieArt: "ok" | "danger" | "neutral" | null = null;
+  for (const ev of spiele) {
+    const r = (ev.result ?? "").trim();
+    if (!r) continue;
+    const t = ergebnisTone(r);
+    if (serieArt === null) serieArt = t;
+    if (t !== serieArt) break;
+    serie++;
+  }
+  const serieText =
+    serie >= 2
+      ? serieArt === "ok"
+        ? `${serie} Siege in Folge 🔥`
+        : serieArt === "danger"
+          ? `${serie} Niederlagen in Folge`
+          : `${serie}× unentschieden in Folge`
+      : "";
+  return { gesamt, heim, ausw, serieText };
+}
 
 export const metadata: Metadata = { title: "Ergebnisse" };
 
@@ -102,6 +144,72 @@ export default async function ErgebnissePage({
         </div>
       )}
 
+      {/* Saison-Rückblick (bei abgeschlossenen Saisons) */}
+      {gewaehlteSaison?.status === "archived" &&
+        (() => {
+          const rows = ((ergData as EventRow[]) ?? []).map((ev) => ({
+            id: ev.id,
+            title: ev.title,
+            starts_at: ev.starts_at,
+            result: ev.result ?? null,
+            match_stats: ev.match_stats,
+          }));
+          const spieler = vereinsAggregat(rows);
+          if (spieler.length === 0) return null;
+          const meiste180 = [...spieler].sort(
+            (a, b) => b.anzahl180 - a.anzahl180,
+          )[0];
+          const besterFinish = [...spieler]
+            .filter((s) => s.besterFinish !== null)
+            .sort((a, b) => (b.besterFinish ?? 0) - (a.besterFinish ?? 0))[0];
+          const kuerzestesLeg = [...spieler]
+            .filter((s) => s.besterLowDarts !== null)
+            .sort(
+              (a, b) => (a.besterLowDarts ?? 99) - (b.besterLowDarts ?? 99),
+            )[0];
+          const besteBilanz = spieler[0];
+          return (
+            <Einklappbar
+              id={`rueckblick-${gewaehlteSaison.id}`}
+              title={`🏆 Saison-Rückblick ${gewaehlteSaison.name}`}
+            >
+              <ul className="space-y-1.5 text-sm">
+                {besteBilanz && (
+                  <li>
+                    🥇 <strong>Beste Bilanz:</strong> {besteBilanz.anzeige} (
+                    {besteBilanz.einzelSiege + besteBilanz.doppelSiege} Siege,{" "}
+                    {besteBilanz.einzelNiederlagen +
+                      besteBilanz.doppelNiederlagen}{" "}
+                    Niederlagen)
+                  </li>
+                )}
+                {meiste180 && meiste180.anzahl180 > 0 && (
+                  <li>
+                    💯 <strong>180er-König:</strong> {meiste180.anzeige} (
+                    {meiste180.anzahl180}× 180)
+                  </li>
+                )}
+                {besterFinish && (
+                  <li>
+                    🎯 <strong>Höchstes Highfinish:</strong>{" "}
+                    {besterFinish.anzeige} ({besterFinish.besterFinish})
+                  </li>
+                )}
+                {kuerzestesLeg && (
+                  <li>
+                    ⚡ <strong>Kürzestes Leg:</strong> {kuerzestesLeg.anzeige}{" "}
+                    ({kuerzestesLeg.besterLowDarts} Darts)
+                  </li>
+                )}
+                <li className="pt-1 text-xs text-muted">
+                  Alle Zahlen unter „Statistiken“ (Saison{" "}
+                  {gewaehlteSaison.name} auswählen).
+                </li>
+              </ul>
+            </Einklappbar>
+          );
+        })()}
+
       <section className="space-y-4">
         {teams.length === 0 ? (
           <EmptyState title="Noch keine Mannschaften angelegt" />
@@ -154,6 +262,24 @@ export default async function ErgebnissePage({
                   </p>
                 ) : (
                   <div className="space-y-3">
+                    {(() => {
+                      const b = teamBilanz(liste);
+                      if (b.gesamt.s + b.gesamt.u + b.gesamt.n === 0) {
+                        return null;
+                      }
+                      return (
+                        <p className="rounded-lg bg-border/20 px-3 py-2 text-sm">
+                          <strong>
+                            Bilanz {b.gesamt.s}-{b.gesamt.u}-{b.gesamt.n}
+                          </strong>{" "}
+                          <span className="text-muted">
+                            (S-U-N) · Heim {b.heim.s}-{b.heim.u}-{b.heim.n} ·
+                            Auswärts {b.ausw.s}-{b.ausw.u}-{b.ausw.n}
+                            {b.serieText && <> · {b.serieText}</>}
+                          </span>
+                        </p>
+                      );
+                    })()}
                     {gruppen.map((gruppe) => (
                       <div key={gruppe.titel} className="space-y-1">
                         <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">

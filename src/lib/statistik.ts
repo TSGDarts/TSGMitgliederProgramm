@@ -204,7 +204,7 @@ export interface SpielerZeile {
  * Vereinsweite Bestenliste aus einer Menge von Spieltagen: alle
  * TSG-Spieler, sortiert nach Siegen (Einzel + Doppel).
  */
-function vereinsAggregat(rows: EventZeile[]): SpielerZeile[] {
+export function vereinsAggregat(rows: EventZeile[]): SpielerZeile[] {
   const spieler = new Map<string, SpielerZeile & { key: string }>();
   const hole = (name: string) => {
     const key = normalisiereName(name);

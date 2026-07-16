@@ -170,6 +170,40 @@ export async function GET() {
     // Spalte fehlt noch (ALLE_ERWEITERUNGEN nicht ausgeführt) – überspringen
   }
 
+  // Geburtstags-Gruß: „Heute hat X Geburtstag“ an alle – nur wenn die
+  // Person der Gratulation in der Mitgliedergruppe zugestimmt hat.
+  try {
+    const heute = berlinDay.format(new Date());
+    const { data: kinder } = await admin
+      .from("profiles")
+      .select("id, full_name, birthday")
+      .eq("is_active", true)
+      .eq("birthday_congrats", true)
+      .not("birthday", "is", null);
+    for (const p of kinder ?? []) {
+      if ((p.birthday as string).slice(5) !== heute.slice(5)) continue;
+      const { error: logError } = await admin
+        .from("notification_log")
+        .insert({ key: `geburtstag:${p.id}:${heute.slice(0, 4)}` });
+      if (logError) continue;
+      const alter =
+        Number(heute.slice(0, 4)) - Number((p.birthday as string).slice(0, 4));
+      const { data: alle } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("is_active", true)
+        .neq("id", p.id);
+      await benachrichtige((alle ?? []).map((x) => x.id as string), {
+        title: `🎂 ${p.full_name} hat heute Geburtstag!`,
+        body: `${p.full_name} wird heute ${alter} – gratuliert fleißig! 🎉`,
+        url: "/mitglieder",
+      });
+      verschickt++;
+    }
+  } catch {
+    // best-effort
+  }
+
   if (gruppen.size === 0) {
     return NextResponse.json({ kategorien: 0, verschickt });
   }

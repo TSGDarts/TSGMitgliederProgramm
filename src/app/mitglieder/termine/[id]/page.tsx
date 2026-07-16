@@ -16,6 +16,7 @@ import { CarpoolSection, type CarpoolFahrer } from "@/components/CarpoolSection"
 import { LineupSection } from "@/components/LineupSection";
 import { GegnerNachricht } from "@/components/GegnerNachricht";
 import { MatchUrlForm } from "@/components/MatchUrlForm";
+import { ErgebnisMelden } from "@/components/ErgebnisMelden";
 import type { LineupEintrag } from "@/app/mitglieder/termine/spieltag-actions";
 import { PageHeader, Card, CardBody, Badge } from "@/components/ui";
 import {
@@ -374,6 +375,20 @@ export default async function EventDetailPage({
       </Card>
 
       {/* Heimspiel-Nachricht an den Gegner */}
+      {istSpiel && canManage && (
+        <details className="rounded-xl border border-border bg-surface">
+          <summary className="cursor-pointer px-5 py-4 font-semibold">
+            🏁 Ergebnis melden
+          </summary>
+          <div className="border-t border-border p-5">
+            <ErgebnisMelden
+              eventId={event.id}
+              initialResult={(event.result ?? "").trim()}
+            />
+          </div>
+        </details>
+      )}
+
       {istSpiel && canManage && (
         <details className="rounded-xl border border-border bg-surface">
           <summary className="cursor-pointer px-5 py-4 font-semibold">

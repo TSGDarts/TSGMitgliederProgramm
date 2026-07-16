@@ -53,6 +53,21 @@ export default async function DashboardPage({
     surveyMissing = !myAnswer;
   }
 
+  // Neueste Ankündigung (max. 14 Tage alt) vom Schwarzen Brett
+  let ankuendigung: { title: string; body: string } | null = null;
+  try {
+    const { data } = await supabase
+      .from("announcements")
+      .select("title, body, created_at")
+      .gte("created_at", new Date(Date.now() - 14 * 864e5).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) ankuendigung = data as { title: string; body: string };
+  } catch {
+    // Tabelle fehlt noch – kein Hinweis
+  }
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -86,6 +101,26 @@ export default async function DashboardPage({
               {offen} offene Rückmeldung{offen === 1 ? "" : "en"}
             </strong>
             . Bitte sag zu oder ab.
+          </CardBody>
+        </Card>
+      )}
+
+      {ankuendigung && (
+        <Card className="border-primary/40 bg-primary/5">
+          <CardBody className="text-sm">
+            <Link href="/mitglieder/brett" className="hover:underline">
+              <span className="font-semibold">📢 {ankuendigung.title}</span>
+              {ankuendigung.body && (
+                <span className="mt-1 block text-muted">
+                  {ankuendigung.body.length > 140
+                    ? `${ankuendigung.body.slice(0, 140)} …`
+                    : ankuendigung.body}
+                </span>
+              )}
+              <span className="mt-1 block text-xs text-primary">
+                Zum Schwarzen Brett →
+              </span>
+            </Link>
           </CardBody>
         </Card>
       )}

@@ -5,7 +5,13 @@ import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { benachrichtige } from "@/lib/benachrichtigung";
-import { formatDate, formatTime } from "@/lib/format";
+import { formatDate, formatTime, ergebnisTone } from "@/lib/format";
+import {
+  parseSpielbericht,
+  alsMatchStats,
+  spielerBilanz,
+  type MatchStats,
+} from "@/lib/spielbericht";
 
 // Fahrgemeinschaft: jeder pflegt seinen eigenen Eintrag pro Termin.
 export async function setCarpool(
@@ -38,6 +44,110 @@ export async function setCarpool(
 
   revalidatePath(`/mitglieder/termine/${eventId}`);
   return { ok: true };
+}
+
+export type ErgebnisResult = { ok: boolean; message: string };
+
+/**
+ * Endergebnis melden (Kapitän/Vize/Bearbeiter/Admin – den Schreibschutz
+ * übernimmt die Datenbank-Policy der Termine): Ergebnis von Hand ODER
+ * kompletten nuLiga-Spielbericht einfügen (füllt auch die
+ * Spielerstatistik). Beim ERSTEN Ergebnis geht eine Benachrichtigung an
+ * den ganzen Verein.
+ */
+export async function meldeErgebnis(
+  _prev: ErgebnisResult | null,
+  formData: FormData,
+): Promise<ErgebnisResult> {
+  const profile = await requireProfile();
+  const eventId = String(formData.get("event_id") ?? "");
+  const resultRaw = String(formData.get("result") ?? "").trim();
+  const berichtText = String(formData.get("bericht") ?? "").trim();
+  if (!eventId) return { ok: false, message: "Termin fehlt." };
+  if (!resultRaw && !berichtText) {
+    return {
+      ok: false,
+      message: "Bitte Ergebnis eintragen oder den nuLiga-Spielbericht einfügen.",
+    };
+  }
+
+  const supabase = await createClient();
+  const { data: alt } = await supabase
+    .from("events")
+    .select("result, title, match_stats")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (!alt) return { ok: false, message: "Termin nicht gefunden." };
+
+  const patch: Record<string, unknown> = {};
+  let result = resultRaw;
+  let bilanzText = "";
+  if (berichtText) {
+    const res = parseSpielbericht(berichtText);
+    if (!res.ok) return { ok: false, message: `Spielbericht: ${res.fehler}` };
+    const daten: MatchStats = alsMatchStats(alt.match_stats) ?? {};
+    daten.nuliga = res.bericht;
+    patch.match_stats = daten;
+    result = res.bericht.ergebnis;
+    bilanzText = spielerBilanz(res.bericht)
+      .map((s) => `${s.name.split(",")[0]} ${s.siege}-${s.niederlagen}`)
+      .join(" · ");
+  }
+  patch.result = result;
+
+  const { data: geaendert, error } = await supabase
+    .from("events")
+    .update(patch)
+    .eq("id", eventId)
+    .select("id");
+  if (error) return { ok: false, message: error.message };
+  if (!geaendert?.length) {
+    return {
+      ok: false,
+      message:
+        "Keine Berechtigung – Ergebnisse melden dürfen Kapitän/Vize der Mannschaft, Bearbeiter und Admins.",
+    };
+  }
+
+  revalidatePath(`/mitglieder/termine/${eventId}`);
+  revalidatePath("/mitglieder/ergebnisse");
+
+  // Beim ERSTEN Ergebnis den Verein informieren (einmalig)
+  if (!((alt.result as string) ?? "").trim() && result) {
+    try {
+      const admin = createAdminSupabase();
+      const { error: logError } = await admin
+        .from("notification_log")
+        .insert({ key: `ergebnis:${eventId}` });
+      if (!logError) {
+        const { data: alle } = await admin
+          .from("profiles")
+          .select("id")
+          .eq("is_active", true)
+          .neq("id", profile.id);
+        const zeichen =
+          ergebnisTone(result) === "ok"
+            ? "✅"
+            : ergebnisTone(result) === "danger"
+              ? "❌"
+              : "➖";
+        await benachrichtige((alle ?? []).map((p) => p.id as string), {
+          title: `${zeichen} Endergebnis: ${result}`,
+          body: `${alt.title as string} – Ergebnis wurde eingetragen.`,
+          url: `/mitglieder/termine/${eventId}`,
+        });
+      }
+    } catch {
+      // best-effort
+    }
+  }
+
+  return {
+    ok: true,
+    message:
+      `✅ Ergebnis ${result} gespeichert.` +
+      (bilanzText ? ` Bilanz: ${bilanzText}` : ""),
+  };
 }
 
 /**
