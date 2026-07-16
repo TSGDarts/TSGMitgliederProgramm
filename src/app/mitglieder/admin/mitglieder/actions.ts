@@ -44,7 +44,6 @@ export async function createMember(
   const role = ["admin", "editor", "player", "member"].includes(roleRaw)
     ? roleRaw
     : "player";
-  const teamIds = formData.getAll("team_ids").map(String).filter(Boolean);
 
   if (!full_name) {
     return { ok: false, message: "Bitte einen Namen angeben." };
@@ -69,12 +68,13 @@ export async function createMember(
     } catch {
       return { ok: false, message: "SUPABASE_SERVICE_ROLE_KEY fehlt." };
     }
+    // Mannschafts-Zuordnung läuft NICHT hier, sondern über
+    // „Mannschaften verwalten“ bzw. die Saisonplanung.
     const { error } = await admin
       .from("member_invites")
       .insert({
         full_name,
         role,
-        team_ids: teamIds,
         birthday,
         birthday_public,
         birthday_congrats,
@@ -140,13 +140,6 @@ export async function createMember(
       is_planner,
     })
     .eq("id", userId);
-
-  // Mannschaften zuordnen.
-  if (teamIds.length) {
-    await admin.from("team_members").insert(
-      teamIds.map((team_id) => ({ team_id, profile_id: userId })),
-    );
-  }
 
   const inviteUrl = await buildPasswordLink(admin, email);
 

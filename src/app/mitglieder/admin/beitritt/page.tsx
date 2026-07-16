@@ -105,18 +105,10 @@ export default async function AdminBeitrittPage({
                 </select>
               </Field>
             </div>
-            {teams.length > 0 && (
-              <Field label="Mannschaften (optional)">
-                <div className="flex flex-wrap gap-3">
-                  {teams.map((t) => (
-                    <label key={t.id} className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" name="team_ids" value={t.id} />
-                      {t.name}
-                    </label>
-                  ))}
-                </div>
-              </Field>
-            )}
+            <p className="text-xs text-muted">
+              Die Mannschafts-Zuordnung läuft komplett über „Mannschaften
+              verwalten“ bzw. die Saisonplanung.
+            </p>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field
                 label="Geburtstag (optional)"
@@ -230,26 +222,10 @@ export default async function AdminBeitrittPage({
                           </select>
                         </Field>
                       </div>
-                      {teams.length > 0 && (
-                        <Field label="Mannschaften">
-                          <div className="flex flex-wrap gap-3">
-                            {teams.map((t) => (
-                              <label
-                                key={t.id}
-                                className="flex items-center gap-2 text-sm"
-                              >
-                                <input
-                                  type="checkbox"
-                                  name="team_ids"
-                                  value={t.id}
-                                  defaultChecked={inv.team_ids?.includes(t.id)}
-                                />
-                                {t.name}
-                              </label>
-                            ))}
-                          </div>
-                        </Field>
-                      )}
+                      <p className="text-xs text-muted">
+                        Die Mannschafts-Zuordnung läuft komplett über
+                        „Mannschaften verwalten“ bzw. die Saisonplanung.
+                      </p>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <Field label="Geburtstag" hint="Für die Liga-Meldung">
                           <input

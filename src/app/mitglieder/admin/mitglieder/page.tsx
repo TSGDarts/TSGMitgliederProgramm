@@ -57,7 +57,7 @@ export default async function AdminMembersPage() {
         subtitle="Zugänge anlegen, Rollen vergeben, Passwort-Links erzeugen"
       />
 
-      <CreateMemberForm teams={teams} />
+      <CreateMemberForm />
 
       {openInvites.length > 0 && (
         <section>
@@ -147,26 +147,10 @@ export default async function AdminMembersPage() {
                           />
                         </Field>
                       </div>
-                      {teams.length > 0 && (
-                        <Field label="Mannschaften">
-                          <div className="flex flex-wrap gap-3">
-                            {teams.map((t) => (
-                              <label
-                                key={t.id}
-                                className="flex items-center gap-2 text-sm"
-                              >
-                                <input
-                                  type="checkbox"
-                                  name="team_ids"
-                                  value={t.id}
-                                  defaultChecked={inv.team_ids?.includes(t.id)}
-                                />
-                                {t.name}
-                              </label>
-                            ))}
-                          </div>
-                        </Field>
-                      )}
+                      <p className="text-xs text-muted">
+                        Die Mannschafts-Zuordnung läuft komplett über
+                        „Mannschaften verwalten“ bzw. die Saisonplanung.
+                      </p>
                       <label className="flex items-center gap-2 text-sm">
                         <input
                           type="checkbox"

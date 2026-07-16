@@ -4,9 +4,8 @@ import { useActionState } from "react";
 import { createMember, type CreateMemberResult } from "./actions";
 import { Card, CardBody, Button, Field, inputClass } from "@/components/ui";
 import { InviteLink } from "./InviteLink";
-import type { Team } from "@/lib/types";
 
-export function CreateMemberForm({ teams }: { teams: Team[] }) {
+export function CreateMemberForm() {
   const [state, formAction, pending] = useActionState<
     CreateMemberResult | null,
     FormData
@@ -83,18 +82,10 @@ export function CreateMemberForm({ teams }: { teams: Team[] }) {
             🧠 Saisonplaner – darf eigene Planungs-Entwürfe pflegen
           </label>
 
-          {teams.length > 0 && (
-            <Field label="Mannschaften (optional)">
-              <div className="flex flex-wrap gap-3">
-                {teams.map((t) => (
-                  <label key={t.id} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="team_ids" value={t.id} />
-                    {t.name}
-                  </label>
-                ))}
-              </div>
-            </Field>
-          )}
+          <p className="text-xs text-muted">
+            Die Mannschafts-Zuordnung läuft komplett über „Mannschaften
+            verwalten“ bzw. die Saisonplanung.
+          </p>
 
           <Button type="submit" disabled={pending}>
             {pending ? "Lege an …" : "Zugang anlegen"}

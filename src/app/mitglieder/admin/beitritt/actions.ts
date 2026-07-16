@@ -25,12 +25,13 @@ export async function addInviteName(formData: FormData) {
   const role = ["admin", "editor", "player", "member"].includes(roleRaw)
     ? roleRaw
     : "player";
-  const team_ids = formData.getAll("team_ids").map(String).filter(Boolean);
 
+  // Mannschafts-Zuordnung läuft NICHT hier, sondern über
+  // „Mannschaften verwalten“ bzw. die Saisonplanung.
   const supabase = await createClient();
   const { error } = await supabase
     .from("member_invites")
-    .insert({ full_name, role, team_ids, ...readInviteBirthday(formData) });
+    .insert({ full_name, role, ...readInviteBirthday(formData) });
 
   if (error) {
     // Fehler sichtbar machen statt still zu scheitern.
@@ -52,12 +53,13 @@ export async function updateInvite(formData: FormData) {
   const role = ["admin", "editor", "player", "member"].includes(roleRaw)
     ? roleRaw
     : "player";
-  const team_ids = formData.getAll("team_ids").map(String).filter(Boolean);
 
+  // team_ids bewusst NICHT anfassen – die Zuordnung wird unter
+  // „Mannschaften verwalten“ bzw. in der Saisonplanung gepflegt.
   const supabase = await createClient();
   await supabase
     .from("member_invites")
-    .update({ full_name, role, team_ids, ...readInviteBirthday(formData) })
+    .update({ full_name, role, ...readInviteBirthday(formData) })
     .eq("id", id);
   revalidatePath("/mitglieder/admin/beitritt");
   revalidatePath("/mitglieder/admin/mitglieder");
