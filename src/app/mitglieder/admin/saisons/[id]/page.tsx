@@ -25,6 +25,8 @@ import {
 } from "./ArchivKnoepfe";
 import { formatDate, formatTime } from "@/lib/format";
 import { berlinISOToLocalInput } from "@/lib/tz";
+import { SpielberichtImport } from "./SpielberichtImport";
+import { spielerBilanz, type Spielbericht } from "@/lib/spielbericht";
 import { AdminSurveyForm } from "./AdminSurveyForm";
 import {
   PageHeader,
@@ -594,6 +596,9 @@ export default async function AdminSeasonDetailPage({
                             ev.time_tbd || formatTime(ev.starts_at) === "00:00"
                               ? ""
                               : lokal.split("T")[1] ?? "";
+                          const bericht = (ev.match_stats ?? null) as
+                            | Spielbericht
+                            | null;
                           return (
                             <details
                               key={ev.id}
@@ -665,6 +670,24 @@ export default async function AdminSeasonDetailPage({
                                   </div>
                                   <Button type="submit">Speichern</Button>
                                 </form>
+                                <div className="space-y-2 border-t border-border pt-3">
+                                  {bericht?.spiele && (
+                                    <p className="text-xs text-muted">
+                                      📋 Spielbericht erfasst:{" "}
+                                      {bericht.spiele.length} Spiele · Bilanz:{" "}
+                                      {spielerBilanz(bericht)
+                                        .map(
+                                          (s) =>
+                                            `${s.name.split(",")[0]} ${s.siege}-${s.niederlagen}`,
+                                        )
+                                        .join(" · ")}
+                                    </p>
+                                  )}
+                                  <SpielberichtImport
+                                    eventId={ev.id}
+                                    seasonId={season.id}
+                                  />
+                                </div>
                                 <div className="border-t border-border pt-2">
                                   <SpieltagLoeschenKnopf
                                     id={ev.id}

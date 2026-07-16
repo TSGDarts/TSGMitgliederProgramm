@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { parseSurveyAnswers } from "@/lib/season";
 import { berlinLocalToISO } from "@/lib/tz";
+import { parseSpielbericht, spielerBilanz } from "@/lib/spielbericht";
 import type { EventRow } from "@/lib/types";
 
 export type AdminSurveyResult = { ok: boolean; message: string };
@@ -499,6 +500,54 @@ export async function updateArchivSpieltag(formData: FormData) {
     .eq("id", id);
   revalidatePath(`/mitglieder/admin/saisons/${seasonId}`);
   revalidatePath("/mitglieder/termine");
+}
+
+export type BerichtImportResult = { ok: boolean; message: string };
+
+/**
+ * nuLiga-Spielbericht (komplette Seite per Strg+A/Strg+C kopiert) für
+ * einen Spieltag auswerten: speichert alle Einzel/Doppel mit Spielern
+ * und setzt das Endergebnis automatisch (aus unserer Sicht).
+ */
+export async function importSpielbericht(
+  _prev: BerichtImportResult | null,
+  formData: FormData,
+): Promise<BerichtImportResult> {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const seasonId = String(formData.get("season_id") ?? "");
+  const text = String(formData.get("bericht") ?? "");
+  if (!id || !text.trim()) {
+    return { ok: false, message: "Bitte den kopierten Spielbericht einfügen." };
+  }
+
+  const res = parseSpielbericht(text);
+  if (!res.ok) return { ok: false, message: res.fehler };
+  const b = res.bericht;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("events")
+    .update({ match_stats: b, result: b.ergebnis })
+    .eq("id", id);
+  if (error) {
+    const hinweis = /column|schema/i.test(error.message)
+      ? "Bitte zuerst ALLE_ERWEITERUNGEN.sql im Supabase SQL-Editor ausführen."
+      : error.message;
+    return { ok: false, message: hinweis };
+  }
+
+  revalidatePath(`/mitglieder/admin/saisons/${seasonId}`);
+  const bilanz = spielerBilanz(b)
+    .map((s) => `${s.name.split(",")[0]} ${s.siege}-${s.niederlagen}`)
+    .join(" · ");
+  return {
+    ok: true,
+    message:
+      `✅ ${b.heim} – ${b.gast}: ${b.spiele.length} Spiele erkannt, ` +
+      `Endergebnis ${b.ergebnis} (unsere Sicht). Bilanz: ${bilanz}` +
+      (b.uebersprungen ? ` · ${b.uebersprungen} Zeilen übersprungen` : ""),
+  };
 }
 
 /** Spieltag löschen (z. B. doppelt importiert). */

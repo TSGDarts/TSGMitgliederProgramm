@@ -1384,3 +1384,10 @@ alter table member_invites
 
 alter table events
   add column if not exists result text not null default '';
+
+-- ============================================================
+-- 52: Spielbericht (Einzel/Doppel je Spieltag) aus nuLiga
+-- ============================================================
+
+alter table events
+  add column if not exists match_stats jsonb;
