@@ -59,7 +59,7 @@ export function LigaStatistikKacheln({
     {
       key: "finish",
       wert: statistik.besterFinish !== null ? String(statistik.besterFinish) : "–",
-      label: "Bester Finish",
+      label: "Höchstes Highfinish",
     },
     {
       key: "lowdarts",

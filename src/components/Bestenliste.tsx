@@ -51,7 +51,7 @@ const SPALTEN: {
   { key: "m180", label: "180er", wert: (s) => s.anzahl180, standard: "desc" },
   {
     key: "finish",
-    label: "Bester Finish",
+    label: "Höchstes Highfinish",
     wert: (s) => s.besterFinish,
     standard: "desc",
   },
