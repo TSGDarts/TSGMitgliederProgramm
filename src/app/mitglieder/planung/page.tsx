@@ -8,10 +8,8 @@ import { PlanungsEntwurf } from "./PlanungsEntwurf";
 import { PokalEntwurf } from "./PokalEntwurf";
 import { UebernehmenKnopf } from "./UebernehmenKnopf";
 import type { EntwurfZuordnung } from "./actions";
-import { PageHeader, Card, CardBody, Badge, EmptyState } from "@/components/ui";
+import { PageHeader, Badge, EmptyState } from "@/components/ui";
 import {
-  surveyLabel,
-  shortLabel,
   SURVEY_QUESTIONS,
   type Season,
   type SurveyResponse,
@@ -363,12 +361,6 @@ export default async function PlanungPage() {
   const wishes = entries.filter((e) => e.r?.team_wishes);
 
   const beantwortet = entries.filter((e) => e.r).length;
-  const sortiert = [...entries].sort((a, b) => {
-    if (!a.r && !b.r) return a.name.localeCompare(b.name);
-    if (!a.r) return 1;
-    if (!b.r) return -1;
-    return a.name.localeCompare(b.name);
-  });
 
   return (
     <div className="space-y-6">
@@ -568,65 +560,6 @@ export default async function PlanungPage() {
         )}
       </Einklappbar>
 
-      {/* Antworten der Saisonabfrage – nur lesen */}
-      <Einklappbar
-        id="planung-antworten"
-        title={`📊 Antworten der Saisonabfrage (${beantwortet}/${entries.length}, nur lesen)`}
-        defaultOpen={false}
-      >
-        <div className="space-y-3">
-          <p className="text-sm text-muted">
-            Zum Nachschlagen beim Planen – bearbeiten/nachtragen kann die
-            Antworten nur der Admin (unter „Saisonplanung“ in der Verwaltung).
-          </p>
-          {sortiert.map((e) => (
-            <Card key={e.key} className={e.r ? "" : "opacity-70"}>
-              <CardBody className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold">{e.name}</span>
-                  {e.r?.captain_interest === "yes" && (
-                    <Badge tone="primary">Will Kapitän!</Badge>
-                  )}
-                  {e.r?.captain_interest === "maybe" && (
-                    <Badge>Kapitän möglich</Badge>
-                  )}
-                  {e.r?.played_last_season === false && (
-                    <Badge tone="warn">Neu in der Liga</Badge>
-                  )}
-                  {!e.r && <Badge tone="warn">keine Antwort</Badge>}
-                </div>
-                {e.r && (
-                  <div className="grid gap-x-6 gap-y-1 text-sm text-muted sm:grid-cols-2">
-                    <p>
-                      <strong className="text-foreground">Einsatz:</strong>{" "}
-                      {surveyLabel("play_frequency", e.r.play_frequency)}
-                    </p>
-                    <p>
-                      <strong className="text-foreground">Ambition:</strong>{" "}
-                      {surveyLabel("ambitions", e.r.ambitions)}
-                    </p>
-                    <p>
-                      <strong className="text-foreground">Aussetzen:</strong>{" "}
-                      {surveyLabel("sit_out", e.r.sit_out)}
-                    </p>
-                    <p>
-                      <strong className="text-foreground">Pokale:</strong> KU:{" "}
-                      {shortLabel(e.r.pokal_ku)} · 8ter:{" "}
-                      {shortLabel(e.r.pokal_8er)}
-                    </p>
-                    {e.r.team_wishes && (
-                      <p className="sm:col-span-2">
-                        <strong className="text-foreground">Wünsche:</strong>{" "}
-                        {e.r.team_wishes}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </CardBody>
-            </Card>
-          ))}
-        </div>
-      </Einklappbar>
     </div>
   );
 }
