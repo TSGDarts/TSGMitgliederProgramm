@@ -13,7 +13,7 @@ import {
   Badge,
 } from "@/components/ui";
 import Link from "next/link";
-import { formatDate } from "@/lib/format";
+import { formatDate, ergebnisTone } from "@/lib/format";
 import { isCompSpiegel, EVENT_TYPE_LABELS, type EventRow } from "@/lib/types";
 import type { Season } from "@/lib/season";
 
@@ -75,11 +75,11 @@ export default async function DashboardPage({
     }
   }
 
-  /** Ergebnis-Abzeichen: grün = gewonnen, rot = verloren (unsere Sicht). */
-  const ergebnisTone = (result: string): "ok" | "danger" | "neutral" => {
-    const [a, b] = result.split(":").map(Number);
-    if (!Number.isFinite(a) || !Number.isFinite(b) || a === b) return "neutral";
-    return a > b ? "ok" : "danger";
+  /** Ergebnis mit Sieg/Niederlage/Unentschieden-Zeichen versehen. */
+  const ergebnisText = (result: string): string => {
+    const t = ergebnisTone(result);
+    const zeichen = t === "ok" ? "✅" : t === "danger" ? "❌" : "➖";
+    return `${zeichen} ${result}`;
   };
 
   return (
@@ -191,7 +191,7 @@ export default async function DashboardPage({
                           </span>
                           {(ev.result ?? "").trim() ? (
                             <Badge tone={ergebnisTone((ev.result ?? "").trim())}>
-                              🎯 {(ev.result ?? "").trim()}
+                              {ergebnisText((ev.result ?? "").trim())}
                             </Badge>
                           ) : (
                             <Badge>Ergebnis folgt</Badge>

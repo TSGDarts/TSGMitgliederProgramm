@@ -23,7 +23,7 @@ import {
   ArchivEintragLoeschenKnopf,
   SpieltagLoeschenKnopf,
 } from "./ArchivKnoepfe";
-import { formatDate, formatTime } from "@/lib/format";
+import { formatDate, formatTime, ergebnisTone } from "@/lib/format";
 import { berlinISOToLocalInput } from "@/lib/tz";
 import { SpielberichtImport } from "./SpielberichtImport";
 import { spielerBilanz, alsMatchStats } from "@/lib/spielbericht";
@@ -611,8 +611,16 @@ export default async function AdminSeasonDetailPage({
                                   {ev.title}
                                 </span>
                                 {(ev.result ?? "").trim() ? (
-                                  <Badge tone="primary">
-                                    🎯 {(ev.result ?? "").trim()}
+                                  <Badge
+                                    tone={ergebnisTone((ev.result ?? "").trim())}
+                                  >
+                                    {(() => {
+                                      const r = (ev.result ?? "").trim();
+                                      const t = ergebnisTone(r);
+                                      const zeichen =
+                                        t === "ok" ? "✅" : t === "danger" ? "❌" : "➖";
+                                      return `${zeichen} ${r}`;
+                                    })()}
                                   </Badge>
                                 ) : (
                                   <Badge>Ergebnis fehlt</Badge>

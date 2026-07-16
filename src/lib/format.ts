@@ -18,6 +18,16 @@ export function formatDate(value: string | Date): string {
   return dateFmt.format(new Date(value));
 }
 
+/**
+ * Farbe für ein Endergebnis aus unserer Sicht ("12:6"):
+ * grün = Sieg, rot = Niederlage, grau = unentschieden/unklar.
+ */
+export function ergebnisTone(result: string): "ok" | "danger" | "neutral" {
+  const [a, b] = result.split(":").map(Number);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || a === b) return "neutral";
+  return a > b ? "ok" : "danger";
+}
+
 export function formatTime(value: string | Date): string {
   return timeFmt.format(new Date(value));
 }
