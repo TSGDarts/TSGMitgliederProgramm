@@ -190,7 +190,7 @@ export async function setMemberRole(formData: FormData) {
 
 /** Admin bearbeitet die Stammdaten eines Mitglieds. */
 export async function updateMemberData(formData: FormData) {
-  await requireAdmin();
+  const me = await requireAdmin();
   const id = String(formData.get("id") ?? "");
   const full_name = String(formData.get("full_name") ?? "").trim();
   if (!id || !full_name) return;
@@ -199,6 +199,8 @@ export async function updateMemberData(formData: FormData) {
   const birthday = /^\d{4}-\d{2}-\d{2}$/.test(birthdayRaw)
     ? birthdayRaw
     : null;
+  const leftRaw = String(formData.get("left_on") ?? "");
+  const left_on = /^\d{4}-\d{2}-\d{2}$/.test(leftRaw) ? leftRaw : null;
 
   const admin = createAdminSupabase();
   await admin
@@ -211,8 +213,22 @@ export async function updateMemberData(formData: FormData) {
       birthday_congrats: formData.get("birthday_congrats") === "on",
       is_trainer: formData.get("is_trainer") === "on",
       is_planner: formData.get("is_planner") === "on",
+      left_on,
     })
     .eq("id", id);
+
+  // Austrittsdatum schon erreicht? Dann sofort deaktivieren (sonst
+  // erledigt es der tägliche Lauf am Stichtag). Sich selbst: nie.
+  const heute = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  if (left_on && left_on <= heute && id !== me.id) {
+    await admin.auth.admin.updateUserById(id, { ban_duration: "87600h" });
+    await admin.from("profiles").update({ is_active: false }).eq("id", id);
+  }
 
   revalidatePath("/mitglieder/admin/mitglieder");
 }
@@ -243,9 +259,13 @@ export async function toggleMemberActive(formData: FormData) {
     await admin.auth.admin.updateUserById(id, { ban_duration: "87600h" });
     await admin.from("profiles").update({ is_active: false }).eq("id", id);
   } else {
-    // Entsperren
+    // Entsperren / wieder aktivieren – Austrittsdatum dabei löschen,
+    // sonst würde der tägliche Lauf gleich wieder deaktivieren
     await admin.auth.admin.updateUserById(id, { ban_duration: "none" });
-    await admin.from("profiles").update({ is_active: true }).eq("id", id);
+    await admin
+      .from("profiles")
+      .update({ is_active: true, left_on: null })
+      .eq("id", id);
   }
   revalidatePath("/mitglieder/admin/mitglieder");
 }

@@ -127,6 +127,49 @@ export async function GET() {
     // secure_settings fehlt noch – dann gibt es nichts zu überwachen
   }
 
+  // Austritte vollziehen: Mitglieder mit erreichtem Austrittsdatum
+  // deaktivieren (Login sperren) – sie wandern damit automatisch zu
+  // „Ehemalige Mitglieder“. Admins werden einmalig informiert.
+  try {
+    const heute = berlinDay.format(new Date());
+    const { data: austritte } = await admin
+      .from("profiles")
+      .select("id, full_name, left_on")
+      .eq("is_active", true)
+      .not("left_on", "is", null)
+      .lte("left_on", heute);
+    for (const p of austritte ?? []) {
+      await admin.auth.admin.updateUserById(p.id as string, {
+        ban_duration: "87600h",
+      });
+      await admin
+        .from("profiles")
+        .update({ is_active: false })
+        .eq("id", p.id);
+      const { error: logError } = await admin
+        .from("notification_log")
+        .insert({ key: `austritt:${p.id}:${p.left_on}` });
+      if (!logError) {
+        const { data: adminProfile } = await admin
+          .from("profiles")
+          .select("id")
+          .eq("role", "admin")
+          .eq("is_active", true);
+        const adminIds = (adminProfile ?? []).map((x) => x.id as string);
+        if (adminIds.length) {
+          await benachrichtige(adminIds, {
+            title: `👋 Austritt vollzogen: ${p.full_name}`,
+            body: `${p.full_name} ist zum ${formatDate(p.left_on as string)} ausgetreten und wurde deaktiviert (unter „Ehemalige Mitglieder“ wieder aktivierbar).`,
+            url: "/mitglieder/admin/mitglieder",
+          });
+          verschickt++;
+        }
+      }
+    }
+  } catch {
+    // Spalte fehlt noch (ALLE_ERWEITERUNGEN nicht ausgeführt) – überspringen
+  }
+
   if (gruppen.size === 0) {
     return NextResponse.json({ kategorien: 0, verschickt });
   }

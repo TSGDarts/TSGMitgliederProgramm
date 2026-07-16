@@ -40,6 +40,7 @@ export interface Profile {
   notify_trotz_zusage?: boolean | null; // Erinnerung auch nach eigener Zusage
   notify_trotz_vielleicht?: boolean | null; // Erinnerung auch bei „Vielleicht“
   is_active: boolean;
+  left_on?: string | null; // Austrittsdatum (JJJJ-MM-TT) – ab dann deaktiviert
   created_at: string;
 }
 

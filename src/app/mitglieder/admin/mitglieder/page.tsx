@@ -28,6 +28,8 @@ export default async function AdminMembersPage() {
     .select("*")
     .order("full_name");
   const members = (data as Profile[]) ?? [];
+  const aktive = members.filter((m) => m.is_active);
+  const ehemalige = members.filter((m) => !m.is_active);
 
   // Vorab angelegte Namen, die noch auf die Selbst-Anmeldung warten
   const { data: invitesData } = await supabase
@@ -208,11 +210,11 @@ export default async function AdminMembersPage() {
         <h2 className="mb-3 text-lg font-bold">
           Mitglieder{" "}
           <span className="text-sm font-normal text-muted">
-            ({members.length})
+            ({aktive.length})
           </span>
         </h2>
         <div className="space-y-3">
-          {members.map((m) => (
+          {aktive.map((m) => (
             <Card key={m.id}>
               <CardBody className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -228,7 +230,9 @@ export default async function AdminMembersPage() {
                     {m.role === "member" && <Badge>ohne Liga</Badge>}
                     {m.is_trainer && <Badge tone="ok">💪 Trainer</Badge>}
                     {m.is_planner && <Badge tone="ok">🧠 Saisonplaner</Badge>}
-                    {!m.is_active && <Badge tone="danger">inaktiv</Badge>}
+                    {m.left_on && (
+                      <Badge tone="warn">👋 Austritt zum {m.left_on}</Badge>
+                    )}
                   </div>
                   <p className="text-sm text-muted">
                     {m.email}
@@ -317,6 +321,17 @@ export default async function AdminMembersPage() {
                         className={inputClass}
                       />
                     </Field>
+                    <Field
+                      label="Austritt zum (optional)"
+                      hint="Ab diesem Tag wird das Mitglied automatisch deaktiviert und wandert zu „Ehemalige Mitglieder“ – leer = kein Austritt"
+                    >
+                      <input
+                        name="left_on"
+                        type="date"
+                        defaultValue={m.left_on ?? ""}
+                        className={inputClass}
+                      />
+                    </Field>
                   </div>
                   <label className="flex items-center gap-2 text-sm">
                     <input
@@ -358,6 +373,50 @@ export default async function AdminMembersPage() {
           ))}
         </div>
       </section>
+
+      {/* Ehemalige / deaktivierte Mitglieder */}
+      {ehemalige.length > 0 && (
+        <details className="rounded-xl border border-border bg-surface">
+          <summary className="cursor-pointer px-5 py-4 font-semibold">
+            👋 Ehemalige Mitglieder{" "}
+            <span className="text-sm font-normal text-muted">
+              ({ehemalige.length})
+            </span>
+          </summary>
+          <div className="space-y-3 border-t border-border p-5">
+            <p className="text-sm text-muted">
+              Deaktivierte Zugänge – kein Login, keine Benachrichtigungen,
+              tauchen nirgends mehr auf. Mit „Entsperren“ jederzeit wieder
+              aktivierbar (das Austrittsdatum wird dabei gelöscht).
+            </p>
+            {ehemalige.map((m) => (
+              <Card key={m.id} className="opacity-80">
+                <CardBody className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">
+                        {m.full_name || "(ohne Namen)"}
+                      </span>
+                      {m.left_on ? (
+                        <Badge tone="warn">ausgetreten zum {m.left_on}</Badge>
+                      ) : (
+                        <Badge tone="danger">gesperrt</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted">{m.email}</p>
+                  </div>
+                  <MemberActionButtons
+                    id={m.id}
+                    name={m.full_name || m.email || "Mitglied"}
+                    isActive={m.is_active}
+                    isSelf={m.id === me.id}
+                  />
+                </CardBody>
+              </Card>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }

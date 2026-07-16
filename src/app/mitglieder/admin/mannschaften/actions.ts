@@ -200,19 +200,33 @@ export async function importNuligaIcal(
   const url = String(formData.get("ical_url") ?? "")
     .trim()
     .replace(/^webcal:\/\//i, "https://");
-  if (!team_id || !url) {
-    return { ok: false, message: "Keine iCal-Adresse hinterlegt." };
+  // Alternativ: heruntergeladene .ics-Datei hochladen
+  const datei = formData.get("ical_file");
+  const hatDatei = datei instanceof File && datei.size > 0;
+  if (!team_id || (!url && !hatDatei)) {
+    return {
+      ok: false,
+      message: "Bitte eine iCal-Adresse eintragen oder eine .ics-Datei wählen.",
+    };
   }
 
   let text: string;
-  try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) {
-      return { ok: false, message: `nuLiga antwortete mit Status ${res.status}.` };
+  if (hatDatei) {
+    try {
+      text = await (datei as File).text();
+    } catch {
+      return { ok: false, message: "Die Datei konnte nicht gelesen werden." };
     }
-    text = await res.text();
-  } catch {
-    return { ok: false, message: "iCal-Feed konnte nicht geladen werden." };
+  } else {
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        return { ok: false, message: `nuLiga antwortete mit Status ${res.status}.` };
+      }
+      text = await res.text();
+    } catch {
+      return { ok: false, message: "iCal-Feed konnte nicht geladen werden." };
+    }
   }
 
   const events = parseIcal(text);

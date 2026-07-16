@@ -1363,3 +1363,10 @@ set notify_erinnerungen =
 where notify_erinnerungen = '{}'::jsonb
    or notify_erinnerungen = '{"turniere": [7]}'::jsonb
    or notify_erinnerungen = '{"punktspiele":[7,3],"pokal":[7,3],"freundschaft":[7,3],"training":[7,3],"verein":[7,3],"turniere":[7,3]}'::jsonb;
+
+-- ============================================================
+-- 49: Mitglieder-Austritt (Austrittsdatum, automatische Deaktivierung)
+-- ============================================================
+
+alter table profiles
+  add column if not exists left_on date;

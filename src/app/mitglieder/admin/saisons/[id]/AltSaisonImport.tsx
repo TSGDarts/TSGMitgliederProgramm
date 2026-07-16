@@ -32,10 +32,20 @@ export function AltSaisonImport({
         <input
           name="ical_url"
           type="url"
-          required
           placeholder="webcal://… oder https://… (Link hinter „Zu Kalender hinzufügen“)"
           className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
         />
+        <label className="flex cursor-pointer items-center gap-1 text-sm text-muted">
+          <span className="rounded-lg border border-border px-2 py-1.5 hover:bg-border/40">
+            📎 .ics-Datei
+          </span>
+          <input
+            name="ical_file"
+            type="file"
+            accept=".ics,text/calendar"
+            className="max-w-40 text-xs"
+          />
+        </label>
         <Button type="submit" variant="secondary" disabled={pending}>
           {pending ? "Importiere …" : "Importieren"}
         </Button>
