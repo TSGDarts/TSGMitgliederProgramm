@@ -11,6 +11,7 @@ import {
 } from "../actions";
 import { AltSaisonImport } from "./AltSaisonImport";
 import { ArchivKaderFeld } from "./ArchivKaderFeld";
+import { Einklappbar } from "@/components/Einklappbar";
 import { formatHomeMatch } from "@/lib/extras";
 import { PokalPlanner } from "./PokalPlanner";
 import { TeamPlanner } from "./TeamPlanner";
@@ -364,34 +365,37 @@ export default async function AdminSeasonDetailPage({
             <EmptyState title="Keine archivierten Teams vorhanden" />
           ) : (
             archive.map((t) => (
-              <Card key={t.id}>
-                <CardBody className="space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <span className="font-semibold">{t.team_name}</span>
+              <Einklappbar
+                key={t.id}
+                id={`archiv-team-${t.id}`}
+                title={
+                  <span className="flex min-w-0 flex-wrap items-center justify-between gap-2 pr-2">
+                    <span>
+                      {t.team_name}
                       {t.league && (
-                        <span className="ml-2 text-sm text-muted">
+                        <span className="ml-2 text-sm font-normal text-muted">
                           {t.league}
                         </span>
                       )}
-                    </div>
-                    <div className="flex items-center gap-3 text-sm text-muted">
-                      <span>
-                        {t.stats.termine ?? 0} Termine · {t.stats.zusagen ?? 0}{" "}
-                        Zusagen · {t.stats.absagen ?? 0} Absagen
-                      </span>
-                      {t.stats.nuliga_url && (
-                        <a
-                          href={t.stats.nuliga_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          nuLiga ↗
-                        </a>
-                      )}
-                    </div>
-                  </div>
+                    </span>
+                    <span className="text-sm font-normal text-muted">
+                      {t.stats.termine ?? 0} Termine · {t.stats.zusagen ?? 0}{" "}
+                      Zusagen · {t.stats.absagen ?? 0} Absagen
+                    </span>
+                  </span>
+                }
+              >
+                <div className="space-y-3">
+                  {t.stats.nuliga_url && (
+                    <a
+                      href={t.stats.nuliga_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-block text-sm text-primary hover:underline"
+                    >
+                      Tabelle & Spielplan von damals auf nuLiga ↗
+                    </a>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {t.roster.map((r, i) => (
                       <span
@@ -519,8 +523,8 @@ export default async function AdminSeasonDetailPage({
                       </div>
                     </div>
                   </details>
-                </CardBody>
-              </Card>
+                </div>
+              </Einklappbar>
             ))
           )}
 
