@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { LigaStatistik, StatistikEintrag } from "@/lib/statistik";
+import type {
+  LigaStatistik,
+  SaisonStatistik,
+  StatistikEintrag,
+} from "@/lib/statistik";
 
 // Liga-Statistik im Profil: Kacheln anklicken zeigt die Einzelnachweise
 // (welcher Spieltag, gegen wen, Ergebnis) – Klick auf einen Eintrag führt
@@ -21,8 +25,14 @@ const TONE_KLASSE: Record<StatistikEintrag["tone"], string> = {
   neutral: "text-muted",
 };
 
-export function LigaStatistikKacheln({ statistik }: { statistik: LigaStatistik }) {
+export function LigaStatistikKacheln({
+  saisons,
+}: {
+  saisons: SaisonStatistik[];
+}) {
   const [auswahl, setAuswahl] = useState<string | null>(null);
+  const [saisonIndex, setSaisonIndex] = useState(0);
+  const statistik = saisons[saisonIndex]?.statistik ?? saisons[0].statistik;
 
   const kacheln: {
     key: keyof LigaStatistik["details"];
@@ -67,6 +77,24 @@ export function LigaStatistikKacheln({ statistik }: { statistik: LigaStatistik }
 
   return (
     <div className="space-y-3">
+      {saisons.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {saisons.map((s, i) => (
+            <button
+              key={s.label}
+              type="button"
+              onClick={() => setSaisonIndex(i)}
+              className={`rounded-full px-3 py-1 text-sm font-medium ${
+                saisonIndex === i
+                  ? "bg-primary text-primary-fg"
+                  : "border border-border text-muted hover:text-foreground"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {kacheln.map((k) => (
           <button

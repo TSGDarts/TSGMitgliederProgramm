@@ -40,9 +40,16 @@ export interface LigaStatistik {
   };
 }
 
-export async function sammleLigaStatistik(
-  fullName: string,
-): Promise<LigaStatistik> {
+type EventZeile = {
+  id: string;
+  title: string;
+  starts_at: string;
+  result: string | null;
+  match_stats: unknown;
+};
+
+/** Statistik + Einzelnachweise aus einer Menge von Spieltagen berechnen. */
+function aggregiere(rows: EventZeile[], ich: string): LigaStatistik {
   const stat: LigaStatistik = {
     spieltage: 0,
     einzelSiege: 0,
@@ -64,16 +71,9 @@ export async function sammleLigaStatistik(
       lowdarts: [],
     },
   };
-  const ich = normalisiereName(fullName);
   if (!ich) return stat;
 
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("events")
-    .select("id, title, starts_at, result, match_stats")
-    .not("match_stats", "is", null);
-
-  for (const row of data ?? []) {
+  for (const row of rows) {
     const stats = alsMatchStats(row.match_stats);
     const bericht: Spielbericht | undefined = stats?.nuliga;
     if (!bericht?.spiele) continue;
@@ -173,4 +173,49 @@ export async function sammleLigaStatistik(
     liste.sort(nachDatum);
   }
   return stat;
+}
+
+export interface SaisonStatistik {
+  label: string; // "Gesamt" oder Saison-Name
+  statistik: LigaStatistik;
+}
+
+/**
+ * Liga-Statistik eines Mitglieds: „Gesamt“ plus je Saison (nur Saisons,
+ * in denen die Person auch gespielt hat). Zuordnung über den
+ * Saison-Zeitraum (starts_on/ends_on).
+ */
+export async function sammleLigaStatistikSaisons(
+  fullName: string,
+): Promise<SaisonStatistik[]> {
+  const ich = normalisiereName(fullName);
+  const supabase = await createClient();
+  const [{ data: eventData }, { data: saisonData }] = await Promise.all([
+    supabase
+      .from("events")
+      .select("id, title, starts_at, result, match_stats")
+      .not("match_stats", "is", null),
+    supabase
+      .from("seasons")
+      .select("name, starts_on, ends_on")
+      .order("created_at", { ascending: false }),
+  ]);
+  const rows = (eventData as EventZeile[]) ?? [];
+
+  const ergebnis: SaisonStatistik[] = [
+    { label: "Gesamt", statistik: aggregiere(rows, ich) },
+  ];
+  for (const s of saisonData ?? []) {
+    const inSaison = rows.filter((r) => {
+      const tag = r.starts_at.slice(0, 10);
+      if (s.starts_on && tag < (s.starts_on as string)) return false;
+      if (s.ends_on && tag > (s.ends_on as string)) return false;
+      return true;
+    });
+    const statistik = aggregiere(inSaison, ich);
+    if (statistik.spieltage > 0) {
+      ergebnis.push({ label: s.name as string, statistik });
+    }
+  }
+  return ergebnis;
 }

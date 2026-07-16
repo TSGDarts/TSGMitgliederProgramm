@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requireProfile } from "@/lib/auth";
 import { updateProfile } from "./actions";
-import { sammleLigaStatistik } from "@/lib/statistik";
+import { sammleLigaStatistikSaisons } from "@/lib/statistik";
 import { LigaStatistikKacheln } from "@/components/LigaStatistik";
 import { Einklappbar } from "@/components/Einklappbar";
 import { PushSettings } from "@/components/PushSettings";
@@ -35,7 +35,7 @@ export default async function ProfilPage({
 }) {
   const profile = await requireProfile();
   const { fehler, gespeichert } = await searchParams;
-  const statistik = await sammleLigaStatistik(profile.full_name ?? "");
+  const statistiken = await sammleLigaStatistikSaisons(profile.full_name ?? "");
 
   return (
     <div className="max-w-lg space-y-6">
@@ -212,14 +212,14 @@ export default async function ProfilPage({
       </Card>
 
       <Einklappbar id="profil-statistik" title="📊 Meine Liga-Statistik">
-        {statistik.spieltage === 0 ? (
+        {statistiken[0].statistik.spieltage === 0 ? (
           <p className="text-sm text-muted">
             Noch keine Spielberichte mit dir erfasst. Sobald der Admin die
             nuLiga-Spielberichte einspielt, zählt hier alles automatisch
             zusammen.
           </p>
         ) : (
-          <LigaStatistikKacheln statistik={statistik} />
+          <LigaStatistikKacheln saisons={statistiken} />
         )}
       </Einklappbar>
 
