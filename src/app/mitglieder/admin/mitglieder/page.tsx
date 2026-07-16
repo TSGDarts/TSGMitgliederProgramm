@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getAllTeams } from "@/lib/member-queries";
 import Link from "next/link";
 import { CreateMemberForm } from "./CreateMemberForm";
 import { RegenerateLink } from "./RegenerateLink";
@@ -23,7 +22,6 @@ export const metadata: Metadata = { title: "Mitglieder verwalten" };
 
 export default async function AdminMembersPage() {
   const me = await requireAdmin();
-  const teams = await getAllTeams();
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
@@ -48,7 +46,6 @@ export default async function AdminMembersPage() {
     is_trainer?: boolean | null;
     is_planner?: boolean | null;
   }>;
-  const teamName = (id: string) => teams.find((t) => t.id === id)?.name ?? "";
 
   return (
     <div className="space-y-8">
@@ -84,11 +81,6 @@ export default async function AdminMembersPage() {
                       {inv.is_trainer && <Badge tone="ok">💪 Trainer</Badge>}
                       {inv.is_planner && <Badge tone="ok">🧠 Saisonplaner</Badge>}
                       <Badge tone="warn">noch nicht angemeldet</Badge>
-                      {inv.team_ids?.length > 0 && (
-                        <span className="text-sm text-muted">
-                          {inv.team_ids.map(teamName).filter(Boolean).join(", ")}
-                        </span>
-                      )}
                       {inv.birthday ? (
                         <span className="text-sm text-muted">
                           🎂 {inv.birthday}

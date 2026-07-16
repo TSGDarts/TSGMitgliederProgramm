@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getAllTeams } from "@/lib/member-queries";
 import { getOrCreateJoinToken } from "@/lib/invites";
 import { siteUrl } from "@/lib/supabase/config";
 import { JoinLinkCard } from "./JoinLinkCard";
@@ -38,7 +37,6 @@ export default async function AdminBeitrittPage({
 }) {
   const { fehler } = await searchParams;
   await requireAdmin();
-  const teams = await getAllTeams();
   const token = await getOrCreateJoinToken();
   const joinUrl = `${siteUrl}/beitreten?token=${token}`;
 
@@ -50,7 +48,6 @@ export default async function AdminBeitrittPage({
     .order("full_name");
   const invites = (data as Invite[]) ?? [];
 
-  const teamName = (id: string) => teams.find((t) => t.id === id)?.name ?? "";
   const open = invites.filter((i) => !i.claimed);
   const done = invites.filter((i) => i.claimed);
 
@@ -167,11 +164,6 @@ export default async function AdminBeitrittPage({
                       )}
                       {inv.role === "member" && <Badge>ohne Liga</Badge>}
                       {inv.is_trainer && <Badge tone="ok">💪 Trainer</Badge>}
-                      {inv.team_ids?.length > 0 && (
-                        <span className="ml-2 text-sm text-muted">
-                          {inv.team_ids.map(teamName).filter(Boolean).join(", ")}
-                        </span>
-                      )}
                       {inv.birthday ? (
                         <span className="ml-2 text-sm text-muted">
                           🎂 {inv.birthday}
