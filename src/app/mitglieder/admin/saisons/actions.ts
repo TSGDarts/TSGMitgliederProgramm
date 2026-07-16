@@ -606,6 +606,43 @@ export async function importStatistik(
   };
 }
 
+/**
+ * Spieltag von Hand nachtragen – z. B. Pokalspiele (Klaus Unterberg,
+ * 8ter Cup), die an keiner Liga-Mannschaft hängen, oder fehlende
+ * Begegnungen. Ohne Mannschaft wird der Termin dem Verein zugeordnet.
+ */
+export async function addArchivSpieltag(formData: FormData) {
+  await requireAdmin();
+  const seasonId = String(formData.get("season_id") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  const datum = String(formData.get("datum") ?? "");
+  if (!seasonId || !title || !/^\d{4}-\d{2}-\d{2}$/.test(datum)) return;
+  const teamId = String(formData.get("team_id") ?? "");
+  const typeRaw = String(formData.get("type") ?? "pokal");
+  const type = ["match", "pokal", "friendly"].includes(typeRaw)
+    ? typeRaw
+    : "pokal";
+  const zeit = String(formData.get("zeit") ?? "").trim();
+  const starts_at =
+    berlinLocalToISO(`${datum}T${/^\d{2}:\d{2}$/.test(zeit) ? zeit : "00:00"}`) ??
+    `${datum}T00:00:00Z`;
+
+  const supabase = await createClient();
+  await supabase.from("events").insert({
+    team_id: teamId || null,
+    title,
+    type,
+    starts_at,
+    time_tbd: !/^\d{2}:\d{2}$/.test(zeit),
+    result: String(formData.get("result") ?? "").trim(),
+    is_public: true,
+    source: "manual",
+    feed_export: false,
+  });
+  revalidatePath(`/mitglieder/admin/saisons/${seasonId}`);
+  revalidatePath("/mitglieder/termine");
+}
+
 /** Spieltag löschen (z. B. doppelt importiert). */
 export async function deleteArchivSpieltag(formData: FormData) {
   await requireAdmin();

@@ -9,6 +9,7 @@ import {
   addArchivTeam,
   refreshArchivStatistik,
   updateArchivSpieltag,
+  addArchivSpieltag,
 } from "../actions";
 import { AltSaisonImport } from "./AltSaisonImport";
 import { ArchivKaderFeld } from "./ArchivKaderFeld";
@@ -232,13 +233,13 @@ export default async function AdminSeasonDetailPage({
   }
 
   // Spieltage im Saison-Zeitraum (für die Archiv-Ansicht: ansehen,
-  // Ergebnis eintragen, korrigieren, löschen)
+  // Ergebnis eintragen, korrigieren, löschen). Auch vereinsweite
+  // Pokalspiele (ohne Mannschaft) – z. B. Klaus Unterberg / 8ter Cup.
   let spieltage: EventRow[] = [];
   if (season.status === "archived") {
     let q = supabase
       .from("events")
       .select("*")
-      .not("team_id", "is", null)
       .in("type", ["match", "pokal", "friendly"])
       .order("starts_at");
     if (season.starts_on) q = q.gte("starts_at", season.starts_on);
@@ -247,9 +248,10 @@ export default async function AdminSeasonDetailPage({
   }
   const spieltageJeTeam = new Map<string, EventRow[]>();
   for (const ev of spieltage) {
-    const list = spieltageJeTeam.get(ev.team_id!) ?? [];
+    const key = ev.team_id ?? "verein";
+    const list = spieltageJeTeam.get(key) ?? [];
     list.push(ev);
-    spieltageJeTeam.set(ev.team_id!, list);
+    spieltageJeTeam.set(key, list);
   }
 
   // Alle angelegten Namen für die Kader-Auswahl beim Bearbeiten von
@@ -573,7 +575,10 @@ export default async function AdminSeasonDetailPage({
                   Spielerstatistik. Die Spieltage sind normale Termine und
                   stehen auch im Kalender (zurückblättern).
                 </p>
-                {teams.map((team) => {
+                {[
+                  ...teams.map((t) => ({ id: t.id, name: t.name })),
+                  { id: "verein", name: "🏆 Pokal & Vereins-Spiele" },
+                ].map((team) => {
                   const liste = spieltageJeTeam.get(team.id) ?? [];
                   if (liste.length === 0) return null;
                   const runden = teileInRunden(liste);
@@ -765,6 +770,67 @@ export default async function AdminSeasonDetailPage({
                 </p>
               </form>
             </div>
+          </details>
+
+          {/* Spieltag von Hand nachtragen (z. B. Pokalspiele) */}
+          <details className="rounded-xl border border-border bg-surface">
+            <summary className="cursor-pointer px-5 py-4 font-semibold">
+              ➕ Spieltag von Hand nachtragen (z. B. Pokal)
+            </summary>
+            <form
+              action={addArchivSpieltag}
+              className="space-y-3 border-t border-border p-5"
+            >
+              <input type="hidden" name="season_id" value={season.id} />
+              <p className="text-sm text-muted">
+                Für Spiele, die nicht aus nuLiga kommen – vor allem die
+                Pokalspiele (Klaus Unterberg Pokal, 8ter Cup). Ohne
+                Mannschaft landet das Spiel unter „🏆 Pokal &
+                Vereins-Spiele“.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Zuordnung">
+                  <select name="team_id" className={inputClass} defaultValue="">
+                    <option value="">🏆 Verein (Pokal)</option>
+                    {teams.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Art">
+                  <select name="type" className={inputClass} defaultValue="pokal">
+                    <option value="pokal">Pokalspiel</option>
+                    <option value="match">Punktspiel</option>
+                    <option value="friendly">Freundschaftsspiel</option>
+                  </select>
+                </Field>
+              </div>
+              <Field
+                label="Titel / Begegnung"
+                hint="z. B. „KU-Pokal Runde 1: TSG 08 Roth vs DC Ansbach“"
+              >
+                <input name="title" required className={inputClass} />
+              </Field>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                <Field label="Datum">
+                  <input
+                    name="datum"
+                    type="date"
+                    required
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Uhrzeit (optional)">
+                  <input name="zeit" type="time" className={inputClass} />
+                </Field>
+                <Field label="Endergebnis" hint="z. B. 4:2 (aus unserer Sicht)">
+                  <input name="result" placeholder="4:2" className={inputClass} />
+                </Field>
+              </div>
+              <Button type="submit">Spieltag anlegen</Button>
+            </form>
           </details>
 
           {/* Team nachtragen */}

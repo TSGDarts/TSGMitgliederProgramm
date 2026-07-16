@@ -84,7 +84,6 @@ export default async function DashboardPage({
     let q = supabase
       .from("events")
       .select("*")
-      .not("team_id", "is", null)
       .in("type", ["match", "pokal", "friendly"])
       .lte("starts_at", new Date().toISOString())
       .order("starts_at", { ascending: false });
@@ -96,9 +95,10 @@ export default async function DashboardPage({
     }
     const { data: ergData } = await q;
     for (const ev of ((ergData as EventRow[]) ?? [])) {
-      const list = ergebnisseJeTeam.get(ev.team_id!) ?? [];
+      const key = ev.team_id ?? "verein";
+      const list = ergebnisseJeTeam.get(key) ?? [];
       list.push(ev);
-      ergebnisseJeTeam.set(ev.team_id!, list);
+      ergebnisseJeTeam.set(key, list);
     }
 
     // Bei archivierten Saisons: damalige Liga aus dem Archiv anzeigen
@@ -206,8 +206,20 @@ export default async function DashboardPage({
           {teams.length === 0 ? (
             <EmptyState title="Noch keine Mannschaften angelegt" />
           ) : (
-            teams.map((t) => {
+            [
+              ...teams.map((t) => ({
+                id: t.id,
+                name: t.name,
+                league: t.league,
+              })),
+              {
+                id: "verein",
+                name: "🏆 Pokal & Vereins-Spiele",
+                league: null as string | null,
+              },
+            ].map((t) => {
               const liste = ergebnisseJeTeam.get(t.id) ?? [];
+              if (t.id === "verein" && liste.length === 0) return null;
               const liga = archivLiga.get(t.name) || t.league;
               const runden = teileInRunden(liste);
               const gruppen = [
