@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 type Item = { href: string; label: string; external?: boolean };
 
@@ -22,11 +22,13 @@ export function MobileMenu({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const search = useSearchParams();
+  const suchtext = search.toString();
 
-  // Beim Seitenwechsel automatisch schließen
+  // Beim Seitenwechsel automatisch schließen (auch bei ?-Wechsel)
   useEffect(() => {
     setOpen(false);
-  }, [pathname]);
+  }, [pathname, suchtext]);
 
   // Hintergrund nicht mitscrollen lassen, solange das Menü offen ist
   useEffect(() => {
@@ -36,10 +38,21 @@ export function MobileMenu({
     };
   }, [open]);
 
-  const isActive = (href: string) =>
-    href === "/mitglieder"
-      ? pathname === "/mitglieder"
-      : pathname === href || pathname.startsWith(href + "/");
+  // Aktiv-Erkennung – auch für Einträge mit ?-Parametern (z. B. Ergebnisse)
+  const isActive = (href: string) => {
+    const [pfad, query] = href.split("?");
+    if (query) {
+      if (pathname !== pfad) return false;
+      for (const [k, v] of new URLSearchParams(query)) {
+        if (search.get(k) !== v) return false;
+      }
+      return true;
+    }
+    if (pfad === "/mitglieder") {
+      return pathname === "/mitglieder" && !search.get("ansicht");
+    }
+    return pathname === pfad || pathname.startsWith(pfad + "/");
+  };
 
   const link = (item: Item) =>
     item.external ? (

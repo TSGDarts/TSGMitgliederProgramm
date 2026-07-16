@@ -1,13 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 type Item = { href: string; label: string; external?: boolean };
 
-function isActive(pathname: string, href: string) {
-  if (href === "/mitglieder") return pathname === "/mitglieder";
-  return pathname === href || pathname.startsWith(href + "/");
+/** Aktiv-Erkennung – auch für Einträge mit ?-Parametern (z. B. Ergebnisse). */
+function istAktiv(
+  pathname: string,
+  search: URLSearchParams,
+  href: string,
+): boolean {
+  const [pfad, query] = href.split("?");
+  if (query) {
+    if (pathname !== pfad) return false;
+    for (const [k, v] of new URLSearchParams(query)) {
+      if (search.get(k) !== v) return false;
+    }
+    return true;
+  }
+  if (pfad === "/mitglieder") {
+    return pathname === "/mitglieder" && !search.get("ansicht");
+  }
+  return pathname === pfad || pathname.startsWith(pfad + "/");
 }
 
 export function MemberNav({
@@ -18,6 +33,7 @@ export function MemberNav({
   adminItems?: Item[];
 }) {
   const pathname = usePathname();
+  const search = useSearchParams();
 
   const link = (item: Item) =>
     item.external ? (
@@ -35,7 +51,7 @@ export function MemberNav({
         key={item.href}
         href={item.href}
         className={`block whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${
-          isActive(pathname, item.href)
+          istAktiv(pathname, search, item.href)
             ? "bg-primary text-primary-fg"
             : "text-muted hover:bg-border/40 hover:text-foreground"
         }`}
