@@ -222,6 +222,9 @@ export default async function PlanungPage() {
     freq: e.r?.play_frequency ?? "",
     captain: e.r?.captain_interest ?? "",
     wishes: e.r?.team_wishes ?? "",
+    ambition: e.r?.ambitions ?? "",
+    sitOut: e.r?.sit_out ?? "",
+    beantwortet: !!e.r,
   }));
 
   const eigenerPlan = plaene.find((p) => p.owner_id === profile.id) ?? null;

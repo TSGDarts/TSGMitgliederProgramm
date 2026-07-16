@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import { Badge } from "@/components/ui";
+import { shortLabel } from "@/lib/season";
 import { speicherEntwurf, type EntwurfZuordnung } from "./actions";
 
 // Eigener Planungs-Entwurf: gleiche Bedienung wie die Admin-Planung
@@ -15,6 +16,9 @@ export type PlanPerson = {
   freq: string;
   captain: string;
   wishes: string;
+  ambition: string;
+  sitOut: string;
+  beantwortet: boolean;
 };
 
 type DragData = { key: string; from: string | null };
@@ -66,6 +70,7 @@ export function PlanungsEntwurf({
 }) {
   const [assign, setAssign] = useState<EntwurfZuordnung[]>(initialAssign);
   const [notes, setNotes] = useState(initialNotes);
+  const [zeigeAntworten, setZeigeAntworten] = useState(true);
   const [status, setStatus] = useState<"" | "speichert" | "ok" | "fehler">("");
   const [fehlerText, setFehlerText] = useState("");
   const [overZone, setOverZone] = useState<string | null>(null);
@@ -185,34 +190,57 @@ export function PlanungsEntwurf({
       <div
         draggable
         onDragStart={(e) => dragStart(e, { key: p.key, from: null })}
-        className="flex cursor-grab flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-1 text-sm hover:bg-border/30 active:cursor-grabbing"
+        className="cursor-grab rounded-lg px-2 py-1 text-sm hover:bg-border/30 active:cursor-grabbing"
       >
-        <span title={personTitle(p)} className="min-w-0">
-          <span className="mr-1 text-muted">⠿</span>
-          {p.name} <span className="text-muted">{freqMark(p.freq)}</span>
-          {p.captain === "yes" && <Badge tone="primary">C!</Badge>}
-          {p.captain === "maybe" && <Badge>C?</Badge>}
-          {p.wishes && (
-            <span className="ml-1 text-xs text-muted" title={`Wunsch: ${p.wishes}`}>
-              💬
-            </span>
-          )}
-          {note && <span className="ml-1 text-xs text-muted">({note})</span>}
-        </span>
-        <span className="flex flex-wrap gap-1">
-          {teams.map((t, i) =>
-            hideTeams?.has(t.id) ? null : (
-              <button
-                key={t.id}
-                onClick={() => add(p.key, t.id)}
-                className="rounded-lg border border-border px-2 py-0.5 hover:bg-border/40"
-                title={`Zu ${t.name}`}
-              >
-                +{i + 1}
-              </button>
-            ),
-          )}
-        </span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span title={personTitle(p)} className="min-w-0">
+            <span className="mr-1 text-muted">⠿</span>
+            {p.name} <span className="text-muted">{freqMark(p.freq)}</span>
+            {p.captain === "yes" && <Badge tone="primary">C!</Badge>}
+            {p.captain === "maybe" && <Badge>C?</Badge>}
+            {p.wishes && (
+              <span className="ml-1 text-xs text-muted" title={`Wunsch: ${p.wishes}`}>
+                💬
+              </span>
+            )}
+            {note && <span className="ml-1 text-xs text-muted">({note})</span>}
+          </span>
+          <span className="flex flex-wrap gap-1">
+            {teams.map((t, i) =>
+              hideTeams?.has(t.id) ? null : (
+                <button
+                  key={t.id}
+                  onClick={() => add(p.key, t.id)}
+                  className="rounded-lg border border-border px-2 py-0.5 hover:bg-border/40"
+                  title={`Zu ${t.name}`}
+                >
+                  +{i + 1}
+                </button>
+              ),
+            )}
+          </span>
+        </div>
+        {zeigeAntworten && (
+          <p className="ml-4 text-xs text-muted">
+            {p.beantwortet ? (
+              <>
+                Einsatz: <strong>{shortLabel(p.freq)}</strong> · Ambition:{" "}
+                <strong>{shortLabel(p.ambition)}</strong> · Aussetzen:{" "}
+                <strong>{shortLabel(p.sitOut)}</strong>
+                {p.captain === "yes" && " · Will Kapitän!"}
+                {p.captain === "maybe" && " · Kapitän möglich"}
+                {p.wishes && (
+                  <>
+                    {" "}
+                    · 💬 <em>{p.wishes}</em>
+                  </>
+                )}
+              </>
+            ) : (
+              "❔ Keine Antwort zur Saisonabfrage"
+            )}
+          </p>
+        )}
       </div>
     );
   }
@@ -231,6 +259,21 @@ export function PlanungsEntwurf({
           {status === "ok" && <span className="text-ok">✓ gespeichert</span>}
           {status === "fehler" && <span className="text-danger">⚠️ {fehlerText}</span>}
         </span>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-border/20 px-3 py-2 text-xs text-muted">
+        <span>
+          Kürzel: ✓ jedes Spiel · ~ wenn möglich · • nach Bedarf · ✗ nur
+          Backup · ? keine Antwort · C!/C? Kapitäns-Interesse
+        </span>
+        <label className="flex items-center gap-1.5 text-xs">
+          <input
+            type="checkbox"
+            checked={zeigeAntworten}
+            onChange={(e) => setZeigeAntworten(e.target.checked)}
+          />
+          📊 Antworten unter den Namen anzeigen
+        </label>
       </div>
 
       {/* Team-Boxen (Ablagezonen) */}
