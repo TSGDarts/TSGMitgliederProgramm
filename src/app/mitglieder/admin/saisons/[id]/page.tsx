@@ -153,16 +153,28 @@ export default async function AdminSeasonDetailPage({
   }
 
   // Pokal-Kader dieser Saison
-  const { data: squadData } = await supabase
-    .from("pokal_squads")
-    .select("id, kind, team_no, profile_id, invite_id")
-    .eq("season_id", id);
+  // is_captain gibt es erst nach Skript 46 – Ersatz-Abfrage für alte DBs
+  let squadData: unknown = (
+    await supabase
+      .from("pokal_squads")
+      .select("id, kind, team_no, profile_id, invite_id, is_captain")
+      .eq("season_id", id)
+  ).data;
+  if (!squadData) {
+    squadData = (
+      await supabase
+        .from("pokal_squads")
+        .select("id, kind, team_no, profile_id, invite_id")
+        .eq("season_id", id)
+    ).data;
+  }
   const squads = (squadData ?? []) as Array<{
     id: string;
     kind: string;
     team_no: number;
     profile_id: string | null;
     invite_id: string | null;
+    is_captain?: boolean | null;
   }>;
 
   // Team-Zuordnungen der registrierten Mitglieder (inkl. Kapitäns-Rollen)
@@ -555,7 +567,8 @@ export default async function AdminSeasonDetailPage({
             <p className="text-sm text-muted">
               Stelle pro Pokal die Anzahl der Mannschaften ein (−/+) und
               übernimm die Leute aus den aufklappbaren Listen – ✓ = Ja,
-              ~ = wenn nötig, ? = keine Antwort.
+              ~ = wenn nötig, ? = keine Antwort. Klick auf die 👑 am Chip
+              ernennt den Pokal-Kapitän des Teams (nochmal = weg).
             </p>
             <div className="grid gap-4 lg:grid-cols-2">
               {POKALS.map((pokal) => (
@@ -582,6 +595,7 @@ export default async function AdminSeasonDetailPage({
                       id: s.id,
                       teamNo: s.team_no,
                       key: s.profile_id ? `p:${s.profile_id}` : `i:${s.invite_id}`,
+                      captain: s.is_captain ?? false,
                     }))}
                 />
               ))}

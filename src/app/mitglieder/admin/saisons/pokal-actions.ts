@@ -70,11 +70,50 @@ export async function movePokalRowAction(
   if (!rowId) return { ok: false, message: "Kein Eintrag angegeben." };
 
   const supabase = await createClient();
+  // Beim Team-Wechsel die Kapitäns-Rolle ablegen (gilt je Pokal-Team)
   const { error } = await supabase
     .from("pokal_squads")
-    .update({ team_no })
+    .update({ team_no, is_captain: false })
     .eq("id", rowId);
   if (error) return { ok: false, message: error.message };
+  return { ok: true };
+}
+
+/** Pokal-Kapitän setzen/entfernen – höchstens einer je Pokal-Team. */
+export async function setPokalCaptainAction(
+  rowId: string,
+  captain: boolean,
+): Promise<{ ok: boolean; message?: string }> {
+  await requireAdmin();
+  if (!rowId) return { ok: false, message: "Kein Eintrag angegeben." };
+
+  const supabase = await createClient();
+  const { data: row } = await supabase
+    .from("pokal_squads")
+    .select("season_id, kind, team_no")
+    .eq("id", rowId)
+    .maybeSingle();
+  if (!row) return { ok: false, message: "Eintrag nicht gefunden." };
+
+  if (captain) {
+    // Bisherigen Kapitän dieses Pokal-Teams ablösen
+    await supabase
+      .from("pokal_squads")
+      .update({ is_captain: false })
+      .eq("season_id", row.season_id)
+      .eq("kind", row.kind)
+      .eq("team_no", row.team_no);
+  }
+  const { error } = await supabase
+    .from("pokal_squads")
+    .update({ is_captain: captain })
+    .eq("id", rowId);
+  if (error) {
+    const text = /column|schema/i.test(error.message)
+      ? "Bitte zuerst ALLE_ERWEITERUNGEN.sql im Supabase SQL-Editor ausführen."
+      : error.message;
+    return { ok: false, message: text };
+  }
   return { ok: true };
 }
 

@@ -1386,3 +1386,10 @@ create table if not exists season_plans (
   unique (season_id, owner_id)
 );
 alter table season_plans enable row level security;
+
+-- ============================================================
+-- 46: Pokal-Kapitän je Pokal-Team
+-- ============================================================
+
+alter table pokal_squads
+  add column if not exists is_captain boolean not null default false;

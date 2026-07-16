@@ -197,7 +197,9 @@ export async function archiveSeason(formData: FormData) {
   // Pokal-Kader ebenfalls ins Archiv übernehmen (je Team ein Eintrag)
   const { data: squadRows } = await supabase
     .from("pokal_squads")
-    .select("kind, team_no, profiles(full_name), member_invites(full_name)")
+    .select(
+      "kind, team_no, is_captain, profiles(full_name), member_invites(full_name)",
+    )
     .eq("season_id", id);
   const pokalNames: Record<string, string> = {
     ku: "Klaus Unterberg Pokal (4er)",
@@ -216,7 +218,7 @@ export async function archiveSeason(formData: FormData) {
           const i = r.member_invites as unknown as { full_name: string } | null;
           return {
             name: p?.full_name || i?.full_name || "?",
-            captain: false,
+            captain: (r.is_captain as boolean | null) ?? false,
             vice: false,
           };
         });

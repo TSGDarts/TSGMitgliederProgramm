@@ -8,10 +8,16 @@ import {
   removePokalAction,
   movePokalRowAction,
   setPokalTeamsAction,
+  setPokalCaptainAction,
 } from "../pokal-actions";
 
 export type PokalPerson = { key: string; name: string; answer: string };
-export type SquadItem = { id: string; teamNo: number; key: string };
+export type SquadItem = {
+  id: string;
+  teamNo: number;
+  key: string;
+  captain: boolean;
+};
 
 type DragData = { key: string; itemId: string | null; from: number | null };
 
@@ -71,12 +77,23 @@ export function PokalPlanner({
   const assigned = new Set(squad.map((s) => s.key));
   const open = persons.filter((p) => !assigned.has(p.key));
   const groups = [
-    { label: "Ja", items: open.filter((p) => p.answer === "yes"), openByDefault: true },
-    { label: "Wenn nötig", items: open.filter((p) => p.answer === "if_needed"), openByDefault: false },
+    {
+      label: "Ja",
+      items: open.filter((p) => p.answer === "yes"),
+      openByDefault: true,
+      alleKnopf: true,
+    },
+    {
+      label: "Wenn nötig",
+      items: open.filter((p) => p.answer === "if_needed"),
+      openByDefault: false,
+      alleKnopf: true,
+    },
     {
       label: "Weitere (Nein / Sonstiges / keine Antwort)",
       items: open.filter((p) => p.answer !== "yes" && p.answer !== "if_needed"),
       openByDefault: false,
+      alleKnopf: false,
     },
   ];
 
@@ -89,7 +106,12 @@ export function PokalPlanner({
     if (keys.length === 0) return;
     setError("");
     const stamp = Date.now();
-    const temp = keys.map((k) => ({ id: `tmp-${k}-${stamp}`, teamNo, key: k }));
+    const temp = keys.map((k) => ({
+      id: `tmp-${k}-${stamp}`,
+      teamNo,
+      key: k,
+      captain: false,
+    }));
     setSquad((s) => [...s, ...temp]); // sofort anzeigen
     startTransition(async () => {
       const res = await addPokalManyAction(seasonId, kind, teamNo, keys);
@@ -118,10 +140,33 @@ export function PokalPlanner({
     if (itemId.startsWith("tmp-")) return; // erst speichern lassen
     setError("");
     setSquad((s) =>
-      s.map((x) => (x.id === itemId ? { ...x, teamNo: toNo } : x)),
+      s.map((x) =>
+        x.id === itemId ? { ...x, teamNo: toNo, captain: false } : x,
+      ),
     );
     startTransition(async () => {
       const res = await movePokalRowAction(itemId, toNo);
+      if (!res.ok) return fail(res.message);
+    });
+  }
+
+  /** Pokal-Kapitän an-/abwählen (höchstens einer je Pokal-Team). */
+  function toggleCaptain(item: SquadItem) {
+    if (item.id.startsWith("tmp-")) return; // erst speichern lassen
+    const next = !item.captain;
+    setError("");
+    setSquad((s) =>
+      s.map((x) => {
+        if (x.id === item.id) return { ...x, captain: next };
+        // Bisherigen Kapitän desselben Teams ablösen
+        if (next && x.teamNo === item.teamNo && x.captain) {
+          return { ...x, captain: false };
+        }
+        return x;
+      }),
+    );
+    startTransition(async () => {
+      const res = await setPokalCaptainAction(item.id, next);
       if (!res.ok) return fail(res.message);
     });
   }
@@ -231,7 +276,16 @@ export function PokalPlanner({
                   </p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {items.map((item) => {
+                    {items
+                      .slice()
+                      .sort(
+                        (x, y) =>
+                          Number(y.captain) - Number(x.captain) ||
+                          (nameByKey.get(x.key)?.name ?? "").localeCompare(
+                            nameByKey.get(y.key)?.name ?? "",
+                          ),
+                      )
+                      .map((item) => {
                       const p = nameByKey.get(item.key);
                       const pendingSave = item.id.startsWith("tmp-");
                       return (
@@ -246,14 +300,31 @@ export function PokalPlanner({
                             })
                           }
                           title={`${markTitle(p?.answer ?? "")} – ziehen zum Verschieben`}
-                          className={`inline-flex cursor-grab items-center gap-1 rounded-full bg-primary/15 px-3 py-1 text-sm text-primary active:cursor-grabbing ${
-                            pendingSave ? "opacity-50" : ""
-                          }`}
+                          className={`inline-flex cursor-grab items-center gap-1 rounded-full px-3 py-1 text-sm active:cursor-grabbing ${
+                            item.captain
+                              ? "bg-primary text-primary-fg"
+                              : "bg-primary/15 text-primary"
+                          } ${pendingSave ? "opacity-50" : ""}`}
                         >
+                          {item.captain && (
+                            <span title="Pokal-Kapitän">👑</span>
+                          )}
                           {p?.name ?? "(unbekannt)"}{" "}
                           <span className="opacity-70">
                             {mark(p?.answer ?? "")}
                           </span>
+                          <button
+                            onClick={() => toggleCaptain(item)}
+                            disabled={pendingSave}
+                            className="ml-0.5 opacity-60 hover:opacity-100"
+                            title={
+                              item.captain
+                                ? "Kapitäns-Rolle entfernen"
+                                : "Zum Pokal-Kapitän machen"
+                            }
+                          >
+                            👑
+                          </button>
                           <button
                             onClick={() => removeItem(item)}
                             disabled={pendingSave}
@@ -285,13 +356,37 @@ export function PokalPlanner({
                 <span className="text-muted">({g.items.length})</span>
               </summary>
               <div className="space-y-1 border-t border-border p-3">
-                {g.label === "Ja" && teams === 1 && g.items.length > 1 && (
-                  <button
-                    onClick={() => addPersons(g.items.map((p) => p.key), 1)}
-                    className="mb-2 inline-flex items-center rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg hover:opacity-90"
-                  >
-                    ⚡ Alle übernehmen ({g.items.length})
-                  </button>
+                {g.alleKnopf && g.items.length > 1 && (
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    {teams === 1 ? (
+                      <button
+                        onClick={() => addPersons(g.items.map((p) => p.key), 1)}
+                        className="inline-flex items-center rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg hover:opacity-90"
+                      >
+                        ⚡ Alle übernehmen ({g.items.length})
+                      </button>
+                    ) : (
+                      <>
+                        <span className="text-sm text-muted">
+                          ⚡ Alle {g.items.length} übernehmen zu:
+                        </span>
+                        {Array.from({ length: teams }, (_, i) => i + 1).map(
+                          (no) => (
+                            <button
+                              key={no}
+                              onClick={() =>
+                                addPersons(g.items.map((p) => p.key), no)
+                              }
+                              className="rounded-lg bg-primary px-3 py-1 text-sm font-medium text-primary-fg hover:opacity-90"
+                              title={`Alle zu Team ${no}`}
+                            >
+                              Team {no}
+                            </button>
+                          ),
+                        )}
+                      </>
+                    )}
+                  </div>
                 )}
                 {g.items
                   .slice()
