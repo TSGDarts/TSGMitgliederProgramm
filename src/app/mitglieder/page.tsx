@@ -20,9 +20,14 @@ import type { Season } from "@/lib/season";
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ monat?: string; team?: string; ansicht?: string }>;
+  searchParams: Promise<{
+    monat?: string;
+    team?: string;
+    ansicht?: string;
+    saison?: string;
+  }>;
 }) {
-  const { monat, team, ansicht } = await searchParams;
+  const { monat, team, ansicht, saison } = await searchParams;
   const zeigeErgebnisse = ansicht === "ergebnisse";
   const profile = await requireProfile();
   const events = await getMemberEvents(profile.id, { limit: 5 });
@@ -56,22 +61,54 @@ export default async function DashboardPage({
     surveyMissing = !myAnswer;
   }
 
-  // Ergebnis-Ansicht: letzte Spiele je Mannschaft (neueste zuerst)
+  // Ergebnis-Ansicht: ALLE Spiele je Mannschaft der gewählten Saison
   let teams: Awaited<ReturnType<typeof getAllTeams>> = [];
   const ergebnisseJeTeam = new Map<string, EventRow[]>();
+  let saisons: Season[] = [];
+  let gewaehlteSaison: Season | null = null;
+  const archivLiga = new Map<string, string>(); // Team-Name → damalige Liga
   if (zeigeErgebnisse) {
     teams = await getAllTeams();
-    const { data: ergData } = await supabase
+    const { data: saisonData } = await supabase
+      .from("seasons")
+      .select("*")
+      .order("created_at", { ascending: false });
+    saisons = (saisonData as Season[]) ?? [];
+    gewaehlteSaison =
+      saisons.find((s) => s.id === saison) ??
+      saisons.find((s) => s.status === "active") ??
+      saisons[0] ??
+      null;
+
+    let q = supabase
       .from("events")
       .select("*")
       .not("team_id", "is", null)
       .in("type", ["match", "pokal", "friendly"])
       .lte("starts_at", new Date().toISOString())
       .order("starts_at", { ascending: false });
+    if (gewaehlteSaison?.starts_on) {
+      q = q.gte("starts_at", gewaehlteSaison.starts_on);
+    }
+    if (gewaehlteSaison?.ends_on) {
+      q = q.lte("starts_at", `${gewaehlteSaison.ends_on}T23:59:59Z`);
+    }
+    const { data: ergData } = await q;
     for (const ev of ((ergData as EventRow[]) ?? [])) {
       const list = ergebnisseJeTeam.get(ev.team_id!) ?? [];
-      if (list.length < 10) list.push(ev);
+      list.push(ev);
       ergebnisseJeTeam.set(ev.team_id!, list);
+    }
+
+    // Bei archivierten Saisons: damalige Liga aus dem Archiv anzeigen
+    if (gewaehlteSaison?.status === "archived") {
+      const { data: archivData } = await supabase
+        .from("season_team_archive")
+        .select("team_name, league")
+        .eq("season_id", gewaehlteSaison.id);
+      for (const a of archivData ?? []) {
+        if (a.league) archivLiga.set(a.team_name as string, a.league as string);
+      }
     }
   }
 
@@ -144,13 +181,33 @@ export default async function DashboardPage({
       </div>
 
       {zeigeErgebnisse ? (
-        /* ============ ERGEBNISSE: letzte Spiele je Mannschaft ============ */
+        /* ============ ERGEBNISSE: alle Spiele je Mannschaft & Saison ============ */
         <section className="space-y-4">
+          {/* Saison wählen */}
+          {saisons.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              {saisons.map((s) => (
+                <Link
+                  key={s.id}
+                  href={`/mitglieder?ansicht=ergebnisse&saison=${s.id}`}
+                  className={`rounded-full px-3 py-1 text-sm font-medium ${
+                    gewaehlteSaison?.id === s.id
+                      ? "bg-primary text-primary-fg"
+                      : "border border-border text-muted hover:text-foreground"
+                  }`}
+                >
+                  {s.name}
+                  {s.status === "archived" ? " 🗂" : ""}
+                </Link>
+              ))}
+            </div>
+          )}
           {teams.length === 0 ? (
             <EmptyState title="Noch keine Mannschaften angelegt" />
           ) : (
             teams.map((t) => {
               const liste = ergebnisseJeTeam.get(t.id) ?? [];
+              const liga = archivLiga.get(t.name) || t.league;
               return (
                 <Einklappbar
                   key={t.id}
@@ -158,17 +215,20 @@ export default async function DashboardPage({
                   title={
                     <span>
                       {t.name}
-                      {t.league && (
+                      {liga && (
                         <span className="ml-2 text-sm font-normal text-muted">
-                          {t.league}
+                          {liga}
                         </span>
                       )}
+                      <span className="ml-2 text-sm font-normal text-muted">
+                        · {liste.length} Spiele
+                      </span>
                     </span>
                   }
                 >
                   {liste.length === 0 ? (
                     <p className="text-sm text-muted">
-                      Noch keine gespielten Spiele.
+                      In dieser Saison noch keine gespielten Spiele.
                     </p>
                   ) : (
                     <div className="space-y-1">
