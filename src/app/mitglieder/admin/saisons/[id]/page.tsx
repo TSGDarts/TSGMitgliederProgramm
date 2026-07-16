@@ -26,7 +26,7 @@ import {
 import { formatDate, formatTime } from "@/lib/format";
 import { berlinISOToLocalInput } from "@/lib/tz";
 import { SpielberichtImport } from "./SpielberichtImport";
-import { spielerBilanz, type Spielbericht } from "@/lib/spielbericht";
+import { spielerBilanz, alsMatchStats } from "@/lib/spielbericht";
 import { AdminSurveyForm } from "./AdminSurveyForm";
 import {
   PageHeader,
@@ -596,9 +596,9 @@ export default async function AdminSeasonDetailPage({
                             ev.time_tbd || formatTime(ev.starts_at) === "00:00"
                               ? ""
                               : lokal.split("T")[1] ?? "";
-                          const bericht = (ev.match_stats ?? null) as
-                            | Spielbericht
-                            | null;
+                          const stats = alsMatchStats(ev.match_stats);
+                          const bericht = stats?.nuliga ?? stats?.dreik ?? null;
+                          const dreik = stats?.dreik ?? null;
                           return (
                             <details
                               key={ev.id}
@@ -683,9 +683,22 @@ export default async function AdminSeasonDetailPage({
                                         .join(" · ")}
                                     </p>
                                   )}
+                                  {dreik && (
+                                    <p className="text-xs text-muted">
+                                      🎯 3K erfasst: {dreik.spiele.length}{" "}
+                                      Spiele
+                                      {dreik.gesamtAvg &&
+                                        ` · Ø ${dreik.gesamtAvg}`}
+                                      {dreik.bestleistungen &&
+                                        ` · ${dreik.bestleistungen.length} Bestleistungen`}
+                                      {dreik.statistiken &&
+                                        ` · ${dreik.statistiken.length} Match-Averages`}
+                                    </p>
+                                  )}
                                   <SpielberichtImport
                                     eventId={ev.id}
                                     seasonId={season.id}
+                                    initialQuelle={stats?.quelle ?? ""}
                                   />
                                 </div>
                                 <div className="border-t border-border pt-2">

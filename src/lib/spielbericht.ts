@@ -163,9 +163,9 @@ export function parseSpielbericht(
 }
 
 /** Bilanz je TSG-Spieler (Einzel + Doppel zusammen) aus einem Bericht. */
-export function spielerBilanz(
-  bericht: Spielbericht,
-): { name: string; siege: number; niederlagen: number }[] {
+export function spielerBilanz(bericht: {
+  spiele: Pick<BerichtSpiel, "unsere" | "gewonnen">[];
+}): { name: string; siege: number; niederlagen: number }[] {
   const map = new Map<string, { name: string; siege: number; niederlagen: number }>();
   for (const s of bericht.spiele) {
     for (const name of s.unsere) {
@@ -176,4 +176,233 @@ export function spielerBilanz(
     }
   }
   return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// ===================== 3K Darts (Heimspiele) =====================
+// Der Admin kopiert die drei Ansichten der 3K-Software (Spiele,
+// Bestleistungen, Statistiken) jeweils komplett und fügt sie ein.
+
+export interface DreiKSpiel {
+  nr: number;
+  doppel: boolean;
+  unsere: string[];
+  gegner: string[];
+  unserAvg: number | null;
+  gegnerAvg: number | null;
+  legs: string; // aus unserer Sicht, z. B. "3:1"
+  gewonnen: boolean;
+}
+
+export interface DreiKBericht {
+  heim: string;
+  gast: string;
+  wirSindHeim: boolean;
+  ergebnis: string; // aus unserer Sicht, z. B. "12:6"
+  legsGesamt: string;
+  gesamtAvg: string; // z. B. "59.9"
+  spiele: DreiKSpiel[];
+  bestleistungen?: {
+    kategorie: string; // "180" | "Highfinish" | "Shortgame" | "Shortgame Doppel"
+    name: string;
+    anzahl: number;
+    wert: number;
+  }[];
+  statistiken?: { name: string; avg: number }[];
+}
+
+/** Gesamter Spielbericht eines Termins (JSONB events.match_stats). */
+export interface MatchStats {
+  quelle?: "" | "3k" | "darthelfer";
+  nuliga?: Spielbericht;
+  dreik?: DreiKBericht;
+}
+
+/** Altbestand (Spielbericht direkt gespeichert) in die neue Form heben. */
+export function alsMatchStats(roh: unknown): MatchStats | null {
+  if (!roh || typeof roh !== "object") return null;
+  const o = roh as Record<string, unknown>;
+  if (Array.isArray(o.spiele) && !o.nuliga && !o.dreik) {
+    return { nuliga: roh as Spielbericht };
+  }
+  return roh as MatchStats;
+}
+
+/** Spiele-Ansicht der 3K-Software auslesen (Strg+A/Strg+C der Seite). */
+export function parseDreiKSpiele(
+  roh: string,
+):
+  | { ok: true; bericht: DreiKBericht }
+  | { ok: false; fehler: string } {
+  const zeilen = roh
+    .replace(/ /g, " ")
+    .split(/\r?\n/)
+    .map((z) => z.trim())
+    .filter(Boolean);
+
+  // Kopf: "TSG 08 Roth vs. Dartdragons Moosbach"
+  let heim = "";
+  let gast = "";
+  for (const z of zeilen) {
+    const m = z.match(/^(.+?)\s+vs\.?\s+(.+)$/i);
+    if (m) {
+      heim = m[1].trim();
+      gast = m[2].trim();
+      break;
+    }
+  }
+  if (!heim || !gast) {
+    return { ok: false, fehler: "Begegnung („… vs. …“) nicht gefunden." };
+  }
+  const heimIstTsg = /tsg/i.test(heim);
+  const gastIstTsg = /tsg/i.test(gast);
+  if (heimIstTsg === gastIstTsg) {
+    return {
+      ok: false,
+      fehler: `Konnte nicht erkennen, welche Seite wir sind („${heim}“ gegen „${gast}“).`,
+    };
+  }
+  const wirSindHeim = heimIstTsg;
+
+  // Gesamt: "12-6 (43-30)" und "Gesamt-Average: Ø 59.9"
+  let ergebnisHeim = "";
+  let legsHeim = "";
+  let gesamtAvg = "";
+  for (const z of zeilen) {
+    const g = z.match(/^(\d+)-(\d+)\s*\((\d+)-(\d+)\)$/);
+    if (g && !ergebnisHeim) {
+      ergebnisHeim = `${g[1]}:${g[2]}`;
+      legsHeim = `${g[3]}:${g[4]}`;
+    }
+    const a = z.match(/Gesamt-Average:\s*Ø?\s*([\d.,]+)/i);
+    if (a && !gesamtAvg) gesamtAvg = a[1];
+  }
+
+  // Spiele: Zeilenfolge  <Nr> [<Board>] <Name> (Avg) <a-b> <Name> (Avg)
+  const istZahl = (z: string) => /^\d+$/.test(z);
+  const istAvg = (z: string) => /^\((\d+([.,]\d+)?)\)$/.test(z);
+  const istErgebnis = (z: string) => /^\d+-\d+$/.test(z);
+  const istNameZeile = (z: string) =>
+    !istZahl(z) && !istAvg(z) && !istErgebnis(z) && /[A-Za-zÄÖÜäöüß]/.test(z) &&
+    !/:/.test(z) && !/^#/.test(z) && !/Logo/i.test(z);
+  const avgWert = (z: string) =>
+    Number(z.replace(/[()]/g, "").replace(",", ".")) || null;
+
+  const spiele: DreiKSpiel[] = [];
+  for (let i = 0; i < zeilen.length; i++) {
+    if (!istZahl(zeilen[i])) continue;
+    let j = i + 1;
+    if (j < zeilen.length && istZahl(zeilen[j])) j++; // Board-Nummer
+    if (
+      j + 3 < zeilen.length &&
+      istNameZeile(zeilen[j]) &&
+      istAvg(zeilen[j + 1]) &&
+      istErgebnis(zeilen[j + 2]) &&
+      istNameZeile(zeilen[j + 3])
+    ) {
+      const nameHeim = zeilen[j];
+      const heimAvg = avgWert(zeilen[j + 1]);
+      const [a, b] = zeilen[j + 2].split("-").map(Number);
+      const nameGast = zeilen[j + 3];
+      const gastAvg =
+        j + 4 < zeilen.length && istAvg(zeilen[j + 4])
+          ? avgWert(zeilen[j + 4])
+          : null;
+      const heimNamen = nameHeim.split(/\s*&\s*/);
+      const gastNamen = nameGast.split(/\s*&\s*/);
+      spiele.push({
+        nr: Number(zeilen[i]),
+        doppel: heimNamen.length > 1 || gastNamen.length > 1,
+        unsere: wirSindHeim ? heimNamen : gastNamen,
+        gegner: wirSindHeim ? gastNamen : heimNamen,
+        unserAvg: wirSindHeim ? heimAvg : gastAvg,
+        gegnerAvg: wirSindHeim ? gastAvg : heimAvg,
+        legs: wirSindHeim ? `${a}:${b}` : `${b}:${a}`,
+        gewonnen: wirSindHeim ? a > b : b > a,
+      });
+      i = j + (gastAvg !== null ? 4 : 3);
+    }
+  }
+  if (spiele.length === 0) {
+    return {
+      ok: false,
+      fehler:
+        "Keine Spiele gefunden – bitte die komplette 3K-Spiele-Ansicht kopieren.",
+    };
+  }
+  if (!ergebnisHeim) {
+    const siege = spiele.filter((s) => s.gewonnen).length;
+    ergebnisHeim = wirSindHeim
+      ? `${siege}:${spiele.length - siege}`
+      : `${spiele.length - siege}:${siege}`;
+  }
+
+  return {
+    ok: true,
+    bericht: {
+      heim,
+      gast,
+      wirSindHeim,
+      ergebnis: dreh(ergebnisHeim, !wirSindHeim),
+      legsGesamt: dreh(legsHeim, !wirSindHeim),
+      gesamtAvg,
+      spiele,
+    },
+  };
+}
+
+/** Bestleistungen-Ansicht der 3K-Software (180er, Highfinish, Shortgame). */
+export function parseDreiKBestleistungen(
+  roh: string,
+): { kategorie: string; name: string; anzahl: number; wert: number }[] {
+  const zeilen = roh.replace(/ /g, " ").split(/\r?\n/);
+  const eintraege: { kategorie: string; name: string; anzahl: number; wert: number }[] = [];
+  let kategorie = "";
+  for (const zeile of zeilen) {
+    const z = zeile.trim();
+    if (/^Highscore/i.test(z)) kategorie = "180";
+    else if (/^Highfinish/i.test(z)) kategorie = "Highfinish";
+    else if (/^Shortgame Doppel/i.test(z)) kategorie = "Shortgame Doppel";
+    else if (/^Shortgame/i.test(z)) kategorie = "Shortgame";
+    if (!kategorie) continue;
+    const tokens = zeile
+      .split(/\t| {2,}/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (tokens.length < 3 || tokens[0] === "Name") continue;
+    const anzahl = Number(tokens[tokens.length - 2]);
+    const wert = Number(tokens[tokens.length - 1]);
+    const name = tokens.slice(0, tokens.length - 2).join(" ");
+    if (!Number.isFinite(anzahl) || !Number.isFinite(wert) || !name) continue;
+    eintraege.push({ kategorie, name, anzahl, wert });
+  }
+  return eintraege;
+}
+
+/** Statistik-Ansicht der 3K-Software: Match-Average je Spieler/Doppel. */
+export function parseDreiKStatistiken(
+  roh: string,
+): { name: string; avg: number }[] {
+  const zeilen = roh
+    .replace(/ /g, " ")
+    .split(/\r?\n/)
+    .map((z) => z.trim());
+  const eintraege: { name: string; avg: number }[] = [];
+  for (let i = 0; i < zeilen.length; i++) {
+    if (!/^\d+\.$/.test(zeilen[i])) continue;
+    // nächste nicht-leere Zeile = Name, danach die Zeile mit dem Ø-Wert
+    let j = i + 1;
+    while (j < zeilen.length && !zeilen[j]) j++;
+    const name = zeilen[j];
+    let k = j + 1;
+    while (k < zeilen.length && !/Ø\s*[\d.,]+/.test(zeilen[k])) {
+      if (/^\d+\.$/.test(zeilen[k])) break;
+      k++;
+    }
+    const m = k < zeilen.length ? zeilen[k].match(/Ø\s*([\d.,]+)/) : null;
+    if (name && m) {
+      eintraege.push({ name, avg: Number(m[1].replace(",", ".")) });
+      i = k;
+    }
+  }
+  return eintraege;
 }

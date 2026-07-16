@@ -6,7 +6,15 @@ import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { parseSurveyAnswers } from "@/lib/season";
 import { berlinLocalToISO } from "@/lib/tz";
-import { parseSpielbericht, spielerBilanz } from "@/lib/spielbericht";
+import {
+  parseSpielbericht,
+  parseDreiKSpiele,
+  parseDreiKBestleistungen,
+  parseDreiKStatistiken,
+  alsMatchStats,
+  spielerBilanz,
+  type MatchStats,
+} from "@/lib/spielbericht";
 import type { EventRow } from "@/lib/types";
 
 export type AdminSurveyResult = { ok: boolean; message: string };
@@ -505,31 +513,80 @@ export async function updateArchivSpieltag(formData: FormData) {
 export type BerichtImportResult = { ok: boolean; message: string };
 
 /**
- * nuLiga-Spielbericht (komplette Seite per Strg+A/Strg+C kopiert) für
- * einen Spieltag auswerten: speichert alle Einzel/Doppel mit Spielern
- * und setzt das Endergebnis automatisch (aus unserer Sicht).
+ * Spielberichte für einen Spieltag auswerten. Je nach Erfassungsart:
+ * nuLiga-Spielbericht (immer möglich) und/oder die 3K-Ansichten
+ * (Spiele, Bestleistungen, Statistiken) – alles per Strg+A/Strg+C von
+ * der jeweiligen Seite kopiert. Spieler, Ergebnisse und Averages werden
+ * automatisch zugeordnet, das Endergebnis wird gesetzt.
  */
-export async function importSpielbericht(
+export async function importStatistik(
   _prev: BerichtImportResult | null,
   formData: FormData,
 ): Promise<BerichtImportResult> {
   await requireAdmin();
   const id = String(formData.get("id") ?? "");
   const seasonId = String(formData.get("season_id") ?? "");
-  const text = String(formData.get("bericht") ?? "");
-  if (!id || !text.trim()) {
-    return { ok: false, message: "Bitte den kopierten Spielbericht einfügen." };
+  const quelleRaw = String(formData.get("quelle") ?? "");
+  const quelle = (["", "3k", "darthelfer"].includes(quelleRaw)
+    ? quelleRaw
+    : "") as MatchStats["quelle"];
+  const nuligaText = String(formData.get("nuliga") ?? "").trim();
+  const k3Spiele = String(formData.get("k3_spiele") ?? "").trim();
+  const k3Best = String(formData.get("k3_best") ?? "").trim();
+  const k3Stats = String(formData.get("k3_stats") ?? "").trim();
+
+  if (!id) return { ok: false, message: "Spieltag fehlt." };
+  if (!nuligaText && !k3Spiele) {
+    return { ok: false, message: "Bitte mindestens einen Bericht einfügen." };
   }
 
-  const res = parseSpielbericht(text);
-  if (!res.ok) return { ok: false, message: res.fehler };
-  const b = res.bericht;
-
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: alt } = await supabase
     .from("events")
-    .update({ match_stats: b, result: b.ergebnis })
-    .eq("id", id);
+    .select("match_stats")
+    .eq("id", id)
+    .maybeSingle();
+  const daten: MatchStats = alsMatchStats(alt?.match_stats) ?? {};
+  daten.quelle = quelle;
+
+  const teile: string[] = [];
+  if (nuligaText) {
+    const res = parseSpielbericht(nuligaText);
+    if (!res.ok) return { ok: false, message: `nuLiga: ${res.fehler}` };
+    daten.nuliga = res.bericht;
+    teile.push(
+      `nuLiga: ${res.bericht.spiele.length} Spiele, Endergebnis ${res.bericht.ergebnis}` +
+        (res.bericht.uebersprungen
+          ? ` (${res.bericht.uebersprungen} Zeilen übersprungen)`
+          : ""),
+    );
+  }
+  if (k3Spiele) {
+    const res = parseDreiKSpiele(k3Spiele);
+    if (!res.ok) return { ok: false, message: `3K: ${res.fehler}` };
+    daten.dreik = res.bericht;
+    if (k3Best) {
+      daten.dreik.bestleistungen = parseDreiKBestleistungen(k3Best);
+    }
+    if (k3Stats) {
+      daten.dreik.statistiken = parseDreiKStatistiken(k3Stats);
+    }
+    teile.push(
+      `3K: ${res.bericht.spiele.length} Spiele, Ø ${res.bericht.gesamtAvg || "?"}` +
+        (daten.dreik.bestleistungen
+          ? `, ${daten.dreik.bestleistungen.length} Bestleistungen`
+          : "") +
+        (daten.dreik.statistiken
+          ? `, ${daten.dreik.statistiken.length} Match-Averages`
+          : ""),
+    );
+  }
+
+  const bericht = daten.nuliga ?? daten.dreik;
+  const patch: Record<string, unknown> = { match_stats: daten };
+  if (bericht?.ergebnis) patch.result = bericht.ergebnis;
+
+  const { error } = await supabase.from("events").update(patch).eq("id", id);
   if (error) {
     const hinweis = /column|schema/i.test(error.message)
       ? "Bitte zuerst ALLE_ERWEITERUNGEN.sql im Supabase SQL-Editor ausführen."
@@ -538,15 +595,14 @@ export async function importSpielbericht(
   }
 
   revalidatePath(`/mitglieder/admin/saisons/${seasonId}`);
-  const bilanz = spielerBilanz(b)
-    .map((s) => `${s.name.split(",")[0]} ${s.siege}-${s.niederlagen}`)
-    .join(" · ");
+  const bilanz = bericht
+    ? spielerBilanz(bericht)
+        .map((s) => `${s.name.split(",")[0]} ${s.siege}-${s.niederlagen}`)
+        .join(" · ")
+    : "";
   return {
     ok: true,
-    message:
-      `✅ ${b.heim} – ${b.gast}: ${b.spiele.length} Spiele erkannt, ` +
-      `Endergebnis ${b.ergebnis} (unsere Sicht). Bilanz: ${bilanz}` +
-      (b.uebersprungen ? ` · ${b.uebersprungen} Zeilen übersprungen` : ""),
+    message: `✅ ${teile.join(" · ")}${bilanz ? ` · Bilanz: ${bilanz}` : ""}`,
   };
 }
 
