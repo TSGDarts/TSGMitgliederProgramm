@@ -10,6 +10,7 @@ import {
   refreshArchivStatistik,
 } from "../actions";
 import { AltSaisonImport } from "./AltSaisonImport";
+import { ArchivKaderFeld } from "./ArchivKaderFeld";
 import { formatHomeMatch } from "@/lib/extras";
 import { PokalPlanner } from "./PokalPlanner";
 import { TeamPlanner } from "./TeamPlanner";
@@ -217,6 +218,15 @@ export default async function AdminSeasonDetailPage({
       .order("team_name");
     archive = (data as ArchivedTeam[]) ?? [];
   }
+
+  // Alle angelegten Namen (registriert + vorab angelegt) für die
+  // Kader-Auswahl beim Bearbeiten von Archiv-Einträgen
+  const alleNamen = [
+    ...new Set([
+      ...profiles.map((p) => p.full_name || p.email || "?"),
+      ...invites.map((i) => i.full_name),
+    ]),
+  ].sort((a, b) => a.localeCompare(b));
 
   // Gemeinsame Liste: Mitglieder + angelegte Namen
   const entries: PlanEntry[] = [
@@ -434,21 +444,16 @@ export default async function AdminSeasonDetailPage({
                             className={inputClass}
                           />
                         </Field>
-                        <Field
-                          label="Kader"
-                          hint="Eine Person pro Zeile – dahinter optional C (Kapitän) oder VC (Vize), z. B. „Max Muster C“"
-                        >
-                          <textarea
-                            name="roster"
-                            rows={8}
-                            defaultValue={t.roster
+                        <Field label="Kader">
+                          <ArchivKaderFeld
+                            namen={alleNamen}
+                            initialText={t.roster
                               .map(
                                 (r) =>
                                   r.name +
                                   (r.captain ? " C" : r.vice ? " VC" : ""),
                               )
                               .join("\n")}
-                            className={inputClass}
                           />
                         </Field>
                         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
