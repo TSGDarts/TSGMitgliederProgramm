@@ -1343,3 +1343,23 @@ alter table pokal_squads
 
 alter table events
   add column if not exists match_url text not null default '';
+
+-- ============================================================
+-- 48: Standard: Erinnerungen 14+7+3 bei allen Arten, E-Mail an
+-- (individuell angepasste Profile bleiben unangetastet)
+-- ============================================================
+
+alter table public.profiles
+  alter column notify_erinnerungen set default
+  '{"punktspiele":[14,7,3],"pokal":[14,7,3],"freundschaft":[14,7,3],"training":[14,7,3],"feste":[14,7,3],"verein":[14,7,3],"turniere":[14,7,3]}'::jsonb;
+
+alter table public.profiles
+  alter column notify_email set default true;
+
+update public.profiles
+set notify_erinnerungen =
+  '{"punktspiele":[14,7,3],"pokal":[14,7,3],"freundschaft":[14,7,3],"training":[14,7,3],"feste":[14,7,3],"verein":[14,7,3],"turniere":[14,7,3]}'::jsonb,
+  notify_email = true
+where notify_erinnerungen = '{}'::jsonb
+   or notify_erinnerungen = '{"turniere": [7]}'::jsonb
+   or notify_erinnerungen = '{"punktspiele":[7,3],"pokal":[7,3],"freundschaft":[7,3],"training":[7,3],"verein":[7,3],"turniere":[7,3]}'::jsonb;
