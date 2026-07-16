@@ -52,6 +52,7 @@ export interface ArchivedTeam {
     zusagen?: number;
     absagen?: number;
     vielleicht?: number;
+    nuliga_url?: string; // Link zur damaligen nuLiga-Seite
     spieler?: { name: string; zusagen: number; absagen: number; vielleicht: number }[];
   };
   archived_at: string;

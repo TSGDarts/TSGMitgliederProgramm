@@ -3,7 +3,13 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAllTeams } from "@/lib/member-queries";
-import { toggleSurvey, updateArchivTeam, addArchivTeam } from "../actions";
+import {
+  toggleSurvey,
+  updateArchivTeam,
+  addArchivTeam,
+  refreshArchivStatistik,
+} from "../actions";
+import { AltSaisonImport } from "./AltSaisonImport";
 import { formatHomeMatch } from "@/lib/extras";
 import { PokalPlanner } from "./PokalPlanner";
 import { TeamPlanner } from "./TeamPlanner";
@@ -345,9 +351,21 @@ export default async function AdminSeasonDetailPage({
                         </span>
                       )}
                     </div>
-                    <div className="text-sm text-muted">
-                      {t.stats.termine ?? 0} Termine · {t.stats.zusagen ?? 0}{" "}
-                      Zusagen · {t.stats.absagen ?? 0} Absagen
+                    <div className="flex items-center gap-3 text-sm text-muted">
+                      <span>
+                        {t.stats.termine ?? 0} Termine · {t.stats.zusagen ?? 0}{" "}
+                        Zusagen · {t.stats.absagen ?? 0} Absagen
+                      </span>
+                      {t.stats.nuliga_url && (
+                        <a
+                          href={t.stats.nuliga_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          nuLiga ↗
+                        </a>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -404,6 +422,18 @@ export default async function AdminSeasonDetailPage({
                             />
                           </Field>
                         </div>
+                        <Field
+                          label="nuLiga-Link (damalige Saison, optional)"
+                          hint="Wird am Team als „nuLiga ↗“ angezeigt"
+                        >
+                          <input
+                            name="nuliga_url"
+                            type="url"
+                            defaultValue={t.stats.nuliga_url ?? ""}
+                            placeholder="https://dwbv.liga.nu/…"
+                            className={inputClass}
+                          />
+                        </Field>
                         <Field
                           label="Kader"
                           hint="Eine Person pro Zeile – dahinter optional C (Kapitän) oder VC (Vize), z. B. „Max Muster C“"
@@ -474,6 +504,41 @@ export default async function AdminSeasonDetailPage({
               </Card>
             ))
           )}
+
+          {/* Spieltage der damaligen Saison importieren */}
+          <details className="rounded-xl border border-border bg-surface">
+            <summary className="cursor-pointer px-5 py-4 font-semibold">
+              📅 Spieltage nachtragen (nuLiga-Import)
+            </summary>
+            <div className="space-y-3 border-t border-border p-5">
+              <p className="text-sm text-muted">
+                Trage je Mannschaft die <strong>iCal-Adresse des
+                damaligen nuLiga-Kalenders</strong> ein und importiere – die
+                Spieltage landen mit ihrem echten Datum (inkl. Gegner und
+                Ort) als Termine und sind dann beim Zurückblättern im
+                Kalender sichtbar. Danach unten{" "}
+                <strong>„Statistik neu berechnen“</strong> drücken, damit
+                die Termine-Zahlen der Teams stimmen.
+              </p>
+              <div className="space-y-2">
+                {teams.map((t) => (
+                  <AltSaisonImport key={t.id} teamId={t.id} teamName={t.name} />
+                ))}
+              </div>
+              <form action={refreshArchivStatistik} className="border-t border-border pt-3">
+                <input type="hidden" name="season_id" value={season.id} />
+                <Button type="submit" variant="secondary">
+                  🔄 Statistik aus den Terminen neu berechnen
+                </Button>
+                <p className="mt-1 text-xs text-muted">
+                  Zählt Termine/Zusagen im Saison-Zeitraum{" "}
+                  {season.starts_on ?? "…"} bis {season.ends_on ?? "…"} –
+                  von Hand gepflegte Kader und nuLiga-Links bleiben
+                  erhalten.
+                </p>
+              </form>
+            </div>
+          </details>
 
           {/* Team nachtragen */}
           <details className="rounded-xl border border-border bg-surface">

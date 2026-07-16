@@ -98,6 +98,65 @@ export async function toggleSurvey(formData: FormData) {
 }
 
 /**
+ * Termin-/Zusagen-Statistik einer Mannschaft im Zeitraum berechnen
+ * (ohne Zeitraum: alle vorhandenen Termine des Teams).
+ */
+async function teamStatistik(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  teamId: string,
+  startsOn: string | null,
+  endsOn: string | null,
+) {
+  let evQuery = supabase.from("events").select("id").eq("team_id", teamId);
+  if (startsOn) evQuery = evQuery.gte("starts_at", startsOn);
+  if (endsOn) evQuery = evQuery.lte("starts_at", `${endsOn}T23:59:59Z`);
+  const { data: events } = await evQuery;
+  const eventIds = ((events as Pick<EventRow, "id">[]) ?? []).map((e) => e.id);
+
+  const counts = { zusagen: 0, absagen: 0, vielleicht: 0 };
+  const perPlayer = new Map<
+    string,
+    { name: string; zusagen: number; absagen: number; vielleicht: number }
+  >();
+  if (eventIds.length) {
+    const { data: rsvps } = await supabase
+      .from("rsvps")
+      .select("status,profile_id,profiles(full_name)")
+      .in("event_id", eventIds);
+    for (const r of rsvps ?? []) {
+      const p = r.profiles as unknown as { full_name: string } | null;
+      const name = p?.full_name || "?";
+      const entry =
+        perPlayer.get(r.profile_id as string) ?? {
+          name,
+          zusagen: 0,
+          absagen: 0,
+          vielleicht: 0,
+        };
+      if (r.status === "yes") {
+        counts.zusagen++;
+        entry.zusagen++;
+      } else if (r.status === "no") {
+        counts.absagen++;
+        entry.absagen++;
+      } else {
+        counts.vielleicht++;
+        entry.vielleicht++;
+      }
+      perPlayer.set(r.profile_id as string, entry);
+    }
+  }
+
+  return {
+    termine: eventIds.length,
+    ...counts,
+    spieler: Array.from(perPlayer.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    ),
+  };
+}
+
+/**
  * Archiv-Schnappschuss der AKTUELLEN Mannschaften für eine Saison anlegen:
  * Kader (inkl. Kapitän/Vize) und Termin-/Zusagen-Statistik im angegebenen
  * Zeitraum (ohne Zeitraum: alle vorhandenen Termine des Teams).
@@ -149,65 +208,68 @@ async function schnappschussTeams(
         a.name.localeCompare(b.name),
     );
 
-    // Termine im Saison-Zeitraum (falls kein Zeitraum: alle bisherigen)
-    let evQuery = supabase
-      .from("events")
-      .select("id")
-      .eq("team_id", team.id);
-    if (startsOn) evQuery = evQuery.gte("starts_at", startsOn);
-    if (endsOn) evQuery = evQuery.lte("starts_at", `${endsOn}T23:59:59Z`);
-    const { data: events } = await evQuery;
-    const eventIds = ((events as Pick<EventRow, "id">[]) ?? []).map((e) => e.id);
-
-    // Zu-/Absagen zählen
-    const counts = { zusagen: 0, absagen: 0, vielleicht: 0 };
-    const perPlayer = new Map<
-      string,
-      { name: string; zusagen: number; absagen: number; vielleicht: number }
-    >();
-    if (eventIds.length) {
-      const { data: rsvps } = await supabase
-        .from("rsvps")
-        .select("status,profile_id,profiles(full_name)")
-        .in("event_id", eventIds);
-      for (const r of rsvps ?? []) {
-        const p = r.profiles as unknown as { full_name: string } | null;
-        const name = p?.full_name || "?";
-        const entry =
-          perPlayer.get(r.profile_id as string) ?? {
-            name,
-            zusagen: 0,
-            absagen: 0,
-            vielleicht: 0,
-          };
-        if (r.status === "yes") {
-          counts.zusagen++;
-          entry.zusagen++;
-        } else if (r.status === "no") {
-          counts.absagen++;
-          entry.absagen++;
-        } else {
-          counts.vielleicht++;
-          entry.vielleicht++;
-        }
-        perPlayer.set(r.profile_id as string, entry);
-      }
-    }
+    const stats = await teamStatistik(supabase, team.id, startsOn, endsOn);
 
     await supabase.from("season_team_archive").insert({
       season_id: id,
       team_name: team.name,
       league: team.league ?? "",
       roster,
-      stats: {
-        termine: eventIds.length,
-        ...counts,
-        spieler: Array.from(perPlayer.values()).sort((a, b) =>
-          a.name.localeCompare(b.name),
-        ),
-      },
+      stats,
     });
   }
+}
+
+/**
+ * Statistik einer archivierten Saison neu berechnen – z. B. nachdem die
+ * alten Spieltage per nuLiga-Import nachgetragen wurden. Zugeordnet wird
+ * über den Team-Namen; von Hand gepflegte Kader und der nuLiga-Link
+ * bleiben erhalten.
+ */
+export async function refreshArchivStatistik(formData: FormData) {
+  await requireAdmin();
+  const seasonId = String(formData.get("season_id") ?? "");
+  if (!seasonId) return;
+
+  const supabase = await createClient();
+  const { data: season } = await supabase
+    .from("seasons")
+    .select("starts_on, ends_on")
+    .eq("id", seasonId)
+    .maybeSingle();
+  if (!season) return;
+
+  const [{ data: teamsData }, { data: eintraege }] = await Promise.all([
+    supabase.from("teams").select("id, name"),
+    supabase
+      .from("season_team_archive")
+      .select("id, team_name, stats")
+      .eq("season_id", seasonId),
+  ]);
+
+  for (const eintrag of eintraege ?? []) {
+    const team = (teamsData ?? []).find(
+      (t) => t.name === eintrag.team_name,
+    );
+    if (!team) continue; // z. B. Pokal-Einträge oder umbenannte Teams
+    const stats = await teamStatistik(
+      supabase,
+      team.id as string,
+      (season.starts_on as string | null) ?? null,
+      (season.ends_on as string | null) ?? null,
+    );
+    await supabase
+      .from("season_team_archive")
+      .update({
+        stats: {
+          ...((eintrag.stats as Record<string, unknown>) ?? {}),
+          ...stats,
+        },
+      })
+      .eq("id", eintrag.id);
+  }
+
+  revalidatePath(`/mitglieder/admin/saisons/${seasonId}`);
 }
 
 /**
@@ -379,6 +441,7 @@ export async function updateArchivTeam(formData: FormData) {
     zusagen: zahl("zusagen"),
     absagen: zahl("absagen"),
     vielleicht: zahl("vielleicht"),
+    nuliga_url: String(formData.get("nuliga_url") ?? "").trim(),
   };
 
   await supabase
