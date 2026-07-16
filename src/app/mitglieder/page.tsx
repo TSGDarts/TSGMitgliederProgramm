@@ -1,34 +1,19 @@
 import { requireProfile } from "@/lib/auth";
-import { getMemberEvents, getAllTeams } from "@/lib/member-queries";
+import { getMemberEvents } from "@/lib/member-queries";
 import { createClient } from "@/lib/supabase/server";
 import { EventCard } from "@/components/EventCard";
-import { Einklappbar } from "@/components/Einklappbar";
 import {
   PageHeader,
   EmptyState,
   Card,
   CardBody,
   ButtonLink,
-  Badge,
 } from "@/components/ui";
 import Link from "next/link";
-import { formatDate, ergebnisTone } from "@/lib/format";
-import { teileInRunden } from "@/lib/runden";
-import { isCompSpiegel, EVENT_TYPE_LABELS, type EventRow } from "@/lib/types";
+import { isCompSpiegel } from "@/lib/types";
 import type { Season } from "@/lib/season";
 
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<{
-    monat?: string;
-    team?: string;
-    ansicht?: string;
-    saison?: string;
-  }>;
-}) {
-  const { ansicht, saison } = await searchParams;
-  const zeigeErgebnisse = ansicht === "ergebnisse";
+export default async function DashboardPage() {
   const profile = await requireProfile();
   const events = await getMemberEvents(profile.id, { limit: 5 });
 
@@ -60,64 +45,6 @@ export default async function DashboardPage({
       .maybeSingle();
     surveyMissing = !myAnswer;
   }
-
-  // Ergebnis-Ansicht: ALLE Spiele je Mannschaft der gewählten Saison
-  let teams: Awaited<ReturnType<typeof getAllTeams>> = [];
-  const ergebnisseJeTeam = new Map<string, EventRow[]>();
-  let saisons: Season[] = [];
-  let gewaehlteSaison: Season | null = null;
-  const archivLiga = new Map<string, string>(); // Team-Name → damalige Liga
-  if (zeigeErgebnisse) {
-    teams = await getAllTeams();
-    const { data: saisonData } = await supabase
-      .from("seasons")
-      .select("*")
-      .order("created_at", { ascending: false });
-    saisons = (saisonData as Season[]) ?? [];
-    gewaehlteSaison =
-      saisons.find((s) => s.id === saison) ??
-      saisons.find((s) => s.status === "active") ??
-      saisons[0] ??
-      null;
-
-    let q = supabase
-      .from("events")
-      .select("*")
-      .in("type", ["match", "pokal", "friendly"])
-      .lte("starts_at", new Date().toISOString())
-      .order("starts_at", { ascending: false });
-    if (gewaehlteSaison?.starts_on) {
-      q = q.gte("starts_at", gewaehlteSaison.starts_on);
-    }
-    if (gewaehlteSaison?.ends_on) {
-      q = q.lte("starts_at", `${gewaehlteSaison.ends_on}T23:59:59Z`);
-    }
-    const { data: ergData } = await q;
-    for (const ev of ((ergData as EventRow[]) ?? [])) {
-      const key = ev.team_id ?? "verein";
-      const list = ergebnisseJeTeam.get(key) ?? [];
-      list.push(ev);
-      ergebnisseJeTeam.set(key, list);
-    }
-
-    // Bei archivierten Saisons: damalige Liga aus dem Archiv anzeigen
-    if (gewaehlteSaison?.status === "archived") {
-      const { data: archivData } = await supabase
-        .from("season_team_archive")
-        .select("team_name, league")
-        .eq("season_id", gewaehlteSaison.id);
-      for (const a of archivData ?? []) {
-        if (a.league) archivLiga.set(a.team_name as string, a.league as string);
-      }
-    }
-  }
-
-  /** Ergebnis mit Sieg/Niederlage/Unentschieden-Zeichen versehen. */
-  const ergebnisText = (result: string): string => {
-    const t = ergebnisTone(result);
-    const zeichen = t === "ok" ? "✅" : t === "danger" ? "❌" : "➖";
-    return `${zeichen} ${result}`;
-  };
 
   return (
     <div className="space-y-8">
@@ -156,174 +83,29 @@ export default async function DashboardPage({
         </Card>
       )}
 
-      {/* Reiter: Termine / Ergebnisse */}
-      <div className="flex flex-wrap gap-2">
-        <Link
-          href="/mitglieder"
-          className={`rounded-full px-4 py-1.5 text-sm font-medium ${
-            !zeigeErgebnisse
-              ? "bg-primary text-primary-fg"
-              : "border border-border text-muted hover:text-foreground"
-          }`}
-        >
-          📅 Termine
-        </Link>
-        <Link
-          href="/mitglieder?ansicht=ergebnisse"
-          className={`rounded-full px-4 py-1.5 text-sm font-medium ${
-            zeigeErgebnisse
-              ? "bg-primary text-primary-fg"
-              : "border border-border text-muted hover:text-foreground"
-          }`}
-        >
-          🎯 Ergebnisse
-        </Link>
-      </div>
-
-      {zeigeErgebnisse ? (
-        /* ============ ERGEBNISSE: alle Spiele je Mannschaft & Saison ============ */
-        <section className="space-y-4">
-          {/* Saison wählen */}
-          {saisons.length > 1 && (
-            <div className="flex flex-wrap gap-2">
-              {saisons.map((s) => (
-                <Link
-                  key={s.id}
-                  href={`/mitglieder?ansicht=ergebnisse&saison=${s.id}`}
-                  className={`rounded-full px-3 py-1 text-sm font-medium ${
-                    gewaehlteSaison?.id === s.id
-                      ? "bg-primary text-primary-fg"
-                      : "border border-border text-muted hover:text-foreground"
-                  }`}
-                >
-                  {s.name}
-                  {s.status === "archived" ? " 🗂" : ""}
-                </Link>
-              ))}
-            </div>
-          )}
-          {teams.length === 0 ? (
-            <EmptyState title="Noch keine Mannschaften angelegt" />
-          ) : (
-            [
-              ...teams.map((t) => ({
-                id: t.id,
-                name: t.name,
-                league: t.league,
-              })),
-              {
-                id: "verein",
-                name: "🏆 Pokal & Vereins-Spiele",
-                league: null as string | null,
-              },
-            ].map((t) => {
-              const liste = ergebnisseJeTeam.get(t.id) ?? [];
-              if (t.id === "verein" && liste.length === 0) return null;
-              const liga = archivLiga.get(t.name) || t.league;
-              const runden = teileInRunden(liste);
-              const gruppen = [
-                { titel: "Hinrunde", spiele: runden.hinrunde },
-                { titel: "Rückrunde", spiele: runden.rueckrunde },
-                {
-                  titel: "Pokal & Freundschaftsspiele",
-                  spiele: runden.sonstige,
-                },
-              ].filter((g) => g.spiele.length > 0);
-              return (
-                <Einklappbar
-                  key={t.id}
-                  id={`ergebnisse-${t.id}`}
-                  title={
-                    <span>
-                      {t.name}
-                      {liga && (
-                        <span className="ml-2 text-sm font-normal text-muted">
-                          {liga}
-                        </span>
-                      )}
-                      <span className="ml-2 text-sm font-normal text-muted">
-                        · {liste.length} Spiele
-                      </span>
-                    </span>
-                  }
-                >
-                  {liste.length === 0 ? (
-                    <p className="text-sm text-muted">
-                      In dieser Saison noch keine gespielten Spiele.
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {gruppen.map((gruppe) => (
-                        <div key={gruppe.titel} className="space-y-1">
-                          <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">
-                            {gruppe.titel}
-                          </p>
-                          {gruppe.spiele.map((ev) => (
-                            <Link
-                              key={ev.id}
-                              href={`/mitglieder/termine/${ev.id}`}
-                              className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-border/30"
-                            >
-                              <span className="min-w-0">
-                                <span className="text-muted">
-                                  {formatDate(ev.starts_at)}
-                                </span>{" "}
-                                {ev.title}
-                                {ev.type !== "match" && (
-                                  <span className="ml-1 text-xs text-muted">
-                                    ({EVENT_TYPE_LABELS[ev.type]})
-                                  </span>
-                                )}
-                              </span>
-                              {(ev.result ?? "").trim() ? (
-                                <Badge
-                                  tone={ergebnisTone((ev.result ?? "").trim())}
-                                >
-                                  {ergebnisText((ev.result ?? "").trim())}
-                                </Badge>
-                              ) : (
-                                <Badge>Ergebnis folgt</Badge>
-                              )}
-                            </Link>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Einklappbar>
-              );
-            })
-          )}
-        </section>
-      ) : (
-        /* ============ TERMINE: nächste Termine (Kalender hat eine
-           eigene Seite im Menü) ============ */
-        <>
-          <section>
-            <div className="mb-4 flex items-end justify-between">
-              <h2 className="text-lg font-bold">Nächste Termine</h2>
-              <Link
-                href="/mitglieder/termine"
-                className="text-sm text-primary hover:underline"
-              >
-                Alle Termine →
-              </Link>
-            </div>
-            {events.length === 0 ? (
-              <EmptyState
-                title="Keine anstehenden Termine"
-                hint="Sobald Termine eingetragen sind, erscheinen sie hier mit Zu-/Absage."
-              />
-            ) : (
-              <div className="space-y-3">
-                {events.map((event) => (
-                  <EventCard key={event.id} event={event} />
-                ))}
-              </div>
-            )}
-          </section>
-        </>
-      )}
+      <section>
+        <div className="mb-4 flex items-end justify-between">
+          <h2 className="text-lg font-bold">Nächste Termine</h2>
+          <Link
+            href="/mitglieder/termine"
+            className="text-sm text-primary hover:underline"
+          >
+            Alle Termine →
+          </Link>
+        </div>
+        {events.length === 0 ? (
+          <EmptyState
+            title="Keine anstehenden Termine"
+            hint="Sobald Termine eingetragen sind, erscheinen sie hier mit Zu-/Absage."
+          />
+        ) : (
+          <div className="space-y-3">
+            {events.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

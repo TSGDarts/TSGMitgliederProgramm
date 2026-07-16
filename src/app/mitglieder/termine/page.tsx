@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getMemberEvents, getAllTeams } from "@/lib/member-queries";
 import { siteUrl } from "@/lib/supabase/config";
 import { EventCard } from "@/components/EventCard";
-import { EventsCalendar } from "@/components/EventsCalendar";
 import { CalendarSubscribe } from "@/components/CalendarSubscribe";
 import { Einklappbar } from "@/components/Einklappbar";
 import { PdfPan } from "@/components/PdfPan";
@@ -13,52 +11,18 @@ import { PageHeader, EmptyState } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Termine & Zusagen" };
 
-export default async function MemberTerminePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ ansicht?: string; monat?: string; team?: string }>;
-}) {
-  const { ansicht, monat, team } = await searchParams;
-  const isCalendar = ansicht === "kalender";
+export default async function MemberTerminePage() {
   const profile = await requireProfile();
   const teams = await getAllTeams();
-
-  const viewChip = (active: boolean) =>
-    `rounded-full px-4 py-1.5 text-sm font-medium ${
-      active
-        ? "bg-primary text-primary-fg"
-        : "border border-border text-muted hover:text-foreground"
-    }`;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Termine & Zusagen"
-        subtitle="Sag zu oder ab – für Spieltage, Freundschaftsspiele und Training"
+        subtitle="Sag zu oder ab – für Spieltage, Freundschaftsspiele und Training (Monatsansicht unter „Kalender“ im Menü)"
       />
 
-      {/* Ansicht wählen */}
-      <div className="flex gap-2">
-        <Link href="/mitglieder/termine" className={viewChip(!isCalendar)}>
-          📋 Liste
-        </Link>
-        <Link
-          href="/mitglieder/termine?ansicht=kalender"
-          className={viewChip(isCalendar)}
-        >
-          🗓️ Kalender
-        </Link>
-      </div>
-
-      {isCalendar ? (
-        <EventsCalendar
-          base="/mitglieder/termine?ansicht=kalender"
-          monat={monat}
-          team={team}
-        />
-      ) : (
-        <ListView profileId={profile.id} />
-      )}
+      <ListView profileId={profile.id} />
 
       <Einklappbar
         id="termine-rahmenterminplan"
