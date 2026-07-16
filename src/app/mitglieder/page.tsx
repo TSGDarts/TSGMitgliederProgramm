@@ -1,5 +1,5 @@
 import { requireProfile } from "@/lib/auth";
-import { getMemberEvents } from "@/lib/member-queries";
+import { getMemberEvents, getAllTeams } from "@/lib/member-queries";
 import { createClient } from "@/lib/supabase/server";
 import { EventCard } from "@/components/EventCard";
 import { EventsCalendar } from "@/components/EventsCalendar";
@@ -10,17 +10,20 @@ import {
   Card,
   CardBody,
   ButtonLink,
+  Badge,
 } from "@/components/ui";
 import Link from "next/link";
-import { isCompSpiegel } from "@/lib/types";
+import { formatDate } from "@/lib/format";
+import { isCompSpiegel, EVENT_TYPE_LABELS, type EventRow } from "@/lib/types";
 import type { Season } from "@/lib/season";
 
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ monat?: string; team?: string }>;
+  searchParams: Promise<{ monat?: string; team?: string; ansicht?: string }>;
 }) {
-  const { monat, team } = await searchParams;
+  const { monat, team, ansicht } = await searchParams;
+  const zeigeErgebnisse = ansicht === "ergebnisse";
   const profile = await requireProfile();
   const events = await getMemberEvents(profile.id, { limit: 5 });
 
@@ -52,6 +55,32 @@ export default async function DashboardPage({
       .maybeSingle();
     surveyMissing = !myAnswer;
   }
+
+  // Ergebnis-Ansicht: letzte Spiele je Mannschaft (neueste zuerst)
+  let teams: Awaited<ReturnType<typeof getAllTeams>> = [];
+  const ergebnisseJeTeam = new Map<string, EventRow[]>();
+  if (zeigeErgebnisse) {
+    teams = await getAllTeams();
+    const { data: ergData } = await supabase
+      .from("events")
+      .select("*")
+      .not("team_id", "is", null)
+      .in("type", ["match", "pokal", "friendly"])
+      .lte("starts_at", new Date().toISOString())
+      .order("starts_at", { ascending: false });
+    for (const ev of ((ergData as EventRow[]) ?? [])) {
+      const list = ergebnisseJeTeam.get(ev.team_id!) ?? [];
+      if (list.length < 10) list.push(ev);
+      ergebnisseJeTeam.set(ev.team_id!, list);
+    }
+  }
+
+  /** Ergebnis-Abzeichen: grün = gewonnen, rot = verloren (unsere Sicht). */
+  const ergebnisTone = (result: string): "ok" | "danger" | "neutral" => {
+    const [a, b] = result.split(":").map(Number);
+    if (!Number.isFinite(a) || !Number.isFinite(b) || a === b) return "neutral";
+    return a > b ? "ok" : "danger";
+  };
 
   return (
     <div className="space-y-8">
@@ -90,33 +119,124 @@ export default async function DashboardPage({
         </Card>
       )}
 
-      <Einklappbar id="uebersicht-kalender" title="Kalender">
-        <EventsCalendar base="/mitglieder" monat={monat} team={team} />
-      </Einklappbar>
+      {/* Reiter: Termine / Ergebnisse */}
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href="/mitglieder"
+          className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+            !zeigeErgebnisse
+              ? "bg-primary text-primary-fg"
+              : "border border-border text-muted hover:text-foreground"
+          }`}
+        >
+          📅 Termine
+        </Link>
+        <Link
+          href="/mitglieder?ansicht=ergebnisse"
+          className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+            zeigeErgebnisse
+              ? "bg-primary text-primary-fg"
+              : "border border-border text-muted hover:text-foreground"
+          }`}
+        >
+          🎯 Ergebnisse
+        </Link>
+      </div>
 
-      <section>
-        <div className="mb-4 flex items-end justify-between">
-          <h2 className="text-lg font-bold">Nächste Termine</h2>
-          <Link
-            href="/mitglieder/termine"
-            className="text-sm text-primary hover:underline"
-          >
-            Alle Termine →
-          </Link>
-        </div>
-        {events.length === 0 ? (
-          <EmptyState
-            title="Keine anstehenden Termine"
-            hint="Sobald Termine eingetragen sind, erscheinen sie hier mit Zu-/Absage."
-          />
-        ) : (
-          <div className="space-y-3">
-            {events.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
-        )}
-      </section>
+      {zeigeErgebnisse ? (
+        /* ============ ERGEBNISSE: letzte Spiele je Mannschaft ============ */
+        <section className="space-y-4">
+          {teams.length === 0 ? (
+            <EmptyState title="Noch keine Mannschaften angelegt" />
+          ) : (
+            teams.map((t) => {
+              const liste = ergebnisseJeTeam.get(t.id) ?? [];
+              return (
+                <Einklappbar
+                  key={t.id}
+                  id={`ergebnisse-${t.id}`}
+                  title={
+                    <span>
+                      {t.name}
+                      {t.league && (
+                        <span className="ml-2 text-sm font-normal text-muted">
+                          {t.league}
+                        </span>
+                      )}
+                    </span>
+                  }
+                >
+                  {liste.length === 0 ? (
+                    <p className="text-sm text-muted">
+                      Noch keine gespielten Spiele.
+                    </p>
+                  ) : (
+                    <div className="space-y-1">
+                      {liste.map((ev) => (
+                        <Link
+                          key={ev.id}
+                          href={`/mitglieder/termine/${ev.id}`}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-border/30"
+                        >
+                          <span className="min-w-0">
+                            <span className="text-muted">
+                              {formatDate(ev.starts_at)}
+                            </span>{" "}
+                            {ev.title}
+                            {ev.type !== "match" && (
+                              <span className="ml-1 text-xs text-muted">
+                                ({EVENT_TYPE_LABELS[ev.type]})
+                              </span>
+                            )}
+                          </span>
+                          {(ev.result ?? "").trim() ? (
+                            <Badge tone={ergebnisTone((ev.result ?? "").trim())}>
+                              🎯 {(ev.result ?? "").trim()}
+                            </Badge>
+                          ) : (
+                            <Badge>Ergebnis folgt</Badge>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </Einklappbar>
+              );
+            })
+          )}
+        </section>
+      ) : (
+        /* ============ TERMINE: Kalender + nächste Termine ============ */
+        <>
+          <Einklappbar id="uebersicht-kalender" title="Kalender">
+            <EventsCalendar base="/mitglieder" monat={monat} team={team} />
+          </Einklappbar>
+
+          <section>
+            <div className="mb-4 flex items-end justify-between">
+              <h2 className="text-lg font-bold">Nächste Termine</h2>
+              <Link
+                href="/mitglieder/termine"
+                className="text-sm text-primary hover:underline"
+              >
+                Alle Termine →
+              </Link>
+            </div>
+            {events.length === 0 ? (
+              <EmptyState
+                title="Keine anstehenden Termine"
+                hint="Sobald Termine eingetragen sind, erscheinen sie hier mit Zu-/Absage."
+              />
+            ) : (
+              <div className="space-y-3">
+                {events.map((event) => (
+                  <EventCard key={event.id} event={event} />
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }
