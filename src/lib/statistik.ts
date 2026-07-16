@@ -180,6 +180,113 @@ export interface SaisonStatistik {
   statistik: LigaStatistik;
 }
 
+/** "Nachname, Vorname" → "Vorname Nachname" (für die Anzeige). */
+export function anzeigeName(n: string): string {
+  const teile = n.split(",");
+  return teile.length === 2 ? `${teile[1].trim()} ${teile[0].trim()}` : n.trim();
+}
+
+export interface SpielerZeile {
+  anzeige: string; // "Vorname Nachname"
+  spieltage: number;
+  einzelSiege: number;
+  einzelNiederlagen: number;
+  doppelSiege: number;
+  doppelNiederlagen: number;
+  legsGewonnen: number;
+  legsVerloren: number;
+  anzahl180: number;
+  besterFinish: number | null;
+  besterLowDarts: number | null;
+}
+
+/**
+ * Vereinsweite Bestenliste: alle TSG-Spieler aus den eingespielten
+ * Spielberichten, sortiert nach Siegen (Einzel + Doppel).
+ */
+export async function sammleVereinsStatistik(): Promise<SpielerZeile[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("events")
+    .select("id, title, starts_at, result, match_stats")
+    .not("match_stats", "is", null);
+
+  const spieler = new Map<string, SpielerZeile & { key: string }>();
+  const hole = (name: string) => {
+    const key = normalisiereName(name);
+    const e =
+      spieler.get(key) ??
+      ({
+        key,
+        anzeige: anzeigeName(name),
+        spieltage: 0,
+        einzelSiege: 0,
+        einzelNiederlagen: 0,
+        doppelSiege: 0,
+        doppelNiederlagen: 0,
+        legsGewonnen: 0,
+        legsVerloren: 0,
+        anzahl180: 0,
+        besterFinish: null,
+        besterLowDarts: null,
+      } as SpielerZeile & { key: string });
+    spieler.set(key, e);
+    return e;
+  };
+
+  for (const row of (data as EventZeile[]) ?? []) {
+    const stats = alsMatchStats(row.match_stats);
+    const bericht = stats?.nuliga;
+    if (!bericht?.spiele) continue;
+
+    const dabei = new Set<string>();
+    for (const s of bericht.spiele) {
+      for (const name of s.unsere) {
+        const e = hole(name);
+        dabei.add(e.key);
+        if (s.doppel) {
+          if (s.gewonnen) e.doppelSiege++;
+          else e.doppelNiederlagen++;
+        } else {
+          if (s.gewonnen) e.einzelSiege++;
+          else e.einzelNiederlagen++;
+        }
+        const [a, b] = s.legs.split(":").map(Number);
+        if (Number.isFinite(a) && Number.isFinite(b)) {
+          e.legsGewonnen += a;
+          e.legsVerloren += b;
+        }
+      }
+    }
+    for (const key of dabei) {
+      spieler.get(key)!.spieltage++;
+    }
+
+    // Bestleistungen zählen nur für unsere Spieler (Gegner ignorieren)
+    for (const b of bericht.bestleistungen ?? []) {
+      const key = normalisiereName(b.name);
+      const e = spieler.get(key);
+      if (!e || !dabei.has(key)) continue;
+      if (b.kategorie === "180") e.anzahl180 += b.anzahl;
+      else if (b.kategorie === "highfinish") {
+        if (e.besterFinish === null || b.wert > e.besterFinish) {
+          e.besterFinish = b.wert;
+        }
+      } else if (b.kategorie === "lowdarts") {
+        if (e.besterLowDarts === null || b.wert < e.besterLowDarts) {
+          e.besterLowDarts = b.wert;
+        }
+      }
+    }
+  }
+
+  return [...spieler.values()].sort(
+    (a, b) =>
+      b.einzelSiege + b.doppelSiege - (a.einzelSiege + a.doppelSiege) ||
+      a.anzeige.localeCompare(b.anzeige),
+  );
+}
+
 /**
  * Liga-Statistik eines Mitglieds: „Gesamt“ plus je Saison (nur Saisons,
  * in denen die Person auch gespielt hat). Zuordnung über den
