@@ -21,10 +21,15 @@ export async function saveMailEinstellungen(formData: FormData) {
   }
 
   const now = new Date().toISOString();
+  // Ablaufdatum des geheimen Clientschlüssels (JJJJ-MM-TT) – für die
+  // automatische Admin-Erinnerung vor dem Ablauf
+  const ablaufRaw = String(formData.get("ablauf") ?? "").trim();
+  const ablauf = /^\d{4}-\d{2}-\d{2}$/.test(ablaufRaw) ? ablaufRaw : "";
   const eintraege = [
     { key: "graph_tenant_id", value: String(formData.get("tenant") ?? "").trim() },
     { key: "graph_client_id", value: String(formData.get("client") ?? "").trim() },
     { key: "graph_absender", value: String(formData.get("absender") ?? "").trim() },
+    { key: "graph_secret_ablauf", value: ablauf },
   ];
   // Der geheime Schlüssel wird nur überschrieben, wenn etwas eingegeben wurde
   const secret = String(formData.get("secret") ?? "").trim();

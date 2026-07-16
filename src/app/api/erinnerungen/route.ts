@@ -70,8 +70,65 @@ export async function GET() {
       }
     }
   }
+  let verschickt = 0;
+
+  // Ablauf des M365-Schlüssels überwachen: Admins 30/14/7/3/1 Tage vorher
+  // (und einmalig nach Ablauf) benachrichtigen – Datum pflegt der Admin
+  // unter Einstellungen („Schlüssel gültig bis“). Läuft bewusst VOR dem
+  // Abbruch bei leeren Erinnerungs-Gruppen.
+  try {
+    const { data: ablaufRow } = await admin
+      .from("secure_settings")
+      .select("value")
+      .eq("key", "graph_secret_ablauf")
+      .maybeSingle();
+    const ablauf = ((ablaufRow?.value as string) ?? "").trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(ablauf)) {
+      const heute = berlinDay.format(new Date());
+      const tageBis = Math.round(
+        (Date.parse(ablauf) - Date.parse(heute)) / 864e5,
+      );
+      const stufe = [30, 14, 7, 3, 1, 0].includes(tageBis)
+        ? String(tageBis)
+        : tageBis < 0
+          ? "abgelaufen"
+          : null;
+      if (stufe) {
+        const { error: logError } = await admin
+          .from("notification_log")
+          .insert({ key: `graph-ablauf:${ablauf}:${stufe}` });
+        if (!logError) {
+          const { data: adminProfile } = await admin
+            .from("profiles")
+            .select("id")
+            .eq("role", "admin")
+            .eq("is_active", true);
+          const adminIds = (adminProfile ?? []).map((p) => p.id as string);
+          if (adminIds.length) {
+            const wann =
+              tageBis < 0
+                ? "ist ABGELAUFEN"
+                : tageBis === 0
+                  ? "läuft HEUTE ab"
+                  : tageBis === 1
+                    ? "läuft MORGEN ab"
+                    : `läuft in ${tageBis} Tagen ab`;
+            await benachrichtige(adminIds, {
+              title: `🔑 M365-Schlüssel ${wann}`,
+              body: `Der geheime Clientschlüssel für den E-Mail-Versand (gültig bis ${formatDate(ablauf)}) muss in Microsoft Entra erneuert und unter Einstellungen neu eingetragen werden.`,
+              url: "/mitglieder/admin/einstellungen",
+            });
+            verschickt++;
+          }
+        }
+      }
+    }
+  } catch {
+    // secure_settings fehlt noch – dann gibt es nichts zu überwachen
+  }
+
   if (gruppen.size === 0) {
-    return NextResponse.json({ kategorien: 0, verschickt: 0 });
+    return NextResponse.json({ kategorien: 0, verschickt });
   }
 
   const jetzt = Date.now();
@@ -151,7 +208,6 @@ export async function GET() {
     return kandidaten;
   };
 
-  let verschickt = 0;
   for (const [kategorie, proTage] of gruppen) {
     for (const [tage, ids] of proTage) {
       const zielTag = berlinDay.format(new Date(jetzt + tage * 864e5));

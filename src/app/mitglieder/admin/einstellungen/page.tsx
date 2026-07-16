@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import { formatDate } from "@/lib/format";
 import {
   saveMailEinstellungen,
   saveFragenEinstellungen,
@@ -31,6 +32,7 @@ export default async function AdminEinstellungenPage({
   let client = "";
   let absender = "";
   let secretGesetzt = false;
+  let ablauf = "";
   let fragenEmail = "";
   let fragenWhatsapp = "";
   try {
@@ -43,6 +45,7 @@ export default async function AdminEinstellungenPage({
         "graph_client_id",
         "graph_client_secret",
         "graph_absender",
+        "graph_secret_ablauf",
       ]);
     for (const row of data ?? []) {
       const wert = (row.value as string) ?? "";
@@ -50,6 +53,7 @@ export default async function AdminEinstellungenPage({
       if (row.key === "graph_client_id") client = wert;
       if (row.key === "graph_absender") absender = wert;
       if (row.key === "graph_client_secret") secretGesetzt = !!wert;
+      if (row.key === "graph_secret_ablauf") ablauf = wert;
     }
     const { data: appData } = await admin
       .from("app_settings")
@@ -62,6 +66,25 @@ export default async function AdminEinstellungenPage({
     }
   } catch {
     // Tabelle fehlt noch – Formular zeigt dann leere Felder
+  }
+
+  // Warnung anzeigen, wenn der Schlüssel bald abläuft oder abgelaufen ist
+  let ablaufWarnung: string | null = null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ablauf)) {
+    const heute = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Europe/Berlin",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const tageBis = Math.round((Date.parse(ablauf) - Date.parse(heute)) / 864e5);
+    if (tageBis < 0) {
+      ablaufWarnung = `Der geheime Clientschlüssel ist am ${formatDate(ablauf)} abgelaufen – der E-Mail-Versand funktioniert nicht mehr. Bitte in Entra erneuern und hier neu eintragen.`;
+    } else if (tageBis <= 30) {
+      ablaufWarnung = `Der geheime Clientschlüssel läuft ${
+        tageBis === 0 ? "HEUTE" : tageBis === 1 ? "morgen" : `in ${tageBis} Tagen`
+      } ab (${formatDate(ablauf)}). Bitte rechtzeitig in Entra erneuern und hier neu eintragen.`;
+    }
   }
 
   return (
@@ -109,6 +132,11 @@ export default async function AdminEinstellungenPage({
               in der Anleitung unten.
             </p>
           </div>
+          {ablaufWarnung ? (
+            <div className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm">
+              ⚠️ {ablaufWarnung}
+            </div>
+          ) : null}
           <form action={saveMailEinstellungen} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Verzeichnis-ID (Mandant)">
@@ -152,6 +180,17 @@ export default async function AdminEinstellungenPage({
                   type="email"
                   defaultValue={absender}
                   placeholder="darts@tsg08roth.de"
+                  className={inputClass}
+                />
+              </Field>
+              <Field
+                label="Schlüssel gültig bis"
+                hint="Ablaufdatum des Schlüssels aus Entra – Admins werden 30, 14, 7, 3 und 1 Tag vorher benachrichtigt"
+              >
+                <input
+                  name="ablauf"
+                  type="date"
+                  defaultValue={ablauf}
                   className={inputClass}
                 />
               </Field>
@@ -262,7 +301,9 @@ export default async function AdminEinstellungenPage({
             „Zertifikate &amp; Geheimnisse“ → „Neuer geheimer
             Clientschlüssel“ (z. B. 24 Monate) → den <strong>WERT</strong>{" "}
             sofort kopieren (nur einmal sichtbar!) → oben als Schlüssel
-            eintragen. <strong>Wichtig:</strong> Vor Ablauf erneuern.
+            eintragen. Das dort angezeigte <strong>Ablaufdatum</strong> oben
+            im Feld „Schlüssel gültig bis“ eintragen – die App erinnert alle
+            Admins dann automatisch 30, 14, 7, 3 und 1 Tag vor dem Ablauf.
           </li>
           <li>
             Absender-Adresse eintragen, speichern und mit{" "}
