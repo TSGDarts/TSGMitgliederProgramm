@@ -234,18 +234,55 @@ export async function importNuligaIcal(
     is_public: true,
   }));
 
-  const { error } = await supabase
+  // Abgleich von Hand (kein Upsert – der eindeutige source_uid-Index ist
+  // ein Teil-Index, mit dem die Upsert-Automatik nicht umgehen kann):
+  // bekannte Spieltage aktualisieren, neue anlegen.
+  const { data: vorhandene } = await supabase
     .from("events")
-    .upsert(rows, { onConflict: "source_uid" });
+    .select("id, source_uid")
+    .in("source_uid", rows.map((r) => r.source_uid));
+  const bekannt = new Map(
+    (vorhandene ?? []).map((v) => [v.source_uid as string, v.id as string]),
+  );
 
-  if (error) {
-    return { ok: false, message: `Fehler beim Speichern: ${error.message}` };
+  let neu = 0;
+  let aktualisiert = 0;
+  let letzterFehler = "";
+  for (const row of rows) {
+    const bestehendeId = bekannt.get(row.source_uid);
+    if (bestehendeId) {
+      const { error } = await supabase
+        .from("events")
+        .update({
+          title: row.title,
+          description: row.description,
+          location: row.location,
+          starts_at: row.starts_at,
+          ends_at: row.ends_at,
+        })
+        .eq("id", bestehendeId);
+      if (error) letzterFehler = error.message;
+      else aktualisiert++;
+    } else {
+      const { error } = await supabase.from("events").insert(row);
+      if (error) letzterFehler = error.message;
+      else neu++;
+    }
+  }
+
+  if (neu + aktualisiert === 0) {
+    return {
+      ok: false,
+      message: `Fehler beim Speichern: ${letzterFehler || "unbekannt"}`,
+    };
   }
 
   revalidatePath("/mitglieder/termine");
   revalidatePath("/termine");
   return {
     ok: true,
-    message: `${events.length} Termine aus nuLiga importiert/aktualisiert.`,
+    message:
+      `${neu} Termine neu angelegt, ${aktualisiert} aktualisiert.` +
+      (letzterFehler ? ` (Teilweise Fehler: ${letzterFehler})` : ""),
   };
 }
