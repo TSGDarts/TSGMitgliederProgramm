@@ -133,7 +133,12 @@ export default async function AdminOpponentsPage() {
           <code className="text-xs">{"{kapitaen}"}</code>,{" "}
           <code className="text-xs">{"{mannschaft}"}</code>,{" "}
           <code className="text-xs">{"{datum}"}</code>,{" "}
-          <code className="text-xs">{"{uhrzeit}"}</code>.
+          <code className="text-xs">{"{uhrzeit}"}</code>. Zusätzlich gibt es{" "}
+          <code className="text-xs">{"{spiellink}"}</code> für den 2k-Link
+          des Spiels (pflegt der Kapitän auf der Terminseite) – steht der
+          Platzhalter nicht in der Vorlage, wird der Link automatisch am
+          Ende der Nachricht ergänzt; ohne hinterlegten Link entfällt die
+          Zeile.
         </p>
         <form action={saveGegnerVorlage} className="space-y-3">
           <textarea

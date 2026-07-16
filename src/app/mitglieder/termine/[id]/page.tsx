@@ -15,6 +15,7 @@ import { AddressLine } from "@/components/AddressLine";
 import { CarpoolSection, type CarpoolFahrer } from "@/components/CarpoolSection";
 import { LineupSection } from "@/components/LineupSection";
 import { GegnerNachricht } from "@/components/GegnerNachricht";
+import { MatchUrlForm } from "@/components/MatchUrlForm";
 import type { LineupEintrag } from "@/app/mitglieder/termine/spieltag-actions";
 import { PageHeader, Card, CardBody, Badge } from "@/components/ui";
 import {
@@ -137,6 +138,9 @@ export default async function EventDetailPage({
       ? `🤝 Treffpunkt vor Ort: ${event.meet_venue_time} Uhr`
       : "",
     ...modusZeilen.map((z) => `🎯 ${z}`),
+    (event.match_url ?? "").trim()
+      ? `🔗 Spiel live mitverfolgen: ${(event.match_url ?? "").trim()}`
+      : "",
   ].filter(Boolean);
 
   // Fahrgemeinschaft
@@ -190,6 +194,20 @@ export default async function EventDetailPage({
       .replaceAll("{mannschaft}", teamName ?? "TSG 08 Roth")
       .replaceAll("{datum}", formatDate(event.starts_at))
       .replaceAll("{uhrzeit}", uhr);
+    // 2k-Link zum Spiel: Platzhalter {spiellink} ersetzen – ohne
+    // Platzhalter wird der Link automatisch ans Ende angehängt.
+    const spielLink = (event.match_url ?? "").trim();
+    if (spielLink) {
+      gegnerText = gegnerText.includes("{spiellink}")
+        ? gegnerText.replaceAll("{spiellink}", spielLink)
+        : `${gegnerText}\n\nHier kommt ihr direkt zu unserem Spiel in der 2k-Software (auch zum Live-Mitverfolgen): ${spielLink}`;
+    } else {
+      // Kein Link hinterlegt: Zeilen mit dem Platzhalter weglassen
+      gegnerText = gegnerText
+        .split("\n")
+        .filter((zeile) => !zeile.includes("{spiellink}"))
+        .join("\n");
+    }
   }
 
   const byStatus = (key: RsvpStatus | "open") =>
@@ -260,6 +278,16 @@ export default async function EventDetailPage({
         {event.home_away === "heim" && <Badge tone="ok">🏠 Heim</Badge>}
         {event.home_away === "auswaerts" && (
           <Badge tone="warn">🚗 Auswärts</Badge>
+        )}
+        {(event.match_url ?? "").trim() && (
+          <a
+            href={(event.match_url ?? "").trim()}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg hover:opacity-90"
+          >
+            🎯 Spiel live mitverfolgen (2k)
+          </a>
         )}
         {event.meeting_url && (
           <a
@@ -340,6 +368,20 @@ export default async function EventDetailPage({
       </Card>
 
       {/* Heimspiel-Nachricht an den Gegner */}
+      {istSpiel && canManage && (
+        <details className="rounded-xl border border-border bg-surface">
+          <summary className="cursor-pointer px-5 py-4 font-semibold">
+            🔗 2k-Link zu diesem Spiel
+          </summary>
+          <div className="border-t border-border p-5">
+            <MatchUrlForm
+              eventId={event.id}
+              initialUrl={(event.match_url ?? "").trim()}
+            />
+          </div>
+        </details>
+      )}
+
       {gegnerText && (
         <details className="rounded-xl border border-border bg-surface">
           <summary className="cursor-pointer px-5 py-4 font-semibold">

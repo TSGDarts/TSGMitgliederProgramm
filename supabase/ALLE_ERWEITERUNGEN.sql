@@ -1336,3 +1336,10 @@ alter table season_plans enable row level security;
 
 alter table pokal_squads
   add column if not exists is_captain boolean not null default false;
+
+-- ============================================================
+-- 47: 2k-Link je Spieltermin (für Gegner-Nachricht + Live-Verfolgen)
+-- ============================================================
+
+alter table events
+  add column if not exists match_url text not null default '';

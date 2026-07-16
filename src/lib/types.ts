@@ -87,6 +87,7 @@ export interface EventRow {
   description: string | null;
   location: string | null;
   meeting_url?: string | null; // Online-Link (Teams, Meet, …)
+  match_url?: string | null; // 2k-Link zum Spiel (Live-Verfolgen, Gegner-Nachricht)
   meet_home_time?: string | null; // Treffpunkt bei der TSG, z. B. "18:30"
   meet_venue_time?: string | null; // Treffpunkt vor Ort
   opponent_id?: string | null;

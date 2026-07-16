@@ -40,6 +40,39 @@ export async function setCarpool(
   return { ok: true };
 }
 
+/**
+ * 2k-Link zum Spiel speichern (Kapitän/Vize/Bearbeiter/Admin – den
+ * Schreibschutz übernimmt die Datenbank-Policy der Termine).
+ */
+export async function saveMatchUrl(
+  eventId: string,
+  url: string,
+): Promise<{ ok: boolean; message?: string }> {
+  await requireProfile();
+  const sauber = url.trim();
+  if (sauber && !/^https?:\/\//i.test(sauber)) {
+    return {
+      ok: false,
+      message: "Bitte einen vollständigen Link angeben (beginnt mit https://…).",
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("events")
+    .update({ match_url: sauber })
+    .eq("id", eventId);
+  if (error) {
+    const text = /column|schema/i.test(error.message)
+      ? "Bitte zuerst ALLE_ERWEITERUNGEN.sql im Supabase SQL-Editor ausführen."
+      : error.message;
+    return { ok: false, message: text };
+  }
+
+  revalidatePath(`/mitglieder/termine/${eventId}`);
+  return { ok: true };
+}
+
 export interface LineupEintrag {
   profile_id: string | null;
   name: string;
