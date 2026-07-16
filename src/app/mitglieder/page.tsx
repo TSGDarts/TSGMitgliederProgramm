@@ -2,6 +2,8 @@ import { requireProfile } from "@/lib/auth";
 import { getMemberEvents } from "@/lib/member-queries";
 import { createClient } from "@/lib/supabase/server";
 import { EventCard } from "@/components/EventCard";
+import { EventsCalendar } from "@/components/EventsCalendar";
+import { Einklappbar } from "@/components/Einklappbar";
 import {
   PageHeader,
   EmptyState,
@@ -13,7 +15,12 @@ import Link from "next/link";
 import { isCompSpiegel } from "@/lib/types";
 import type { Season } from "@/lib/season";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ monat?: string; team?: string }>;
+}) {
+  const { monat, team } = await searchParams;
   const profile = await requireProfile();
   const events = await getMemberEvents(profile.id, { limit: 5 });
 
@@ -83,9 +90,13 @@ export default async function DashboardPage() {
         </Card>
       )}
 
+      <Einklappbar id="uebersicht-kalender" title="🗓️ Kalender">
+        <EventsCalendar base="/mitglieder" monat={monat} team={team} />
+      </Einklappbar>
+
       <section>
         <div className="mb-4 flex items-end justify-between">
-          <h2 className="text-lg font-bold">Nächste Termine</h2>
+          <h2 className="text-lg font-bold">Nächste Termine – zu-/absagen</h2>
           <Link
             href="/mitglieder/termine"
             className="text-sm text-primary hover:underline"
