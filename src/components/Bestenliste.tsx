@@ -66,6 +66,16 @@ const SPALTEN: {
 export function Bestenliste({ liste }: { liste: SpielerZeile[] }) {
   const [sortKey, setSortKey] = useState<SpaltenKey | null>(null);
   const [richtung, setRichtung] = useState<"asc" | "desc">("desc");
+  const [markiert, setMarkiert] = useState<Set<string>>(new Set());
+
+  function markieren(name: string) {
+    setMarkiert((alt) => {
+      const neu = new Set(alt);
+      if (neu.has(name)) neu.delete(name);
+      else neu.add(name);
+      return neu;
+    });
+  }
 
   const spalte = SPALTEN.find((s) => s.key === sortKey) ?? null;
   const sortiert = spalte
@@ -125,12 +135,20 @@ export function Bestenliste({ liste }: { liste: SpielerZeile[] }) {
           {sortiert.map((s, i) => (
             <tr
               key={s.anzeige}
-              className="border-b border-border/50 hover:bg-border/20"
+              onClick={() => markieren(s.anzeige)}
+              className={`cursor-pointer border-b border-border/50 ${
+                markiert.has(s.anzeige)
+                  ? "bg-primary/15 hover:bg-primary/20"
+                  : "hover:bg-border/20"
+              }`}
             >
-              <td className="px-2 py-2 text-muted">{i + 1}.</td>
+              <td className="px-2 py-2 text-muted">
+                {markiert.has(s.anzeige) ? "📌" : `${i + 1}.`}
+              </td>
               <td className="px-2 py-2 font-medium">
                 <Link
                   href={`/mitglieder/statistiken?spieler=${encodeURIComponent(s.anzeige)}`}
+                  onClick={(e) => e.stopPropagation()}
                   className="text-primary hover:underline"
                 >
                   {s.anzeige}
@@ -155,7 +173,9 @@ export function Bestenliste({ liste }: { liste: SpielerZeile[] }) {
       </table>
       <p className="mt-2 text-xs text-muted">
         Spaltenüberschrift antippen zum Sortieren (nochmal = Richtung
-        umdrehen). Ohne Auswahl: sortiert nach Siegen (Einzel + Doppel).
+        umdrehen) · Zeile antippen markiert den Spieler 📌 zum Vergleichen
+        (bleibt beim Umsortieren erhalten) · Name antippen öffnet die
+        Detail-Statistik.
       </p>
     </div>
   );
