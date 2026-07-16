@@ -95,7 +95,7 @@ export const REGELN_STANDARD = `# 🤝 Fairplay & Verhalten
 - Wir sind Gäste im TSG-Gebäude: Rücksicht auf andere Abteilungen und Nachbarn.
 
 # 💪 Training
-- Training ist für alle da – Anfänger sind ausdrücklich willkommen.
+- Training ist für alle da.
 - Boards und Material nach dem Training wieder aufräumen.
 
 # 📱 App & Kommunikation
