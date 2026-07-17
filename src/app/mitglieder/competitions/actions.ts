@@ -61,10 +61,26 @@ export async function createCompetition(formData: FormData) {
   if (!title || weekday < 1 || weekday > 7) return;
 
   const supabase = await createClient();
+  const felder = await readCompetitionFields(supabase, formData);
+
+  // Schutz vor Dubletten (z. B. durch doppeltes Absenden des Formulars):
+  // gleicher Name + Wochentag + Adresse existiert schon → nichts anlegen.
+  const { data: vorhanden } = await supabase
+    .from("competitions")
+    .select("id")
+    .eq("title", title)
+    .eq("weekday", weekday)
+    .eq("address", felder.address)
+    .limit(1);
+  if (vorhanden?.length) {
+    revalidatePath("/mitglieder/competitions");
+    return;
+  }
+
   await supabase.from("competitions").insert({
     title,
     weekday,
-    ...(await readCompetitionFields(supabase, formData)),
+    ...felder,
     created_by: profile.id,
   });
 
