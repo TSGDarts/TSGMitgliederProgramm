@@ -50,81 +50,121 @@ export default async function EventDetailPage({
   const event = await getEvent(id);
   if (!event) notFound();
 
-  const [participants, teams] = await Promise.all([
+  const spiegel = isCompSpiegel(event);
+  const istSpiel =
+    !!event.team_id && ["match", "pokal", "friendly"].includes(event.type);
+  const istHeimspiel = istSpiel && event.home_away === "heim" && !spiegel;
+
+  const supabase = await createClient();
+  const [participants, teams, manageable] = await Promise.all([
     getEventParticipants(event),
     getTeamsMap(),
+    event.team_id
+      ? getManageableTeamIds(profile)
+      : Promise.resolve(new Set<string>()),
   ]);
+  const canManage = event.team_id ? manageable.has(event.team_id) : false;
 
   const myStatus =
     participants.find((p) => p.profile.id === profile.id)?.status ?? null;
   const teamName = event.team_id ? teams.get(event.team_id)?.name : null;
 
+  // Alle unabhängigen Detail-Abfragen PARALLEL laden (statt nacheinander –
+  // das macht die Seite deutlich schneller)
+  const [
+    trainerRes,
+    kontaktRes,
+    lineupRes,
+    rosterRoh,
+    modiRes,
+    carpoolRes,
+    helferRes,
+    oppRes,
+    vorlageRes,
+  ] = await Promise.all([
+    event.trainer_ids?.length
+      ? supabase
+          .from("profiles")
+          .select("full_name")
+          .in("id", event.trainer_ids)
+          .order("full_name")
+      : Promise.resolve({ data: null }),
+    event.contact_ids?.length
+      ? supabase
+          .from("profiles")
+          .select("full_name, phone")
+          .in("id", event.contact_ids)
+          .order("full_name")
+      : Promise.resolve({ data: null }),
+    istSpiel
+      ? supabase
+          .from("event_lineups")
+          .select("entries, released")
+          .eq("event_id", event.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    istSpiel && canManage ? getTeamRoster(event.team_id!) : Promise.resolve([]),
+    istSpiel ? getSpielModi() : Promise.resolve(null),
+    !spiegel
+      ? supabase
+          .from("event_carpool")
+          .select("profile_id, role, seats, profiles(full_name)")
+          .eq("event_id", event.id)
+      : Promise.resolve({ data: null }),
+    istHeimspiel
+      ? supabase
+          .from("event_helpers")
+          .select("profile_id, aufgabe, profiles(full_name)")
+          .eq("event_id", event.id)
+      : Promise.resolve({ data: null }),
+    istSpiel && canManage && event.home_away === "heim" && event.opponent_id
+      ? supabase
+          .from("opponents")
+          .select("contact_name")
+          .eq("id", event.opponent_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    istSpiel && canManage && event.home_away === "heim"
+      ? getGegnerVorlage()
+      : Promise.resolve(null),
+  ]);
+
   // Anwesende Trainer (bei Trainings)
-  let trainerNames: string[] = [];
-  if (event.trainer_ids?.length) {
-    const supabase = await createClient();
-    const { data: trainerData } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .in("id", event.trainer_ids)
-      .order("full_name");
-    trainerNames = (trainerData ?? []).map((t) => t.full_name as string);
-  }
+  const trainerNames = (trainerRes.data ?? []).map(
+    (t) => t.full_name as string,
+  );
 
   // Ansprechpartner (mit Handynummer – nur für Mitglieder sichtbar)
-  let kontakte: { full_name: string; phone: string | null }[] = [];
-  if (event.contact_ids?.length) {
-    const supabase = await createClient();
-    const { data: kontaktData } = await supabase
-      .from("profiles")
-      .select("full_name, phone")
-      .in("id", event.contact_ids)
-      .order("full_name");
-    kontakte = (kontaktData ?? []) as typeof kontakte;
-  }
-
-  const spiegel = isCompSpiegel(event);
+  const kontakte = (kontaktRes.data ?? []) as {
+    full_name: string;
+    phone: string | null;
+  }[];
 
   // Aufstellung (nur bei Mannschafts-Spielen)
-  const istSpiel =
-    !!event.team_id && ["match", "pokal", "friendly"].includes(event.type);
-  const canManage = event.team_id
-    ? (await getManageableTeamIds(profile)).has(event.team_id)
-    : false;
   let lineupEntries: LineupEintrag[] = [];
   let lineupReleased = false;
-  let roster: { id: string; name: string }[] = [];
-  if (istSpiel) {
-    const supabase = await createClient();
-    const { data: lineupData } = await supabase
-      .from("event_lineups")
-      .select("entries, released")
-      .eq("event_id", event.id)
-      .maybeSingle();
-    if (lineupData) {
-      lineupEntries = (lineupData.entries as LineupEintrag[]) ?? [];
-      lineupReleased = !!lineupData.released;
-    }
-    if (canManage) {
-      roster = (await getTeamRoster(event.team_id!)).map((m) => ({
-        id: m.profile_id,
-        name: m.profile.full_name || m.profile.email || "?",
-      }));
-    }
+  if (lineupRes.data) {
+    lineupEntries = (lineupRes.data.entries as LineupEintrag[]) ?? [];
+    lineupReleased = !!lineupRes.data.released;
   }
+  const roster: { id: string; name: string }[] = rosterRoh.map((m) => ({
+    id: m.profile_id,
+    name: m.profile.full_name || m.profile.email || "?",
+  }));
+
   // Spielmodus (vom Admin gepflegt) – bei Punkt- und Pokalspielen;
   // Liga-Modus kommt aus der Mannschaft (Teams spielen verschiedene Ligen)
   let modusZeilen: string[] = [];
-  if (istSpiel) {
-    const modi = await getSpielModi();
+  if (istSpiel && modiRes) {
     const teamModus =
-      (event.team_id ? teams.get(event.team_id)?.spielmodus : "") || modi.liga;
+      (event.team_id ? teams.get(event.team_id)?.spielmodus : "") ||
+      modiRes.liga;
     if (event.type === "match" && teamModus) {
       modusZeilen = [`Modus: ${teamModus}`];
     } else if (event.type === "pokal") {
       modusZeilen = [
-        modi.pokal ? `Pokal: ${modi.pokal}` : "",
-        modi.achter ? `8ter Cup: ${modi.achter}` : "",
+        modiRes.pokal ? `Pokal: ${modiRes.pokal}` : "",
+        modiRes.achter ? `8ter Cup: ${modiRes.achter}` : "",
       ].filter(Boolean);
     }
   }
@@ -151,12 +191,7 @@ export default async function EventDetailPage({
   let meineRolle: "fahrer" | "mitfahrer" | null = null;
   let meineSeats: number | null = null;
   if (!spiegel) {
-    const supabase = await createClient();
-    const { data: carpoolData } = await supabase
-      .from("event_carpool")
-      .select("profile_id, role, seats, profiles(full_name)")
-      .eq("event_id", event.id);
-    for (const row of carpoolData ?? []) {
+    for (const row of carpoolRes.data ?? []) {
       const name =
         (row.profiles as unknown as { full_name: string } | null)?.full_name ??
         "?";
@@ -173,16 +208,10 @@ export default async function EventDetailPage({
   }
 
   // Helferliste (nur bei Heimspielen)
-  const istHeimspiel = istSpiel && event.home_away === "heim" && !spiegel;
   const helferListe: HelferEintrag[] = [];
   let meineHelferAufgabe: string | null = null;
   if (istHeimspiel) {
-    const supabase = await createClient();
-    const { data: helferData } = await supabase
-      .from("event_helpers")
-      .select("profile_id, aufgabe, profiles(full_name)")
-      .eq("event_id", event.id);
-    for (const row of helferData ?? []) {
+    for (const row of helferRes.data ?? []) {
       const name =
         (row.profiles as unknown as { full_name: string } | null)?.full_name ??
         "?";
@@ -196,18 +225,10 @@ export default async function EventDetailPage({
 
   // Heimspiel-Nachricht an den Gegner (nur für Kapitän/Vize/Bearbeiter/Admin)
   let gegnerText: string | null = null;
-  if (istSpiel && canManage && event.home_away === "heim") {
-    const supabase = await createClient();
-    let ansprech = "zusammen";
-    if (event.opponent_id) {
-      const { data: opp } = await supabase
-        .from("opponents")
-        .select("contact_name")
-        .eq("id", event.opponent_id)
-        .maybeSingle();
-      if (opp?.contact_name) ansprech = opp.contact_name as string;
-    }
-    const vorlage = await getGegnerVorlage();
+  if (istSpiel && canManage && event.home_away === "heim" && vorlageRes) {
+    const ansprech =
+      (oppRes.data?.contact_name as string | undefined) || "zusammen";
+    const vorlage = vorlageRes;
     const uhr =
       event.time_tbd || formatTime(event.starts_at) === "00:00"
         ? "…"

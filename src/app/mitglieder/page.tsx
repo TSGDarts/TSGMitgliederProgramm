@@ -22,7 +22,28 @@ export default async function DashboardPage({
 }) {
   const { monat, team } = await searchParams;
   const profile = await requireProfile();
-  const events = await getMemberEvents(profile.id, { limit: 5 });
+  const supabase = await createClient();
+
+  // Unabhängige Abfragen parallel starten (spart spürbar Ladezeit)
+  const [events, openSeasonRes, ankuendigungRes] = await Promise.all([
+    getMemberEvents(profile.id, { limit: 5 }),
+    supabase
+      .from("seasons")
+      .select("*")
+      .eq("status", "active")
+      .eq("survey_open", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    // Neueste Ankündigung (max. 14 Tage alt) vom Schwarzen Brett
+    supabase
+      .from("announcements")
+      .select("title, body, created_at")
+      .gte("created_at", new Date(Date.now() - 14 * 864e5).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
   // Gespiegelte Competition-Abende brauchen keine Rückmeldung
   const offen = events.filter(
@@ -31,17 +52,10 @@ export default async function DashboardPage({
 
   // Läuft gerade eine Saisonabfrage, die ich noch nicht beantwortet habe?
   // (Mitglieder ohne Liga-Spielbetrieb betrifft sie nicht.)
-  const supabase = await createClient();
-  const { data: openSeasonData } = await supabase
-    .from("seasons")
-    .select("*")
-    .eq("status", "active")
-    .eq("survey_open", true)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
   const openSeason =
-    profile.role === "member" ? null : (openSeasonData as Season | null);
+    profile.role === "member"
+      ? null
+      : ((openSeasonRes.data as Season | null) ?? null);
   let surveyMissing = false;
   if (openSeason) {
     const { data: myAnswer } = await supabase
@@ -53,20 +67,11 @@ export default async function DashboardPage({
     surveyMissing = !myAnswer;
   }
 
-  // Neueste Ankündigung (max. 14 Tage alt) vom Schwarzen Brett
-  let ankuendigung: { title: string; body: string } | null = null;
-  try {
-    const { data } = await supabase
-      .from("announcements")
-      .select("title, body, created_at")
-      .gte("created_at", new Date(Date.now() - 14 * 864e5).toISOString())
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (data) ankuendigung = data as { title: string; body: string };
-  } catch {
-    // Tabelle fehlt noch – kein Hinweis
-  }
+  // Ankündigung nur zeigen, wenn die Tabelle schon existiert (Fehler egal)
+  const ankuendigung = (ankuendigungRes.data ?? null) as {
+    title: string;
+    body: string;
+  } | null;
 
   return (
     <div className="space-y-8">
