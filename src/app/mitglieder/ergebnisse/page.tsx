@@ -232,8 +232,14 @@ export default async function ErgebnissePage({
                             Bilanz {b.gesamt.s}-{b.gesamt.u}-{b.gesamt.n}
                           </strong>{" "}
                           <span className="text-muted">
-                            (S-U-N) · Heim {b.heim.s}-{b.heim.u}-{b.heim.n} ·
-                            Auswärts {b.ausw.s}-{b.ausw.u}-{b.ausw.n}
+                            (S-U-N)
+                            {b.heim.s + b.heim.u + b.heim.n + b.ausw.s +
+                              b.ausw.u + b.ausw.n > 0 && (
+                              <>
+                                {" "}· Heim {b.heim.s}-{b.heim.u}-{b.heim.n} ·
+                                Auswärts {b.ausw.s}-{b.ausw.u}-{b.ausw.n}
+                              </>
+                            )}
                             {b.serieText && <> · {b.serieText}</>}
                           </span>
                         </p>
