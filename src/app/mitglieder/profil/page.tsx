@@ -3,6 +3,7 @@ import { requireProfile } from "@/lib/auth";
 import { updateProfile } from "./actions";
 import { sammleLigaStatistikSaisons } from "@/lib/statistik";
 import { LigaStatistikKacheln } from "@/components/LigaStatistik";
+import { ErfolgeListe } from "@/components/ErfolgeListe";
 import { Einklappbar } from "@/components/Einklappbar";
 import { PushSettings } from "@/components/PushSettings";
 import {
@@ -222,6 +223,12 @@ export default async function ProfilPage({
           <LigaStatistikKacheln saisons={statistiken} />
         )}
       </Einklappbar>
+
+      {statistiken[0].statistik.spieltage > 0 && (
+        <Einklappbar id="profil-erfolge" title="🏅 Meine Erfolge">
+          <ErfolgeListe statistik={statistiken[0].statistik} />
+        </Einklappbar>
+      )}
 
       <Card>
         <CardBody className="space-y-2">

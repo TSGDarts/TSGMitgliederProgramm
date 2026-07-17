@@ -18,6 +18,12 @@ export interface StatistikEintrag {
   tone: "ok" | "danger" | "neutral";
 }
 
+export interface GegnerBilanzZeile {
+  anzeige: string; // "Vorname Nachname"
+  siege: number;
+  niederlagen: number;
+}
+
 export interface LigaStatistik {
   spieltage: number;
   einzelSiege: number;
@@ -29,6 +35,7 @@ export interface LigaStatistik {
   anzahl180: number;
   besterFinish: number | null; // höchster High Finish
   besterLowDarts: number | null; // wenigste Darts für ein Leg
+  gegner: GegnerBilanzZeile[]; // Einzel-Bilanz je gegnerischem Spieler
   details: {
     spieltage: StatistikEintrag[];
     einzel: StatistikEintrag[];
@@ -61,6 +68,7 @@ function aggregiere(rows: EventZeile[], ich: string): LigaStatistik {
     anzahl180: 0,
     besterFinish: null,
     besterLowDarts: null,
+    gegner: [],
     details: {
       spieltage: [],
       einzel: [],
@@ -72,6 +80,9 @@ function aggregiere(rows: EventZeile[], ich: string): LigaStatistik {
     },
   };
   if (!ich) return stat;
+
+  // Einzel-Bilanz je gegnerischem Spieler (Angst-/Lieblingsgegner)
+  const gegnerMap = new Map<string, GegnerBilanzZeile>();
 
   for (const row of rows) {
     const stats = alsMatchStats(row.match_stats);
@@ -111,6 +122,15 @@ function aggregiere(rows: EventZeile[], ich: string): LigaStatistik {
         stat.details.einzel.push(
           eintrag(`vs ${s.gegner.join(" & ")} · ${s.legs}`, tone),
         );
+        for (const g of s.gegner) {
+          const key = normalisiereName(g);
+          const e =
+            gegnerMap.get(key) ??
+            ({ anzeige: anzeigeName(g), siege: 0, niederlagen: 0 });
+          if (s.gewonnen) e.siege++;
+          else e.niederlagen++;
+          gegnerMap.set(key, e);
+        }
       }
       const [a, b] = s.legs.split(":").map(Number);
       if (Number.isFinite(a) && Number.isFinite(b)) {
@@ -172,6 +192,12 @@ function aggregiere(rows: EventZeile[], ich: string): LigaStatistik {
   for (const liste of Object.values(stat.details)) {
     liste.sort(nachDatum);
   }
+  // Gegner: die häufigsten Duelle zuerst
+  stat.gegner = [...gegnerMap.values()].sort(
+    (a, b) =>
+      b.siege + b.niederlagen - (a.siege + a.niederlagen) ||
+      a.anzeige.localeCompare(b.anzeige),
+  );
   return stat;
 }
 
@@ -315,6 +341,95 @@ export async function sammleVereinsStatistikSaisons(): Promise<VereinsSaison[]> 
       return true;
     });
     const liste = vereinsAggregat(inSaison);
+    if (liste.length > 0) {
+      ergebnis.push({ label: s.name as string, liste });
+    }
+  }
+  return ergebnis;
+}
+
+export interface DoppelPaarZeile {
+  anzeige: string; // "A & B"
+  siege: number;
+  niederlagen: number;
+  legsGewonnen: number;
+  legsVerloren: number;
+}
+
+/** Bilanz aller TSG-Doppelpaarungen aus den eingespielten Spielberichten. */
+export function doppelPaare(rows: EventZeile[]): DoppelPaarZeile[] {
+  const paare = new Map<string, DoppelPaarZeile>();
+  for (const row of rows) {
+    const stats = alsMatchStats(row.match_stats);
+    const bericht = stats?.nuliga;
+    if (!bericht?.spiele) continue;
+    for (const s of bericht.spiele) {
+      if (!s.doppel || s.unsere.length !== 2) continue;
+      const key = s.unsere.map(normalisiereName).sort().join("|");
+      const e =
+        paare.get(key) ??
+        ({
+          anzeige: s.unsere
+            .map(anzeigeName)
+            .sort((a, b) => a.localeCompare(b))
+            .join(" & "),
+          siege: 0,
+          niederlagen: 0,
+          legsGewonnen: 0,
+          legsVerloren: 0,
+        } as DoppelPaarZeile);
+      if (s.gewonnen) e.siege++;
+      else e.niederlagen++;
+      const [a, b] = s.legs.split(":").map(Number);
+      if (Number.isFinite(a) && Number.isFinite(b)) {
+        e.legsGewonnen += a;
+        e.legsVerloren += b;
+      }
+      paare.set(key, e);
+    }
+  }
+  return [...paare.values()].sort(
+    (x, y) =>
+      y.siege - x.siege ||
+      x.niederlagen - y.niederlagen ||
+      x.anzeige.localeCompare(y.anzeige),
+  );
+}
+
+export interface DoppelSaison {
+  label: string; // "Gesamt" oder Saison-Name
+  liste: DoppelPaarZeile[];
+}
+
+/**
+ * Doppel-Paare-Bilanz: „Gesamt“ plus je Saison (Zuordnung über den
+ * Saison-Zeitraum; Saisons ohne erfasste Doppel erscheinen nicht).
+ */
+export async function sammleDoppelPaareSaisons(): Promise<DoppelSaison[]> {
+  const supabase = await createClient();
+  const [{ data: eventData }, { data: saisonData }] = await Promise.all([
+    supabase
+      .from("events")
+      .select("id, title, starts_at, result, match_stats")
+      .not("match_stats", "is", null),
+    supabase
+      .from("seasons")
+      .select("name, starts_on, ends_on")
+      .order("created_at", { ascending: false }),
+  ]);
+  const rows = (eventData as EventZeile[]) ?? [];
+
+  const ergebnis: DoppelSaison[] = [
+    { label: "Gesamt", liste: doppelPaare(rows) },
+  ];
+  for (const s of saisonData ?? []) {
+    const inSaison = rows.filter((r) => {
+      const tag = r.starts_at.slice(0, 10);
+      if (s.starts_on && tag < (s.starts_on as string)) return false;
+      if (s.ends_on && tag > (s.ends_on as string)) return false;
+      return true;
+    });
+    const liste = doppelPaare(inSaison);
     if (liste.length > 0) {
       ergebnis.push({ label: s.name as string, liste });
     }

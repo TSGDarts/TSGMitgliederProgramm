@@ -10,8 +10,11 @@ import {
   parseSpielbericht,
   alsMatchStats,
   spielerBilanz,
+  normalisiereName,
   type MatchStats,
 } from "@/lib/spielbericht";
+import { vereinsAggregat } from "@/lib/statistik";
+import { berechneErfolge } from "@/lib/erfolge";
 
 // Fahrgemeinschaft: jeder pflegt seinen eigenen Eintrag pro Termin.
 export async function setCarpool(
@@ -40,6 +43,41 @@ export async function setCarpool(
       updated_at: new Date().toISOString(),
     });
     if (error) return { ok: false };
+  }
+
+  revalidatePath(`/mitglieder/termine/${eventId}`);
+  return { ok: true };
+}
+
+// Helferliste bei Heimspielen: jeder pflegt seinen eigenen Eintrag pro Termin.
+export async function setHelfer(
+  eventId: string,
+  aufgabe: string | null,
+): Promise<{ ok: boolean; message?: string }> {
+  const profile = await requireProfile();
+  const supabase = await createClient();
+
+  if (aufgabe === null) {
+    await supabase
+      .from("event_helpers")
+      .delete()
+      .eq("event_id", eventId)
+      .eq("profile_id", profile.id);
+  } else {
+    const { error } = await supabase.from("event_helpers").upsert({
+      event_id: eventId,
+      profile_id: profile.id,
+      aufgabe: aufgabe.trim().slice(0, 60),
+      updated_at: new Date().toISOString(),
+    });
+    if (error) {
+      return {
+        ok: false,
+        message: /relation|schema/i.test(error.message)
+          ? "Bitte zuerst ALLE_ERWEITERUNGEN.sql im Supabase SQL-Editor ausführen."
+          : error.message,
+      };
+    }
   }
 
   revalidatePath(`/mitglieder/termine/${eventId}`);
@@ -136,6 +174,66 @@ export async function meldeErgebnis(
           body: `${alt.title as string} – Ergebnis wurde eingetragen.`,
           url: `/mitglieder/termine/${eventId}`,
         });
+      }
+    } catch {
+      // best-effort
+    }
+  }
+
+  // Neue Erfolge/Abzeichen prüfen und den Spielern melden (best-effort).
+  // Läuft nur beim Einspielen eines Spielberichts – der Archiv-Nachtrag
+  // alter Saisons verschickt bewusst nichts.
+  if (berichtText && patch.match_stats) {
+    try {
+      const bericht = (patch.match_stats as MatchStats).nuliga;
+      const beteiligte = new Set<string>();
+      for (const s of bericht?.spiele ?? []) {
+        for (const n of s.unsere) beteiligte.add(normalisiereName(n));
+      }
+      if (beteiligte.size > 0) {
+        const admin = createAdminSupabase();
+        const [{ data: eventData }, { data: spielerProfile }] =
+          await Promise.all([
+            admin
+              .from("events")
+              .select("id, title, starts_at, result, match_stats")
+              .not("match_stats", "is", null),
+            admin
+              .from("profiles")
+              .select("id, full_name")
+              .eq("is_active", true),
+          ]);
+        const zeilen = vereinsAggregat(
+          (eventData ?? []) as Parameters<typeof vereinsAggregat>[0],
+        );
+        for (const p of spielerProfile ?? []) {
+          const key = normalisiereName((p.full_name as string) ?? "");
+          if (!key || !beteiligte.has(key)) continue;
+          const zeile = zeilen.find(
+            (z) => normalisiereName(z.anzeige) === key,
+          );
+          if (!zeile) continue;
+          const neue: string[] = [];
+          for (const e of berechneErfolge(zeile)) {
+            if (!e.erreicht) continue;
+            // insert-first als Einmal-Sperre: klappt der Eintrag, ist das
+            // Abzeichen neu – sonst wurde es schon einmal gemeldet.
+            const { error: logError } = await admin
+              .from("notification_log")
+              .insert({ key: `erfolg:${p.id}:${e.id}` });
+            if (!logError) neue.push(`${e.emoji} ${e.titel}`);
+          }
+          if (neue.length > 0) {
+            await benachrichtige([p.id as string], {
+              title:
+                neue.length === 1
+                  ? `🏅 Neues Abzeichen: ${neue[0]}`
+                  : `🏅 ${neue.length} neue Abzeichen!`,
+              body: `${neue.join(" · ")} – stark! Alle Abzeichen findest du in deinem Profil.`,
+              url: "/mitglieder/profil",
+            });
+          }
+        }
       }
     } catch {
       // best-effort

@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { requireEditor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminSupabase } from "@/lib/supabase/admin";
+import { benachrichtige } from "@/lib/benachrichtigung";
+import { formatDate, formatTime } from "@/lib/format";
 import { slugify } from "@/lib/slug";
 import { parseIcal } from "@/lib/ical";
 
@@ -253,18 +256,24 @@ export async function importNuligaIcal(
   // bekannte Spieltage aktualisieren, neue anlegen.
   const { data: vorhandene } = await supabase
     .from("events")
-    .select("id, source_uid")
+    .select("id, source_uid, starts_at")
     .in("source_uid", rows.map((r) => r.source_uid));
   const bekannt = new Map(
-    (vorhandene ?? []).map((v) => [v.source_uid as string, v.id as string]),
+    (vorhandene ?? []).map((v) => [
+      v.source_uid as string,
+      { id: v.id as string, starts_at: v.starts_at as string },
+    ]),
   );
 
   let neu = 0;
   let aktualisiert = 0;
   let letzterFehler = "";
+  // Verlegte Spiele (zukünftige Termine mit geänderter Anstoßzeit) merken,
+  // um den Kader danach zu benachrichtigen.
+  const verlegt: { id: string; title: string; alt: string; neu: string }[] = [];
   for (const row of rows) {
-    const bestehendeId = bekannt.get(row.source_uid);
-    if (bestehendeId) {
+    const bestehend = bekannt.get(row.source_uid);
+    if (bestehend) {
       const { error } = await supabase
         .from("events")
         .update({
@@ -274,13 +283,57 @@ export async function importNuligaIcal(
           starts_at: row.starts_at,
           ends_at: row.ends_at,
         })
-        .eq("id", bestehendeId);
+        .eq("id", bestehend.id);
       if (error) letzterFehler = error.message;
-      else aktualisiert++;
+      else {
+        aktualisiert++;
+        const altZeit = new Date(bestehend.starts_at).getTime();
+        const neuZeit = new Date(row.starts_at).getTime();
+        if (
+          Number.isFinite(altZeit) &&
+          Number.isFinite(neuZeit) &&
+          altZeit !== neuZeit &&
+          neuZeit > Date.now()
+        ) {
+          verlegt.push({
+            id: bestehend.id,
+            title: row.title,
+            alt: bestehend.starts_at,
+            neu: row.starts_at,
+          });
+        }
+      }
     } else {
       const { error } = await supabase.from("events").insert(row);
       if (error) letzterFehler = error.message;
       else neu++;
+    }
+  }
+
+  // Push/E-Mail an den Kader, wenn ein zukünftiges Spiel verlegt wurde
+  if (verlegt.length > 0) {
+    try {
+      const admin = createAdminSupabase();
+      const { data: kader } = await admin
+        .from("team_members")
+        .select("profile_id")
+        .eq("team_id", team_id);
+      const ids = (kader ?? [])
+        .map((m) => m.profile_id as string)
+        .filter(Boolean);
+      for (const v of verlegt) {
+        const zeit = (iso: string) =>
+          formatTime(iso) === "00:00"
+            ? formatDate(iso)
+            : `${formatDate(iso)}, ${formatTime(iso)} Uhr`;
+        await benachrichtige(ids, {
+          title: `⚠️ Spiel verlegt: ${v.title}`,
+          body: `Neu: ${zeit(v.neu)} (bisher ${zeit(v.alt)}). Bitte Zu-/Absage prüfen.`,
+          url: `/mitglieder/termine/${v.id}`,
+        });
+      }
+    } catch {
+      // Versand ist best-effort
     }
   }
 
@@ -297,6 +350,9 @@ export async function importNuligaIcal(
     ok: true,
     message:
       `${neu} Termine neu angelegt, ${aktualisiert} aktualisiert.` +
+      (verlegt.length > 0
+        ? ` ${verlegt.length} Verlegung${verlegt.length === 1 ? "" : "en"} erkannt – Kader wurde benachrichtigt.`
+        : "") +
       (letzterFehler ? ` (Teilweise Fehler: ${letzterFehler})` : ""),
   };
 }

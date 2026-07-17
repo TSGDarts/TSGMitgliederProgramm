@@ -141,6 +141,48 @@ export function LigaStatistikKacheln({
         </div>
       )}
 
+      {/* Angst-/Lieblingsgegner: Einzel-Bilanz je gegnerischem Spieler */}
+      {statistik.gegner.length > 0 && (
+        <details className="rounded-lg border border-border">
+          <summary className="cursor-pointer px-3 py-2 text-sm font-semibold">
+            🥊 Gegner-Bilanz (Einzel)
+            <span className="ml-2 font-normal text-muted">
+              {statistik.gegner.length} Gegner
+            </span>
+          </summary>
+          <div className="max-h-80 space-y-1 overflow-y-auto border-t border-border p-3">
+            {statistik.gegner.map((g) => {
+              const tone =
+                g.siege > g.niederlagen
+                  ? "text-ok"
+                  : g.siege < g.niederlagen
+                    ? "text-danger"
+                    : "text-muted";
+              const smiley =
+                g.siege + g.niederlagen >= 2
+                  ? g.niederlagen === 0
+                    ? " 😎"
+                    : g.siege === 0
+                      ? " 😬"
+                      : ""
+                  : "";
+              return (
+                <p
+                  key={g.anzeige}
+                  className="flex items-center justify-between gap-3 px-2 py-0.5 text-sm"
+                >
+                  <span className="min-w-0">{g.anzeige}</span>
+                  <span className={`font-medium ${tone}`}>
+                    {g.siege}–{g.niederlagen}
+                    {smiley}
+                  </span>
+                </p>
+              );
+            })}
+          </div>
+        </details>
+      )}
+
       <p className="text-xs text-muted">
         Automatisch zusammengezählt aus den eingespielten
         nuLiga-Spielberichten (Einzel + Doppel, alle Saisons). Kachel

@@ -13,6 +13,7 @@ import { getGegnerVorlage, getSpielModi } from "@/lib/settings";
 import { RsvpButtons } from "@/components/RsvpButtons";
 import { AddressLine } from "@/components/AddressLine";
 import { CarpoolSection, type CarpoolFahrer } from "@/components/CarpoolSection";
+import { HelferSection, type HelferEintrag } from "@/components/HelferSection";
 import { LineupSection } from "@/components/LineupSection";
 import { GegnerNachricht } from "@/components/GegnerNachricht";
 import { MatchUrlForm } from "@/components/MatchUrlForm";
@@ -169,6 +170,28 @@ export default async function EventDetailPage({
         mitfahrerListe.push(name);
       }
     }
+  }
+
+  // Helferliste (nur bei Heimspielen)
+  const istHeimspiel = istSpiel && event.home_away === "heim" && !spiegel;
+  const helferListe: HelferEintrag[] = [];
+  let meineHelferAufgabe: string | null = null;
+  if (istHeimspiel) {
+    const supabase = await createClient();
+    const { data: helferData } = await supabase
+      .from("event_helpers")
+      .select("profile_id, aufgabe, profiles(full_name)")
+      .eq("event_id", event.id);
+    for (const row of helferData ?? []) {
+      const name =
+        (row.profiles as unknown as { full_name: string } | null)?.full_name ??
+        "?";
+      if (row.profile_id === profile.id) {
+        meineHelferAufgabe = (row.aufgabe as string) ?? "";
+      }
+      helferListe.push({ name, aufgabe: (row.aufgabe as string) || "hilft mit" });
+    }
+    helferListe.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   // Heimspiel-Nachricht an den Gegner (nur für Kapitän/Vize/Bearbeiter/Admin)
@@ -374,7 +397,31 @@ export default async function EventDetailPage({
         </CardBody>
       </Card>
 
-      {/* Heimspiel-Nachricht an den Gegner */}
+      {/* Helferliste bei Heimspielen */}
+      {istHeimspiel && (
+        <details
+          className="rounded-xl border border-border bg-surface"
+          open={helferListe.length > 0}
+        >
+          <summary className="cursor-pointer px-5 py-4 font-semibold">
+            🙌 Helferliste (Heimspiel)
+            {helferListe.length > 0 && (
+              <span className="ml-2 text-sm font-normal text-muted">
+                {helferListe.length} Helfer
+              </span>
+            )}
+          </summary>
+          <div className="border-t border-border p-5">
+            <HelferSection
+              eventId={event.id}
+              meineAufgabe={meineHelferAufgabe}
+              helfer={helferListe}
+            />
+          </div>
+        </details>
+      )}
+
+      {/* Ergebnis melden */}
       {istSpiel && canManage && (
         <details className="rounded-xl border border-border bg-surface">
           <summary className="cursor-pointer px-5 py-4 font-semibold">
