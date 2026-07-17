@@ -200,6 +200,23 @@ export async function claimMember(
     await admin.from("pokal_squads").delete().eq("invite_id", inviteId);
   }
 
+  // Planungs-Entwürfe (season_plans): den alten "i:<Name>"-Schlüssel in
+  // allen Entwürfen auf das neue Konto umschreiben – sonst verschwindet
+  // die Person nach der Registrierung aus den Entwürfen der Planer.
+  const { data: entwuerfe } = await admin
+    .from("season_plans")
+    .select("id, data");
+  for (const p of entwuerfe ?? []) {
+    const roh = JSON.stringify(p.data ?? {});
+    if (!roh.includes(`"i:${inviteId}"`)) continue;
+    await admin
+      .from("season_plans")
+      .update({
+        data: JSON.parse(roh.replaceAll(`"i:${inviteId}"`, `"p:${userId}"`)),
+      })
+      .eq("id", p.id);
+  }
+
   // Direkt anmelden (Session setzen) und ins Dashboard.
   const supabase = await createClient();
   const { error: signErr } = await supabase.auth.signInWithPassword({

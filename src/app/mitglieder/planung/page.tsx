@@ -260,6 +260,7 @@ export default async function PlanungPage() {
     { data: teamData },
     { data: respData },
     { data: invRespData },
+    { data: claimedData },
     planQuery,
   ] = await Promise.all([
     admin
@@ -281,6 +282,13 @@ export default async function PlanungPage() {
       .from("survey_responses_invites")
       .select("*")
       .eq("season_id", season.id),
+    // Registrierte (ehemals vorab angelegte) Namen: für die Reparatur
+    // alter Entwurfs-Schlüssel (i:<Name> → p:<Profil>)
+    admin
+      .from("member_invites")
+      .select("id, claimed_profile_id")
+      .eq("claimed", true)
+      .not("claimed_profile_id", "is", null),
     admin
       .from("season_plans")
       .select("*")
@@ -303,9 +311,36 @@ export default async function PlanungPage() {
   for (const r of invRespData ?? []) {
     inviteResponses.set(r.invite_id as string, r as unknown as SurveyAnswers);
   }
-  const plaene = ((planQuery.data as PlanRow[]) ?? []).filter(
-    (p) => p && p.season_id === season.id,
-  );
+  // Selbstheilung: Wer sich inzwischen registriert hat, steht in älteren
+  // Entwürfen noch unter seinem alten "i:<Name>"-Schlüssel – den auf das
+  // neue "p:<Profil>" umschreiben, sonst verschwindet die Person aus den
+  // Entwürfen. (Beim Speichern des Besitzers wird das dauerhaft.)
+  const registriert = (claimedData ?? []) as {
+    id: string;
+    claimed_profile_id: string;
+  }[];
+  const heileDaten = (daten: PlanRow["data"]): PlanRow["data"] => {
+    if (!daten || registriert.length === 0) return daten;
+    let roh = JSON.stringify(daten);
+    for (const c of registriert) {
+      roh = roh.replaceAll(`"i:${c.id}"`, `"p:${c.claimed_profile_id}"`);
+    }
+    const neu = JSON.parse(roh) as NonNullable<PlanRow["data"]>;
+    // Falls jemand doppelt drinsteht (alter + neuer Schlüssel): einmal reicht
+    if (Array.isArray(neu.assign)) {
+      const gesehen = new Set<string>();
+      neu.assign = neu.assign.filter((a) => {
+        const k = `${a.teamId}|${a.key}`;
+        if (gesehen.has(k)) return false;
+        gesehen.add(k);
+        return true;
+      });
+    }
+    return neu;
+  };
+  const plaene = ((planQuery.data as PlanRow[]) ?? [])
+    .filter((p) => p && p.season_id === season.id)
+    .map((p) => ({ ...p, data: heileDaten(p.data) }));
 
   // Gemeinsame Personenliste (wie in der Admin-Planung)
   const entries = [
