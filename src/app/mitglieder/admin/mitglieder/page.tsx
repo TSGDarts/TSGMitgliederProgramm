@@ -25,7 +25,12 @@ import type { Profile } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Mitglieder verwalten" };
 
-export default async function AdminMembersPage() {
+export default async function AdminMembersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ fehler?: string; gespeichert?: string }>;
+}) {
+  const { fehler, gespeichert } = await searchParams;
   const me = await requireAdmin();
   const supabase = await createClient();
   const { data } = await supabase
@@ -65,6 +70,21 @@ export default async function AdminMembersPage() {
         title="Mitglieder verwalten"
         subtitle="Zugänge anlegen, Rollen vergeben, Passwort-Links erzeugen"
       />
+
+      {fehler ? (
+        <Card className="border-danger/40 bg-danger/10">
+          <CardBody>
+            <p className="font-semibold text-danger">⚠️ Fehler beim Speichern</p>
+            <p className="mt-1 text-sm">{fehler}</p>
+          </CardBody>
+        </Card>
+      ) : null}
+
+      {gespeichert ? (
+        <Card className="border-ok/40 bg-ok/10">
+          <CardBody className="font-semibold text-ok">✓ Gespeichert.</CardBody>
+        </Card>
+      ) : null}
 
       <CreateMemberForm />
 
@@ -311,7 +331,10 @@ export default async function AdminMembersPage() {
               </div>
 
               {/* Stammdaten bearbeiten (Admin) */}
-              <details className="rounded-lg border border-border">
+              <details
+                key={gespeichert ?? "edit"}
+                className="rounded-lg border border-border"
+              >
                 <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-primary">
                   ✏️ Daten bearbeiten
                 </summary>
@@ -328,6 +351,26 @@ export default async function AdminMembersPage() {
                         defaultValue={m.full_name}
                         className={inputClass}
                       />
+                    </Field>
+                    <Field
+                      label="Rolle"
+                      hint={
+                        m.id === me.id
+                          ? "Deine eigene Admin-Rolle kannst du nicht ändern"
+                          : undefined
+                      }
+                    >
+                      <select
+                        name="role"
+                        defaultValue={m.role}
+                        disabled={m.id === me.id}
+                        className={inputClass}
+                      >
+                        <option value="player">Spieler (Liga)</option>
+                        <option value="member">Mitglied (ohne Liga)</option>
+                        <option value="editor">Bearbeiter</option>
+                        <option value="admin">Admin</option>
+                      </select>
                     </Field>
                     <Field label="Handynummer" hint="Ideal für WhatsApp-Abstimmungen">
                       <input

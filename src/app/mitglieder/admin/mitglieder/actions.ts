@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/supabase/config";
@@ -175,7 +176,7 @@ export async function regenerateLink(
 }
 
 export async function setMemberRole(formData: FormData) {
-  await requireAdmin();
+  const me = await requireAdmin();
   const id = String(formData.get("id") ?? "");
   const roleRaw = String(formData.get("role") ?? "player");
   const role = ["admin", "editor", "player", "member"].includes(roleRaw)
@@ -183,12 +184,31 @@ export async function setMemberRole(formData: FormData) {
     : "player";
   if (!id) return;
 
+  // Sich selbst die Admin-Rolle entziehen: nicht erlaubt (sonst sperrt
+  // man sich aus der Verwaltung aus).
+  if (id === me.id && role !== "admin") {
+    redirect(
+      `/mitglieder/admin/mitglieder?fehler=${encodeURIComponent(
+        "Du kannst dir nicht selbst die Admin-Rolle entziehen.",
+      )}`,
+    );
+  }
+
   const admin = createAdminSupabase();
-  await admin.from("profiles").update({ role }).eq("id", id);
+  const { error } = await admin.from("profiles").update({ role }).eq("id", id);
+  if (error) {
+    const text = /check constraint|violates/i.test(error.message)
+      ? `Diese Rolle kennt die Datenbank noch nicht – bitte supabase/ALLE_ERWEITERUNGEN.sql im SQL-Editor ausführen. (${error.message})`
+      : error.message;
+    redirect(
+      `/mitglieder/admin/mitglieder?fehler=${encodeURIComponent(text)}`,
+    );
+  }
   revalidatePath("/mitglieder/admin/mitglieder");
+  redirect(`/mitglieder/admin/mitglieder?gespeichert=${Date.now()}`);
 }
 
-/** Admin bearbeitet die Stammdaten eines Mitglieds. */
+/** Admin bearbeitet die Stammdaten eines Mitglieds (inkl. Rolle). */
 export async function updateMemberData(formData: FormData) {
   const me = await requireAdmin();
   const id = String(formData.get("id") ?? "");
@@ -202,11 +222,25 @@ export async function updateMemberData(formData: FormData) {
   const leftRaw = String(formData.get("left_on") ?? "");
   const left_on = /^\d{4}-\d{2}-\d{2}$/.test(leftRaw) ? leftRaw : null;
 
+  const roleRaw = String(formData.get("role") ?? "");
+  const role = ["admin", "editor", "player", "member"].includes(roleRaw)
+    ? roleRaw
+    : null;
+  if (role && id === me.id && role !== "admin") {
+    redirect(
+      `/mitglieder/admin/mitglieder?fehler=${encodeURIComponent(
+        "Du kannst dir nicht selbst die Admin-Rolle entziehen.",
+      )}`,
+    );
+  }
+
   const admin = createAdminSupabase();
-  await admin
+  const { error } = await admin
     .from("profiles")
     .update({
       full_name,
+      // Rolle nur ändern, wenn das Formular sie mitschickt
+      ...(role ? { role } : {}),
       phone: String(formData.get("phone") ?? "").trim(),
       birthday,
       birthday_public: formData.get("birthday_public") === "on",
@@ -216,6 +250,11 @@ export async function updateMemberData(formData: FormData) {
       left_on,
     })
     .eq("id", id);
+  if (error) {
+    redirect(
+      `/mitglieder/admin/mitglieder?fehler=${encodeURIComponent(error.message)}`,
+    );
+  }
 
   // Austrittsdatum schon erreicht? Dann sofort deaktivieren (sonst
   // erledigt es der tägliche Lauf am Stichtag). Sich selbst: nie.
@@ -231,6 +270,7 @@ export async function updateMemberData(formData: FormData) {
   }
 
   revalidatePath("/mitglieder/admin/mitglieder");
+  redirect(`/mitglieder/admin/mitglieder?gespeichert=${Date.now()}`);
 }
 
 /** Löscht ein Mitglied endgültig (Login + Profil + alle Zuordnungen). */
