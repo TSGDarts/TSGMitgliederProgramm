@@ -1,27 +1,34 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireProfile } from "@/lib/auth";
-import { getAllTeams } from "@/lib/member-queries";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminSupabase } from "@/lib/supabase/admin";
 import { Einklappbar } from "@/components/Einklappbar";
 import { PageHeader, EmptyState, Badge } from "@/components/ui";
 import { formatDate, ergebnisTone } from "@/lib/format";
 import { teileInRunden, teamBilanz } from "@/lib/runden";
-import { vereinsAggregat } from "@/lib/statistik";
 import { EVENT_TYPE_LABELS, type EventRow } from "@/lib/types";
 import type { Season } from "@/lib/season";
 
+// Öffentliche Ergebnis-Seite (ohne Login): zeigt NUR Mannschafts-Ergebnisse.
+// Spielernamen, Einzelbilanzen und Statistiken bleiben im Mitgliederbereich.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = { title: "Ergebnisse" };
 
-export default async function ErgebnissePage({
+export default async function OeffentlicheErgebnissePage({
   searchParams,
 }: {
   searchParams: Promise<{ saison?: string }>;
 }) {
   const { saison } = await searchParams;
-  await requireProfile();
-  const supabase = await createClient();
-  const teams = await getAllTeams();
+
+  let supabase;
+  try {
+    supabase = createAdminSupabase();
+  } catch {
+    return (
+      <EmptyState title="Die Ergebnisse sind gerade nicht verfügbar." />
+    );
+  }
 
   // Saison wählen (Standard: aktive Saison)
   const { data: saisonData } = await supabase
@@ -35,12 +42,12 @@ export default async function ErgebnissePage({
     saisons[0] ??
     null;
 
-  // Alle gespielten Spiele der Saison je Mannschaft (inkl. vereinsweiter
-  // Pokalspiele ohne Mannschaft)
+  // Nur öffentliche, bereits gespielte Team-Spiele der Saison
   let q = supabase
     .from("events")
     .select("*")
     .in("type", ["match", "pokal", "friendly"])
+    .eq("is_public", true)
     .lte("starts_at", new Date().toISOString())
     .order("starts_at", { ascending: false });
   if (gewaehlteSaison?.starts_on) {
@@ -57,6 +64,16 @@ export default async function ErgebnissePage({
     list.push(ev);
     ergebnisseJeTeam.set(key, list);
   }
+
+  const { data: teamsData } = await supabase
+    .from("teams")
+    .select("id, name, league")
+    .order("name");
+  const teams = (teamsData ?? []) as {
+    id: string;
+    name: string;
+    league: string | null;
+  }[];
 
   // Bei archivierten Saisons: damalige Liga aus dem Archiv anzeigen
   const archivLiga = new Map<string, string>();
@@ -80,7 +97,7 @@ export default async function ErgebnissePage({
     <div className="space-y-6">
       <PageHeader
         title="🎯 Ergebnisse"
-        subtitle="Alle Spiele je Mannschaft – Spiel antippen für Details"
+        subtitle="Alle Spiele unserer Mannschaften auf einen Blick"
       />
 
       {/* Saison wählen */}
@@ -89,7 +106,7 @@ export default async function ErgebnissePage({
           {saisons.map((s) => (
             <Link
               key={s.id}
-              href={`/mitglieder/ergebnisse?saison=${s.id}`}
+              href={`/ergebnisse?saison=${s.id}`}
               className={`rounded-full px-3 py-1 text-sm font-medium ${
                 gewaehlteSaison?.id === s.id
                   ? "bg-primary text-primary-fg"
@@ -103,82 +120,12 @@ export default async function ErgebnissePage({
         </div>
       )}
 
-      {/* Saison-Rückblick (bei abgeschlossenen Saisons) */}
-      {gewaehlteSaison?.status === "archived" &&
-        (() => {
-          const rows = ((ergData as EventRow[]) ?? []).map((ev) => ({
-            id: ev.id,
-            title: ev.title,
-            starts_at: ev.starts_at,
-            result: ev.result ?? null,
-            match_stats: ev.match_stats,
-          }));
-          const spieler = vereinsAggregat(rows);
-          if (spieler.length === 0) return null;
-          const meiste180 = [...spieler].sort(
-            (a, b) => b.anzahl180 - a.anzahl180,
-          )[0];
-          const besterFinish = [...spieler]
-            .filter((s) => s.besterFinish !== null)
-            .sort((a, b) => (b.besterFinish ?? 0) - (a.besterFinish ?? 0))[0];
-          const kuerzestesLeg = [...spieler]
-            .filter((s) => s.besterLowDarts !== null)
-            .sort(
-              (a, b) => (a.besterLowDarts ?? 99) - (b.besterLowDarts ?? 99),
-            )[0];
-          const besteBilanz = spieler[0];
-          return (
-            <Einklappbar
-              id={`rueckblick-${gewaehlteSaison.id}`}
-              title={`🏆 Saison-Rückblick ${gewaehlteSaison.name}`}
-            >
-              <ul className="space-y-1.5 text-sm">
-                {besteBilanz && (
-                  <li>
-                    🥇 <strong>Beste Bilanz:</strong> {besteBilanz.anzeige} (
-                    {besteBilanz.einzelSiege + besteBilanz.doppelSiege} Siege,{" "}
-                    {besteBilanz.einzelNiederlagen +
-                      besteBilanz.doppelNiederlagen}{" "}
-                    Niederlagen)
-                  </li>
-                )}
-                {meiste180 && meiste180.anzahl180 > 0 && (
-                  <li>
-                    💯 <strong>180er-König:</strong> {meiste180.anzeige} (
-                    {meiste180.anzahl180}× 180)
-                  </li>
-                )}
-                {besterFinish && (
-                  <li>
-                    🎯 <strong>Höchstes Highfinish:</strong>{" "}
-                    {besterFinish.anzeige} ({besterFinish.besterFinish})
-                  </li>
-                )}
-                {kuerzestesLeg && (
-                  <li>
-                    ⚡ <strong>Kürzestes Leg:</strong> {kuerzestesLeg.anzeige}{" "}
-                    ({kuerzestesLeg.besterLowDarts} Darts)
-                  </li>
-                )}
-                <li className="pt-1 text-xs text-muted">
-                  Alle Zahlen unter „Statistiken“ (Saison{" "}
-                  {gewaehlteSaison.name} auswählen).
-                </li>
-              </ul>
-            </Einklappbar>
-          );
-        })()}
-
       <section className="space-y-4">
         {teams.length === 0 ? (
-          <EmptyState title="Noch keine Mannschaften angelegt" />
+          <EmptyState title="Noch keine Mannschaften eingetragen" />
         ) : (
           [
-            ...teams.map((t) => ({
-              id: t.id,
-              name: t.name,
-              league: t.league,
-            })),
+            ...teams,
             {
               id: "verein",
               name: "🏆 Pokal & Vereins-Spiele",
@@ -200,7 +147,7 @@ export default async function ErgebnissePage({
             return (
               <Einklappbar
                 key={t.id}
-                id={`ergebnisse-${t.id}`}
+                id={`oeffentlich-ergebnisse-${t.id}`}
                 title={
                   <span>
                     {t.name}
@@ -245,10 +192,9 @@ export default async function ErgebnissePage({
                           {gruppe.titel}
                         </p>
                         {gruppe.spiele.map((ev) => (
-                          <Link
+                          <div
                             key={ev.id}
-                            href={`/mitglieder/termine/${ev.id}`}
-                            className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-border/30"
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm"
                           >
                             <span className="min-w-0">
                               <span className="text-muted">
@@ -270,7 +216,7 @@ export default async function ErgebnissePage({
                             ) : (
                               <Badge>Ergebnis folgt</Badge>
                             )}
-                          </Link>
+                          </div>
                         ))}
                       </div>
                     ))}
@@ -281,6 +227,14 @@ export default async function ErgebnissePage({
           })
         )}
       </section>
+
+      <p className="text-xs text-muted">
+        Hier stehen nur Mannschafts-Ergebnisse. Aufstellungen, Spielernamen
+        und Statistiken gibt es im Mitgliederbereich.{" "}
+        <Link href="/login" className="text-primary hover:underline">
+          Zum Mitglieder-Login →
+        </Link>
+      </p>
     </div>
   );
 }

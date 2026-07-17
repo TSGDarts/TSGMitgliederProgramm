@@ -45,11 +45,13 @@ export async function updateSession(request: NextRequest) {
   // Ohne Login erreichbar sind nur: Login, Selbst-Anmeldung (Beitritts-Link),
   // die Auth-Callbacks, das Passwort-Setzen, der öffentliche Dart-Feed,
   // der Competition-Import (Vercel-Cron; idempotent, importiert nur
-  // öffentliche Daten) und der Abo-Kalender (ICS, nur öffentliche Termine).
+  // öffentliche Daten), der Abo-Kalender (ICS, nur öffentliche Termine)
+  // und die öffentliche Ergebnis-Seite (nur Mannschafts-Ergebnisse).
   const openPaths = [
     "/login",
     "/beitreten",
     "/passwort-setzen",
+    "/ergebnisse",
     "/api/dart-feed",
     "/api/comp-import",
     "/api/kalender",

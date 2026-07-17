@@ -11,12 +11,9 @@ export const site = {
   nuligaPortalUrl: "https://dwbv.liga.nu/cgi-bin/WebObjects/nuLigaDART.woa",
 };
 
-export const publicNav = [
-  { href: "/", label: "Start" },
-  { href: "/mannschaften", label: "Mannschaften" },
-  { href: "/termine", label: "Termine" },
-  { href: "/kontakt", label: "Kontakt" },
-];
+// Öffentliche Navigation: nur Seiten, die auch OHNE Login erreichbar sind
+// (alles andere leitet zum Login um; der Login-Knopf steckt im Header).
+export const publicNav = [{ href: "/ergebnisse", label: "Ergebnisse" }];
 
 export const memberNav = [
   { href: "/mitglieder", label: "Übersicht", icon: "home" },

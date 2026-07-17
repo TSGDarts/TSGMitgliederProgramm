@@ -98,9 +98,10 @@ export default async function LoginPage({
         </Card>
 
         <p className="mt-4 text-center text-sm">
-          <Link href="/" className="text-muted hover:text-foreground">
-            ← Zurück zur Startseite
+          <Link href="/ergebnisse" className="text-primary hover:underline">
+            🎯 Ergebnisse unserer Mannschaften ansehen
           </Link>
+          <span className="text-muted"> (ohne Login)</span>
         </p>
       </div>
     </div>
