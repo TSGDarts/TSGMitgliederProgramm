@@ -90,6 +90,12 @@ export async function updateTeam(formData: FormData) {
     ? defaultRsvpRaw
     : "";
 
+  const sortRaw = Number(formData.get("sort_order") ?? 0);
+  const sort_order =
+    Number.isFinite(sortRaw) && sortRaw >= 0 && sortRaw <= 99
+      ? Math.round(sortRaw)
+      : 0;
+
   const supabase = await createClient();
   await supabase
     .from("teams")
@@ -102,6 +108,7 @@ export async function updateTeam(formData: FormData) {
       home_match_weekday,
       home_match_time: String(formData.get("home_match_time") ?? "").trim(),
       default_rsvp,
+      sort_order,
     })
     .eq("id", id);
   revalidateTeams();

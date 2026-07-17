@@ -275,7 +275,7 @@ export default async function PlanungPage() {
       .neq("role", "member")
       .order("full_name"),
     // Hinweis: ausgetretene Namen werden unten herausgefiltert
-    admin.from("teams").select("*").order("sort_order"),
+    admin.from("teams").select("*").order("sort_order").order("name"),
     admin.from("survey_responses").select("*").eq("season_id", season.id),
     admin
       .from("survey_responses_invites")

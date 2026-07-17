@@ -67,7 +67,8 @@ export default async function OeffentlicheErgebnissePage({
 
   const { data: teamsData } = await supabase
     .from("teams")
-    .select("id, name, league")
+    .select("id, name, league, sort_order")
+    .order("sort_order")
     .order("name");
   const teams = (teamsData ?? []) as {
     id: string;

@@ -81,6 +81,19 @@ export default async function AdminTeamDetailPage({
                   className={inputClass}
                 />
               </Field>
+              <Field
+                label="Reihenfolge"
+                hint="Bestimmt die Sortierung überall (kleinste Zahl zuerst) – z. B. 1 für die Erste, 2 für die Zweite"
+              >
+                <input
+                  name="sort_order"
+                  type="number"
+                  min={0}
+                  max={99}
+                  defaultValue={team.sort_order ?? 0}
+                  className={inputClass}
+                />
+              </Field>
             </div>
             <Field label="Beschreibung">
               <textarea
