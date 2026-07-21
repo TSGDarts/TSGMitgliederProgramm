@@ -69,16 +69,31 @@ export async function updateInvite(formData: FormData) {
   const role = ["admin", "editor", "player", "member"].includes(roleRaw)
     ? roleRaw
     : "player";
+  // Von welcher Seite kam das Formular? (für Fehler-/Erfolgs-Banner)
+  const zurueck =
+    String(formData.get("zurueck") ?? "") === "beitritt"
+      ? "/mitglieder/admin/beitritt"
+      : "/mitglieder/admin/mitglieder";
 
   // team_ids bewusst NICHT anfassen – die Zuordnung wird unter
   // „Mannschaften verwalten“ bzw. in der Saisonplanung gepflegt.
   const supabase = await createClient();
-  await supabase
+  const { data: geaendert, error } = await supabase
     .from("member_invites")
     .update({ full_name, role, ...readInviteBirthday(formData) })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
+  if (error || !geaendert?.length) {
+    const grund = error
+      ? /column|schema|constraint|violates/i.test(error.message)
+        ? `Die Datenbank kennt ein Feld oder eine Rolle noch nicht – bitte supabase/ALLE_ERWEITERUNGEN.sql im SQL-Editor ausführen. (${error.message})`
+        : error.message
+      : "Keine Berechtigung oder Eintrag nicht gefunden.";
+    redirect(`${zurueck}?fehler=${encodeURIComponent(grund)}`);
+  }
   revalidatePath("/mitglieder/admin/beitritt");
   revalidatePath("/mitglieder/admin/mitglieder");
+  redirect(`${zurueck}?gespeichert=${Date.now()}`);
 }
 
 export async function deleteInvite(formData: FormData) {

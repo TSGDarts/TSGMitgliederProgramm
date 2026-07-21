@@ -35,9 +35,9 @@ type Invite = {
 export default async function AdminBeitrittPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; gespeichert?: string }>;
 }) {
-  const { fehler } = await searchParams;
+  const { fehler, gespeichert } = await searchParams;
   await requireAdmin();
   const token = await getOrCreateJoinToken();
   const joinUrl = `${siteUrl}/beitreten?token=${token}`;
@@ -81,7 +81,15 @@ export default async function AdminBeitrittPage({
       {fehler && (
         <Card className="border-danger/40 bg-danger/5">
           <CardBody className="text-sm text-danger">
-            Name konnte nicht angelegt werden: {fehler}
+            ⚠️ Speichern fehlgeschlagen: {fehler}
+          </CardBody>
+        </Card>
+      )}
+
+      {gespeichert && (
+        <Card className="border-ok/40 bg-ok/10">
+          <CardBody className="text-sm font-semibold text-ok">
+            ✓ Gespeichert.
           </CardBody>
         </Card>
       )}
@@ -196,6 +204,7 @@ export default async function AdminBeitrittPage({
                       className="space-y-4 border-t border-border p-4"
                     >
                       <input type="hidden" name="id" value={inv.id} />
+                      <input type="hidden" name="zurueck" value="beitritt" />
                       <div className="grid gap-4 sm:grid-cols-2">
                         <Field label="Name">
                           <input

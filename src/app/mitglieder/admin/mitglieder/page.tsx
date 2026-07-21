@@ -144,6 +144,7 @@ export default async function AdminMembersPage({
                       className="space-y-4 border-t border-border p-4"
                     >
                       <input type="hidden" name="id" value={inv.id} />
+                      <input type="hidden" name="zurueck" value="mitglieder" />
                       <div className="grid gap-4 sm:grid-cols-3">
                         <Field label="Name">
                           <input
