@@ -50,6 +50,8 @@ function readFields(formData: FormData) {
     description: String(formData.get("description") ?? "").trim(),
     is_public: formData.get("is_public") === "on",
     trainer_ids: formData.getAll("trainer_ids").map(String).filter(Boolean),
+    // Trainings werden nie an die Competition-App übergeben
+    feed_export: false,
   };
 }
 

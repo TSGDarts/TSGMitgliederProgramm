@@ -690,7 +690,11 @@ export default async function AdminEventsPage({
                       <input
                         type="checkbox"
                         name="feed_export"
-                        defaultChecked={ev.feed_export ?? true}
+                        defaultChecked={
+                          ev.type === "training"
+                            ? false
+                            : (ev.feed_export ?? true)
+                        }
                       />
                       📤 Automatisch an die Competition-App übergeben
                       <span className="text-xs text-muted">
