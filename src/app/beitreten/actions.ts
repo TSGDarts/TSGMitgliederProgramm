@@ -100,38 +100,11 @@ export async function claimMember(
     })
     .eq("id", userId);
 
-  const teamIds = (invite.team_ids as string[]) ?? [];
-  if (teamIds.length) {
-    await admin
-      .from("team_members")
-      .insert(teamIds.map((team_id) => ({ team_id, profile_id: userId })));
-  }
-
-  // In der Planung vergebene Kapitäns-/Vize-Rolle mit übernehmen
-  const captainOf = (invite.captain_of as string | null) ?? null;
-  const viceOf = (invite.vice_of as string | null) ?? null;
-  if (captainOf) {
-    await admin
-      .from("team_members")
-      .update({ is_captain: false })
-      .eq("team_id", captainOf);
-    await admin
-      .from("team_members")
-      .update({ is_captain: true })
-      .eq("team_id", captainOf)
-      .eq("profile_id", userId);
-  }
-  if (viceOf) {
-    await admin
-      .from("team_members")
-      .update({ is_vice_captain: false })
-      .eq("team_id", viceOf);
-    await admin
-      .from("team_members")
-      .update({ is_vice_captain: true })
-      .eq("team_id", viceOf)
-      .eq("profile_id", userId);
-  }
+  // BEWUSST KEINE automatische Mannschafts-Zuordnung bei der Registrierung:
+  // team_ids/captain_of/vice_of am angelegten Namen stammen oft aus der
+  // Saisonplanung (Ideen-Entwürfe) und sind keine Entscheidung. Die
+  // Kader pflegt der Admin ausschließlich über „Mannschaften verwalten“
+  // bzw. die Übernahme eines Entwurfs.
 
   // Als „anwesender Trainer“ vorgemerkte Trainings aufs neue Profil umziehen
   const { data: trainerEvents } = await admin
