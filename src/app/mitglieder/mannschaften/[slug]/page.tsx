@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createTeamEvent, updateTeamEvent, deleteTeamEvent } from "./actions";
 import { berlinISOToLocalInput } from "@/lib/tz";
 import { NuLigaEmbed } from "@/components/NuLigaEmbed";
+import { LigaTabelle } from "@/components/LigaTabelle";
+import { ladeNuligaTabelle } from "@/lib/nuliga-tabelle";
 import { formatHomeMatch } from "@/lib/extras";
 import {
   PageHeader,
@@ -34,6 +36,11 @@ export default async function MemberTeamDetailPage({
   const roster = await getTeamRoster(team.id);
   const manageable = await getManageableTeamIds(profile);
   const canManage = manageable.has(team.id);
+
+  // Liga-Tabelle live aus nuLiga (Tabellen-Link, sonst normaler nuLiga-Link)
+  const tabelle = await ladeNuligaTabelle(
+    team.nuliga_table_url || team.nuliga_url || "",
+  );
 
   let teamEvents: EventRow[] = [];
   if (canManage) {
@@ -294,6 +301,25 @@ export default async function MemberTeamDetailPage({
               ))}
             </div>
           )}
+        </section>
+      )}
+
+      {/* Liga-Tabelle (live aus nuLiga) */}
+      {tabelle && (
+        <section>
+          <h2 className="mb-3 text-lg font-semibold">
+            🏆 Liga-Tabelle
+            {tabelle.titel && (
+              <span className="ml-2 text-sm font-normal text-muted">
+                {tabelle.titel}
+              </span>
+            )}
+          </h2>
+          <Card>
+            <CardBody>
+              <LigaTabelle tabelle={tabelle} />
+            </CardBody>
+          </Card>
         </section>
       )}
 

@@ -169,6 +169,17 @@ export default async function AdminTeamDetailPage({
                 className={inputClass}
               />
             </Field>
+            <Field
+              label="nuLiga Tabellen-Link (Liga-Tabelle)"
+              hint="Die „groupPage“-Adresse der Liga (Menü „Tabelle und Spielplan“). Damit erscheint die Tabelle live auf der Mannschaftsseite. Leer = wird aus der nuLiga-Adresse oben versucht."
+            >
+              <input
+                name="nuliga_table_url"
+                defaultValue={team.nuliga_table_url ?? ""}
+                placeholder="https://bdv-dart.liga.nu/…/groupPage?championship=…&group=…"
+                className={inputClass}
+              />
+            </Field>
             <Button type="submit">Speichern</Button>
           </form>
         </CardBody>

@@ -54,6 +54,7 @@ export interface Team {
   league: string | null;
   nuliga_url: string | null;
   nuliga_ical_url: string | null;
+  nuliga_table_url?: string | null; // groupPage-Link für die Liga-Tabelle
   home_match_weekday?: number | null; // 1 = Montag … 7 = Sonntag
   home_match_time?: string | null; // z. B. "20:00"
   default_rsvp?: "" | "yes" | "no" | "maybe" | null; // Vorbelegung für Termine

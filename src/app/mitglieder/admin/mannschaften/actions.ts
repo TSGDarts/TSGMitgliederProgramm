@@ -105,6 +105,7 @@ export async function updateTeam(formData: FormData) {
       description: String(formData.get("description") ?? "").trim(),
       nuliga_url: String(formData.get("nuliga_url") ?? "").trim(),
       nuliga_ical_url: String(formData.get("nuliga_ical_url") ?? "").trim(),
+      nuliga_table_url: String(formData.get("nuliga_table_url") ?? "").trim(),
       home_match_weekday,
       home_match_time: String(formData.get("home_match_time") ?? "").trim(),
       default_rsvp,
