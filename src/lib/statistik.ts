@@ -307,6 +307,82 @@ export function vereinsAggregat(rows: EventZeile[]): SpielerZeile[] {
   );
 }
 
+export interface RekordEintrag {
+  wert: number;
+  anzahl: number;
+  anzeige: string; // "Vorname Nachname"
+  datum: string; // ISO (starts_at)
+  titel: string; // Begegnung
+  eventId: string;
+}
+
+export interface Rekorde {
+  finishes: RekordEintrag[]; // höchste High Finishes (absteigend)
+  lowdarts: RekordEintrag[]; // kürzeste Legs (aufsteigend)
+  m180: { anzeige: string; anzahl: number }[]; // 180er-Rangliste
+}
+
+/**
+ * Vereins-Rekorde aus allen eingespielten nuLiga-Spielberichten: höchste
+ * High Finishes, kürzeste Legs und die 180er-Rangliste (nur eigene Spieler).
+ */
+export async function sammleRekorde(): Promise<Rekorde> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("events")
+    .select("id, title, starts_at, match_stats")
+    .not("match_stats", "is", null);
+  const rows = (data as EventZeile[]) ?? [];
+
+  const finishes: RekordEintrag[] = [];
+  const lowdarts: RekordEintrag[] = [];
+  const m180 = new Map<string, { anzeige: string; anzahl: number }>();
+
+  for (const row of rows) {
+    const stats = alsMatchStats(row.match_stats);
+    const bericht = stats?.nuliga;
+    if (!bericht?.spiele) continue;
+
+    // Nur unsere Spieler zählen (die im Bericht aufgestellt waren)
+    const dabei = new Set<string>();
+    for (const s of bericht.spiele) {
+      for (const n of s.unsere) dabei.add(normalisiereName(n));
+    }
+
+    for (const b of bericht.bestleistungen ?? []) {
+      const key = normalisiereName(b.name);
+      if (!dabei.has(key)) continue;
+      const eintrag: RekordEintrag = {
+        wert: b.wert,
+        anzahl: b.anzahl,
+        anzeige: anzeigeName(b.name),
+        datum: row.starts_at,
+        titel: row.title,
+        eventId: row.id,
+      };
+      if (b.kategorie === "highfinish") finishes.push(eintrag);
+      else if (b.kategorie === "lowdarts") lowdarts.push(eintrag);
+      else if (b.kategorie === "180") {
+        const e = m180.get(key) ?? { anzeige: anzeigeName(b.name), anzahl: 0 };
+        e.anzahl += b.anzahl;
+        m180.set(key, e);
+      }
+    }
+  }
+
+  finishes.sort((a, b) => b.wert - a.wert || b.datum.localeCompare(a.datum));
+  lowdarts.sort((a, b) => a.wert - b.wert || b.datum.localeCompare(a.datum));
+  const liste180 = [...m180.values()].sort(
+    (a, b) => b.anzahl - a.anzahl || a.anzeige.localeCompare(b.anzeige),
+  );
+
+  return {
+    finishes: finishes.slice(0, 25),
+    lowdarts: lowdarts.slice(0, 25),
+    m180: liste180,
+  };
+}
+
 export interface VereinsSaison {
   label: string; // "Gesamt" oder Saison-Name
   liste: SpielerZeile[];

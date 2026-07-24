@@ -224,6 +224,8 @@ export async function updateMemberData(formData: FormData) {
     : null;
   const leftRaw = String(formData.get("left_on") ?? "");
   const left_on = /^\d{4}-\d{2}-\d{2}$/.test(leftRaw) ? leftRaw : null;
+  const sinceRaw = String(formData.get("member_since") ?? "");
+  const member_since = /^\d{4}-\d{2}-\d{2}$/.test(sinceRaw) ? sinceRaw : null;
 
   const roleRaw = String(formData.get("role") ?? "");
   const role = ["admin", "editor", "player", "member"].includes(roleRaw)
@@ -252,6 +254,7 @@ export async function updateMemberData(formData: FormData) {
       is_planner: formData.get("is_planner") === "on",
       is_treasurer: formData.get("is_treasurer") === "on",
       left_on,
+      member_since,
     })
     .eq("id", id);
   if (error) {

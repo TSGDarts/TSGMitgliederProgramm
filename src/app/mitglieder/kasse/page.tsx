@@ -6,6 +6,8 @@ import { Einklappbar } from "@/components/Einklappbar";
 import { ImportForm } from "@/components/ImportForm";
 import { AuslageEntscheidung } from "@/components/AuslageEntscheidung";
 import { KasseDateiLink } from "@/components/KasseDateiLink";
+import { KasseVerlauf } from "@/components/KasseVerlauf";
+import { monatsVerlauf } from "@/lib/kasse-verlauf";
 import { deleteImport } from "./actions";
 import { PageHeader, Card, CardBody, Badge, EmptyState } from "@/components/ui";
 import { formatDate } from "@/lib/format";
@@ -75,6 +77,7 @@ export default async function KassePage() {
       .order("datum", { ascending: false, nullsFirst: false });
     buchungen = data ?? [];
   }
+  const verlauf = monatsVerlauf(buchungen);
 
   const namen = new Map(
     ((profileRes.data ?? []) as { id: string; full_name: string }[]).map((p) => [
@@ -137,6 +140,13 @@ export default async function KassePage() {
           title="Noch kein Kontostand eingelesen"
           hint="Lade unten die aktuelle Excel-Auswertung vom Hauptverein hoch."
         />
+      )}
+
+      {/* Kontostand-Verlauf */}
+      {verlauf.length >= 2 && (
+        <Einklappbar id="kasse-verlauf" title="📈 Kontostand-Verlauf" defaultOpen>
+          <KasseVerlauf verlauf={verlauf} />
+        </Einklappbar>
       )}
 
       {/* Offene Auszahlungsanträge (zuerst – Handlungsbedarf) */}

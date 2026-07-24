@@ -42,6 +42,7 @@ export interface Profile {
   notify_trotz_vielleicht?: boolean | null; // Erinnerung auch bei „Vielleicht“
   is_active: boolean;
   left_on?: string | null; // Austrittsdatum (JJJJ-MM-TT) – ab dann deaktiviert
+  member_since?: string | null; // Eintrittsdatum (JJJJ-MM-TT) – für Jubiläen
   created_at: string;
 }
 

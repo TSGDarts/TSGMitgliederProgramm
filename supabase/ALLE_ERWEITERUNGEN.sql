@@ -1593,3 +1593,13 @@ drop policy if exists "kasse_delete" on storage.objects;
 create policy "kasse_delete" on storage.objects
   for delete to authenticated
   using (bucket_id = 'kasse' and (public.is_admin() or owner = auth.uid()));
+
+-- ============================================================
+-- 57: Mitglied seit (Eintrittsdatum, optional)
+-- ============================================================
+
+-- 57: Eintrittsdatum „Mitglied seit" (optional) für die Jubiläums-Anzeige.
+-- Mehrfach ausführbar (idempotent).
+
+alter table profiles       add column if not exists member_since date;
+alter table member_invites add column if not exists member_since date;

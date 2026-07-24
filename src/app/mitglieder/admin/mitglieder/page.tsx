@@ -411,6 +411,17 @@ export default async function AdminMembersPage({
                         className={inputClass}
                       />
                     </Field>
+                    <Field
+                      label="Mitglied seit (optional)"
+                      hint="Eintrittsdatum – für die Jubiläums-Anzeige („X Jahre dabei“)"
+                    >
+                      <input
+                        name="member_since"
+                        type="date"
+                        defaultValue={m.member_since ?? ""}
+                        className={inputClass}
+                      />
+                    </Field>
                   </div>
                   <label className="flex items-center gap-2 text-sm">
                     <input
