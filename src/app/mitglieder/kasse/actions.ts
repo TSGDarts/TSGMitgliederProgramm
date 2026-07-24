@@ -203,6 +203,46 @@ export async function saveBeleg(_prev: Res | null, formData: FormData): Promise<
   return { ok: true, message: "✓ Beleg gespeichert." };
 }
 
+/** Mehrere bereits hochgeladene Belege auf einmal anlegen (Sammel-Import). */
+export async function saveBelegeBatch(
+  items: { path: string; name: string }[],
+  empfaenger: string,
+  kategorie: string,
+): Promise<Res> {
+  const profile = await requireTreasurer();
+  const gueltig = (items ?? []).filter((i) => i?.path && i?.name).slice(0, 100);
+  if (gueltig.length === 0) {
+    return { ok: false, message: "Keine Dateien zum Speichern." };
+  }
+
+  // Titel aus dem Dateinamen ableiten (Endung weg, _ → Leer/Bindestrich)
+  const titelAus = (name: string) =>
+    name
+      .replace(/\.[a-z0-9]+$/i, "")
+      .replace(/_/g, " ")
+      .trim()
+      .slice(0, 120) || "Rechnung";
+
+  const admin = createAdminSupabase();
+  const rows = gueltig.map((i) => ({
+    titel: titelAus(i.name),
+    empfaenger: empfaenger.trim(),
+    kategorie: kategorie.trim(),
+    file_path: i.path,
+    dateiname: i.name,
+    created_by: profile.id,
+  }));
+  const { error } = await admin.from("kasse_beleg").insert(rows);
+  if (error) {
+    const text = /relation|column|schema/i.test(error.message)
+      ? "Bitte zuerst supabase/ALLE_ERWEITERUNGEN.sql im SQL-Editor ausführen."
+      : error.message;
+    return { ok: false, message: text };
+  }
+  revalidatePath("/mitglieder/rechnungen");
+  return { ok: true, message: `✓ ${rows.length} Rechnungen abgelegt.` };
+}
+
 export async function deleteBeleg(formData: FormData): Promise<void> {
   await requireTreasurer();
   const id = String(formData.get("id") ?? "");

@@ -3,6 +3,7 @@ import { requireTreasurer } from "@/lib/auth";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { Einklappbar } from "@/components/Einklappbar";
 import { BelegForm } from "@/components/BelegForm";
+import { KasseBatchUpload } from "@/components/KasseBatchUpload";
 import { KasseDateiLink } from "@/components/KasseDateiLink";
 import { deleteBeleg } from "@/app/mitglieder/kasse/actions";
 import { PageHeader, Card, CardBody, EmptyState } from "@/components/ui";
@@ -53,6 +54,13 @@ export default async function RechnungenPage() {
 
       <Einklappbar id="rechnung-neu" title="➕ Rechnung ablegen" defaultOpen={belege.length === 0}>
         <BelegForm />
+      </Einklappbar>
+
+      <Einklappbar
+        id="rechnung-mehrere"
+        title="📚 Mehrere Rechnungen auf einmal hochladen"
+      >
+        <KasseBatchUpload />
       </Einklappbar>
 
       <section className="space-y-3">
