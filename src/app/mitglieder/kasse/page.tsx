@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { requireTreasurer } from "@/lib/auth";
 import { createAdminSupabase } from "@/lib/supabase/admin";
+import Link from "next/link";
 import { Einklappbar } from "@/components/Einklappbar";
 import { ImportForm } from "@/components/ImportForm";
-import { BelegForm } from "@/components/BelegForm";
 import { AuslageEntscheidung } from "@/components/AuslageEntscheidung";
 import { KasseDateiLink } from "@/components/KasseDateiLink";
-import { deleteImport, deleteBeleg } from "./actions";
+import { deleteImport } from "./actions";
 import { PageHeader, Card, CardBody, Badge, EmptyState } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 
@@ -32,17 +32,13 @@ export default async function KassePage() {
   const admin = createAdminSupabase();
 
   // Alles parallel laden
-  const [importsRes, buchungenRes, belegeRes, auslagenRes, profileRes] =
+  const [importsRes, buchungenRes, auslagenRes, profileRes] =
     await Promise.all([
       admin
         .from("kasse_import")
         .select("*")
         .order("created_at", { ascending: false }),
       admin.from("kasse_import").select("id").eq("is_current", true).maybeSingle(),
-      admin
-        .from("kasse_beleg")
-        .select("*")
-        .order("datum", { ascending: false, nullsFirst: false }),
       admin
         .from("kasse_auslage")
         .select("*")
@@ -79,17 +75,6 @@ export default async function KassePage() {
       .order("datum", { ascending: false, nullsFirst: false });
     buchungen = data ?? [];
   }
-
-  const belege = (belegeRes.data ?? []) as Array<{
-    id: string;
-    titel: string;
-    empfaenger: string;
-    betrag: number | null;
-    datum: string | null;
-    kategorie: string;
-    file_path: string;
-    note: string;
-  }>;
 
   const namen = new Map(
     ((profileRes.data ?? []) as { id: string; full_name: string }[]).map((p) => [
@@ -268,51 +253,20 @@ export default async function KassePage() {
         )}
       </Einklappbar>
 
-      {/* Belege/Rechnungen ablegen */}
-      <Einklappbar id="kasse-belege" title={`📎 Belege & Rechnungen (${belege.length})`}>
-        <div className="space-y-4">
-          <Einklappbar id="kasse-beleg-neu" title="➕ Beleg ablegen">
-            <BelegForm />
-          </Einklappbar>
-          {belege.length > 0 && (
-            <div className="space-y-2">
-              {belege.map((b) => (
-                <Card key={b.id}>
-                  <CardBody className="space-y-1">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-medium">
-                        {b.titel}{" "}
-                        {b.betrag != null && (
-                          <span className="text-muted">· {euro(b.betrag)}</span>
-                        )}
-                      </span>
-                      <form action={deleteBeleg}>
-                        <input type="hidden" name="id" value={b.id} />
-                        <button className="text-sm text-danger hover:underline">
-                          Löschen
-                        </button>
-                      </form>
-                    </div>
-                    <p className="text-sm text-muted">
-                      {[
-                        b.datum ? formatDate(b.datum) : null,
-                        b.empfaenger || null,
-                        b.kategorie || null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                    {b.note && <p className="text-sm">{b.note}</p>}
-                    {b.file_path && (
-                      <KasseDateiLink wert={b.file_path} quelle="datei" />
-                    )}
-                  </CardBody>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      </Einklappbar>
+      {/* Rechnungen: eigener Reiter */}
+      <Card>
+        <CardBody className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <span className="text-muted">
+            📎 Rechnungen (3k, BDV, Spized …) liegen im eigenen Reiter.
+          </span>
+          <Link
+            href="/mitglieder/rechnungen"
+            className="font-medium text-primary hover:underline"
+          >
+            Zu den Rechnungen →
+          </Link>
+        </CardBody>
+      </Card>
 
       {/* Erledigte Auszahlungen */}
       {erledigt.length > 0 && (

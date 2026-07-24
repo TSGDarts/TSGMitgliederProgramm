@@ -44,14 +44,16 @@ export default async function MemberLayout({
         icon: "clipboard",
       });
     }
-    // Kasse-Reiter nur für Kassierer/Admins, direkt bei „Auslagen erstatten"
+    // Kasse- + Rechnungen-Reiter nur für Kassierer/Admins, direkt bei
+    // „Auslagen erstatten"
     if (canManageKasse(profile)) {
       const i = kopie.findIndex((n) => n.href === "/mitglieder/auslagen");
-      kopie.splice(i >= 0 ? i : kopie.length, 0, {
-        href: "/mitglieder/kasse",
-        label: "Kasse",
-        icon: "wallet",
-      });
+      kopie.splice(
+        i >= 0 ? i : kopie.length,
+        0,
+        { href: "/mitglieder/kasse", label: "Kasse", icon: "wallet" },
+        { href: "/mitglieder/rechnungen", label: "Rechnungen", icon: "receipt" },
+      );
     }
     return kopie;
   })();
