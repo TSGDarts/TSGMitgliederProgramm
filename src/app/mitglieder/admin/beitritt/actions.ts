@@ -15,6 +15,7 @@ function readInviteBirthday(formData: FormData) {
     birthday_congrats: formData.get("birthday_congrats") === "on",
     is_trainer: formData.get("is_trainer") === "on",
     is_planner: formData.get("is_planner") === "on",
+    is_treasurer: formData.get("is_treasurer") === "on",
     left_on: /^\d{4}-\d{2}-\d{2}$/.test(leftRaw) ? leftRaw : null,
   };
 }

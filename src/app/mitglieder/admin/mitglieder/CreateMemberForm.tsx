@@ -81,6 +81,10 @@ export function CreateMemberForm() {
             <input type="checkbox" name="is_planner" />
             🧠 Saisonplaner – darf eigene Planungs-Entwürfe pflegen
           </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="is_treasurer" />
+            💰 Kassierer – darf das Kassenbuch verwalten
+          </label>
 
           <p className="text-xs text-muted">
             Die Mannschafts-Zuordnung läuft komplett über „Mannschaften

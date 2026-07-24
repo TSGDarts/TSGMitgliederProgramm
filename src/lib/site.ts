@@ -29,6 +29,7 @@ export const memberNav = [
   { href: "/mitglieder/saisonabfrage", label: "Saisonabfrage", icon: "clipboard" },
   { href: "/mitglieder/nuliga", label: "nuLiga", icon: "table" },
   { href: "/mitglieder/fragen", label: "Fragen & Feedback", icon: "chat" },
+  { href: "/mitglieder/auslagen", label: "Auslagen erstatten", icon: "receipt" },
   { href: "/mitglieder/regeln", label: "Regeln", icon: "book" },
   { href: "/mitglieder/app", label: "App & Teilen", icon: "share" },
   { href: "/mitglieder/profil", label: "Mein Profil", icon: "user" },

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { requireProfile, canPlanSeason } from "@/lib/auth";
+import { requireProfile, canPlanSeason, canManageKasse } from "@/lib/auth";
 import { getManageableTeamIds } from "@/lib/member-queries";
 import {
   memberNav,
@@ -42,6 +42,15 @@ export default async function MemberLayout({
         href: "/mitglieder/planung",
         label: "Planung",
         icon: "clipboard",
+      });
+    }
+    // Kasse-Reiter nur für Kassierer/Admins, direkt bei „Auslagen erstatten"
+    if (canManageKasse(profile)) {
+      const i = kopie.findIndex((n) => n.href === "/mitglieder/auslagen");
+      kopie.splice(i >= 0 ? i : kopie.length, 0, {
+        href: "/mitglieder/kasse",
+        label: "Kasse",
+        icon: "wallet",
       });
     }
     return kopie;

@@ -57,6 +57,7 @@ export default async function AdminMembersPage({
     birthday_congrats?: boolean | null;
     is_trainer?: boolean | null;
     is_planner?: boolean | null;
+    is_treasurer?: boolean | null;
     left_on?: string | null;
   }>;
   const wartende = openInvites.filter((i) => !istAusgetreten(i.left_on));
@@ -112,6 +113,7 @@ export default async function AdminMembersPage({
                       {inv.role === "member" && <Badge>ohne Liga</Badge>}
                       {inv.is_trainer && <Badge tone="ok">💪 Trainer</Badge>}
                       {inv.is_planner && <Badge tone="ok">🧠 Saisonplaner</Badge>}
+                      {inv.is_treasurer && <Badge tone="ok">💰 Kassierer</Badge>}
                       <Badge tone="warn">noch nicht angemeldet</Badge>
                       {inv.left_on && (
                         <Badge tone="warn">👋 Austritt zum {inv.left_on}</Badge>
@@ -230,6 +232,14 @@ export default async function AdminMembersPage({
                         />
                         🧠 Saisonplaner – darf eigene Planungs-Entwürfe pflegen
                       </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="is_treasurer"
+                          defaultChecked={inv.is_treasurer ?? false}
+                        />
+                        💰 Kassierer – darf das Kassenbuch verwalten
+                      </label>
                       <Button type="submit">Änderungen speichern</Button>
                     </form>
                   </details>
@@ -275,6 +285,7 @@ export default async function AdminMembersPage({
                     {m.role === "member" && <Badge>ohne Liga</Badge>}
                     {m.is_trainer && <Badge tone="ok">💪 Trainer</Badge>}
                     {m.is_planner && <Badge tone="ok">🧠 Saisonplaner</Badge>}
+                    {m.is_treasurer && <Badge tone="ok">💰 Kassierer</Badge>}
                     {m.left_on && (
                       <Badge tone="warn">👋 Austritt zum {m.left_on}</Badge>
                     )}
@@ -432,6 +443,14 @@ export default async function AdminMembersPage({
                       defaultChecked={m.is_planner ?? false}
                     />
                     🧠 Saisonplaner – darf eigene Planungs-Entwürfe pflegen
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name="is_treasurer"
+                      defaultChecked={m.is_treasurer ?? false}
+                    />
+                    💰 Kassierer – darf das Kassenbuch verwalten
                   </label>
                   <Button type="submit">Speichern</Button>
                 </form>

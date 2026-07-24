@@ -28,6 +28,7 @@ type Invite = {
   birthday_congrats?: boolean | null;
   is_trainer?: boolean | null;
   is_planner?: boolean | null;
+  is_treasurer?: boolean | null;
   left_on?: string | null;
   claimed: boolean;
 };
@@ -287,6 +288,14 @@ export default async function AdminBeitrittPage({
                           defaultChecked={inv.is_planner ?? false}
                         />
                         🧠 Saisonplaner – darf eigene Planungs-Entwürfe pflegen
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="is_treasurer"
+                          defaultChecked={inv.is_treasurer ?? false}
+                        />
+                        💰 Kassierer – darf das Kassenbuch verwalten
                       </label>
                       <Button type="submit">Änderungen speichern</Button>
                     </form>

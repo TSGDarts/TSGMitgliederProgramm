@@ -85,6 +85,20 @@ export function canManageTrainings(profile: Profile): boolean {
   );
 }
 
+/** Darf das Kassenbuch sehen/verwalten: Kassierer-Haken oder Admin. */
+export function canManageKasse(profile: Profile): boolean {
+  return profile.role === "admin" || !!profile.is_treasurer;
+}
+
+/** Erzwingt einen Kassierer (oder Admin). Leitet sonst um. */
+export async function requireTreasurer(): Promise<Profile> {
+  const profile = await requireProfile("/mitglieder");
+  if (!canManageKasse(profile)) {
+    redirect("/mitglieder");
+  }
+  return profile;
+}
+
 /** Erzwingt einen Trainer (oder Admin/Bearbeiter). Leitet sonst um. */
 export async function requireTrainer(): Promise<Profile> {
   const profile = await requireProfile("/mitglieder");
