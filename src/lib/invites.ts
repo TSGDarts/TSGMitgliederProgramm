@@ -79,3 +79,53 @@ export async function listUnclaimedInvites(): Promise<UnclaimedInvite[]> {
     .filter((i) => !istAusgetreten(i.left_on))
     .map(({ id, full_name }) => ({ id, full_name }));
 }
+
+// Vorab angelegte Namen (member_invites) sind per RLS nur für Admins lesbar,
+// die Mannschaftsseite läuft aber auch für Bearbeiter → Service-Client.
+export type TeamInvite = {
+  id: string;
+  full_name: string;
+  captain_of: string | null;
+  vice_of: string | null;
+};
+
+/** Noch nicht angemeldete Namen, die DIESEM Team zugeordnet sind (Kader-Anzeige). */
+export async function listTeamInvites(teamId: string): Promise<TeamInvite[]> {
+  const admin = createAdminSupabase();
+  const { data } = await admin
+    .from("member_invites")
+    .select("id, full_name, team_ids, captain_of, vice_of, left_on")
+    .eq("claimed", false)
+    .contains("team_ids", [teamId])
+    .order("full_name");
+  return ((data ?? []) as Array<
+    TeamInvite & { left_on?: string | null }
+  >)
+    .filter((i) => !istAusgetreten(i.left_on))
+    .map(({ id, full_name, captain_of, vice_of }) => ({
+      id,
+      full_name,
+      captain_of: captain_of ?? null,
+      vice_of: vice_of ?? null,
+    }));
+}
+
+/** Noch nicht angemeldete Namen, die man diesem Team NOCH hinzufügen kann. */
+export async function listAssignableInvites(
+  teamId: string,
+): Promise<UnclaimedInvite[]> {
+  const admin = createAdminSupabase();
+  const { data } = await admin
+    .from("member_invites")
+    .select("id, full_name, team_ids, left_on")
+    .eq("claimed", false)
+    .order("full_name");
+  return ((data ?? []) as Array<
+    UnclaimedInvite & { team_ids?: string[] | null; left_on?: string | null }
+  >)
+    .filter(
+      (i) =>
+        !istAusgetreten(i.left_on) && !(i.team_ids ?? []).includes(teamId),
+    )
+    .map(({ id, full_name }) => ({ id, full_name }));
+}

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireEditor } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getTeamRoster } from "@/lib/member-queries";
+import { listTeamInvites, listAssignableInvites } from "@/lib/invites";
 import {
   updateTeam,
   addRosterMember,
@@ -40,6 +41,12 @@ export default async function AdminTeamDetailPage({
 
   const roster = await getTeamRoster(team.id);
   const rosterIds = new Set(roster.map((r) => r.profile_id));
+
+  // Vorab angelegte Namen: bereits diesem Team zugeordnet + noch zuordenbar
+  const [teamInvites, availableInvites] = await Promise.all([
+    listTeamInvites(team.id),
+    listAssignableInvites(team.id),
+  ]);
 
   const { data: allProfiles } = await supabase
     .from("profiles")
@@ -203,12 +210,13 @@ export default async function AdminTeamDetailPage({
           <h2 className="font-semibold">
             Kader{" "}
             <span className="text-sm font-normal text-muted">
-              ({roster.length})
+              ({roster.length + teamInvites.length})
             </span>
           </h2>
 
-          {roster.length > 0 && (
+          {(roster.length > 0 || teamInvites.length > 0) && (
             <div className="divide-y divide-border">
+              {/* Registrierte Mitglieder */}
               {roster.map((m) => (
                 <div
                   key={m.profile_id}
@@ -224,8 +232,8 @@ export default async function AdminTeamDetailPage({
                       <input type="hidden" name="team_id" value={team.id} />
                       <input
                         type="hidden"
-                        name="profile_id"
-                        value={m.profile_id}
+                        name="target"
+                        value={`p:${m.profile_id}`}
                       />
                       <select
                         name="team_role"
@@ -250,9 +258,57 @@ export default async function AdminTeamDetailPage({
                       <input type="hidden" name="team_id" value={team.id} />
                       <input
                         type="hidden"
-                        name="profile_id"
-                        value={m.profile_id}
+                        name="target"
+                        value={`p:${m.profile_id}`}
                       />
+                      <button className="text-sm text-danger hover:underline">
+                        Entfernen
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              ))}
+
+              {/* Vorab angelegte Namen (noch nicht angemeldet) */}
+              {teamInvites.map((inv) => (
+                <div
+                  key={inv.id}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2"
+                >
+                  <span className="flex flex-wrap items-center gap-2">
+                    {inv.full_name}
+                    <Badge tone="warn">noch nicht angemeldet</Badge>
+                    {inv.captain_of === team.id && (
+                      <Badge tone="primary">Kapitän</Badge>
+                    )}
+                    {inv.vice_of === team.id && <Badge>Vize</Badge>}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <form action={setTeamRole} className="flex items-center gap-1">
+                      <input type="hidden" name="team_id" value={team.id} />
+                      <input type="hidden" name="target" value={`i:${inv.id}`} />
+                      <select
+                        name="team_role"
+                        defaultValue={
+                          inv.captain_of === team.id
+                            ? "captain"
+                            : inv.vice_of === team.id
+                              ? "vice"
+                              : "none"
+                        }
+                        className={`${inputClass} w-auto py-1`}
+                      >
+                        <option value="none">Spieler</option>
+                        <option value="captain">Kapitän</option>
+                        <option value="vice">Vize-Kapitän</option>
+                      </select>
+                      <button className="rounded-lg border border-border px-2 py-1 text-sm hover:bg-border/40">
+                        OK
+                      </button>
+                    </form>
+                    <form action={removeRosterMember}>
+                      <input type="hidden" name="team_id" value={team.id} />
+                      <input type="hidden" name="target" value={`i:${inv.id}`} />
                       <button className="text-sm text-danger hover:underline">
                         Entfernen
                       </button>
@@ -263,16 +319,25 @@ export default async function AdminTeamDetailPage({
             </div>
           )}
 
-          {available.length > 0 ? (
+          {available.length > 0 || availableInvites.length > 0 ? (
             <form action={addRosterMember} className="flex flex-wrap gap-2">
               <input type="hidden" name="team_id" value={team.id} />
-              <select name="profile_id" required className={`${inputClass} w-auto`}>
-                <option value="">Mitglied auswählen …</option>
+              <select name="target" required className={`${inputClass} w-auto`}>
+                <option value="">Person auswählen …</option>
                 {available.map((p) => (
-                  <option key={p.id} value={p.id}>
+                  <option key={p.id} value={`p:${p.id}`}>
                     {p.full_name || p.email}
                   </option>
                 ))}
+                {availableInvites.length > 0 && (
+                  <optgroup label="Noch nicht angemeldet">
+                    {availableInvites.map((inv) => (
+                      <option key={inv.id} value={`i:${inv.id}`}>
+                        {inv.full_name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
               <Button type="submit" variant="secondary">
                 Zum Kader hinzufügen
@@ -280,7 +345,7 @@ export default async function AdminTeamDetailPage({
             </form>
           ) : (
             <p className="text-sm text-muted">
-              Alle Mitglieder sind bereits im Kader.
+              Alle Personen sind bereits im Kader.
             </p>
           )}
         </CardBody>

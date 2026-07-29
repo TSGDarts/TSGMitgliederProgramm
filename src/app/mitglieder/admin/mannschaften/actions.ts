@@ -116,82 +116,178 @@ export async function updateTeam(formData: FormData) {
   revalidatePath(`/mitglieder/admin/mannschaften/${id}`);
 }
 
+// Kader-Ziel aus dem Formular: "p:<profilId>" = registriertes Mitglied
+// (team_members), "i:<inviteId>" = vorab angelegter Name (member_invites).
+function leseZiel(formData: FormData) {
+  const team_id = String(formData.get("team_id") ?? "");
+  const target = String(formData.get("target") ?? "");
+  const istInvite = target.startsWith("i:");
+  const ref = target.slice(2);
+  return { team_id, ref, istInvite, ok: Boolean(team_id && ref) };
+}
+
 export async function addRosterMember(formData: FormData) {
   await requireEditor();
-  const team_id = String(formData.get("team_id") ?? "");
-  const profile_id = String(formData.get("profile_id") ?? "");
-  if (!team_id || !profile_id) return;
+  const { team_id, ref, istInvite, ok } = leseZiel(formData);
+  if (!ok) return;
 
-  const supabase = await createClient();
-  await supabase
-    .from("team_members")
-    .upsert({ team_id, profile_id }, { onConflict: "team_id,profile_id" });
+  if (istInvite) {
+    // Name (Invite) diesem Team zuordnen: team_ids-Array ergänzen.
+    // member_invites: RLS nur für Admins → Service-Client.
+    const admin = createAdminSupabase();
+    const { data } = await admin
+      .from("member_invites")
+      .select("team_ids")
+      .eq("id", ref)
+      .maybeSingle();
+    const teams = ((data?.team_ids as string[] | null) ?? []);
+    if (!teams.includes(team_id)) {
+      await admin
+        .from("member_invites")
+        .update({ team_ids: [...teams, team_id] })
+        .eq("id", ref);
+    }
+  } else {
+    const supabase = await createClient();
+    await supabase
+      .from("team_members")
+      .upsert({ team_id, profile_id: ref }, { onConflict: "team_id,profile_id" });
+  }
   revalidatePath(`/mitglieder/admin/mannschaften/${team_id}`);
 }
 
 export async function removeRosterMember(formData: FormData) {
   await requireEditor();
-  const team_id = String(formData.get("team_id") ?? "");
-  const profile_id = String(formData.get("profile_id") ?? "");
-  if (!team_id || !profile_id) return;
+  const { team_id, ref, istInvite, ok } = leseZiel(formData);
+  if (!ok) return;
 
-  const supabase = await createClient();
-  await supabase
-    .from("team_members")
-    .delete()
-    .eq("team_id", team_id)
-    .eq("profile_id", profile_id);
+  if (istInvite) {
+    const admin = createAdminSupabase();
+    const { data } = await admin
+      .from("member_invites")
+      .select("team_ids, captain_of, vice_of")
+      .eq("id", ref)
+      .maybeSingle();
+    const teams = ((data?.team_ids as string[] | null) ?? []).filter(
+      (t) => t !== team_id,
+    );
+    await admin
+      .from("member_invites")
+      .update({
+        team_ids: teams,
+        // Rolle beim Entfernen aus dem Team mit lösen
+        captain_of: data?.captain_of === team_id ? null : data?.captain_of,
+        vice_of: data?.vice_of === team_id ? null : data?.vice_of,
+      })
+      .eq("id", ref);
+  } else {
+    const supabase = await createClient();
+    await supabase
+      .from("team_members")
+      .delete()
+      .eq("team_id", team_id)
+      .eq("profile_id", ref);
+  }
   revalidatePath(`/mitglieder/admin/mannschaften/${team_id}`);
 }
 
 /**
- * Setzt die Team-Rolle eines Spielers: 'captain', 'vice' oder 'none'.
- * Regeln: pro Team nur EIN Kapitän / EIN Vize, und eine Person kann jeweils
- * nur bei EINEM Team Kapitän bzw. Vize sein.
+ * Setzt die Team-Rolle: 'captain', 'vice' oder 'none' – für registrierte
+ * Mitglieder (team_members) UND vorab angelegte Namen (member_invites).
+ * Regel: pro Team genau EIN Kapitän / EIN Vize, quer über beide Quellen.
  */
 export async function setTeamRole(formData: FormData) {
   await requireEditor();
-  const team_id = String(formData.get("team_id") ?? "");
-  const profile_id = String(formData.get("profile_id") ?? "");
+  const { team_id, ref, istInvite, ok } = leseZiel(formData);
   const role = String(formData.get("team_role") ?? "none");
-  if (!team_id || !profile_id) return;
+  if (!ok) return;
 
-  const supabase = await createClient();
+  const supabase = await createClient(); // team_members (RLS: Bearbeiter ok)
+  const admin = createAdminSupabase(); // member_invites (RLS: nur Admin)
 
   if (role === "captain") {
+    // Bisherigen Kapitän dieses Teams in BEIDEN Quellen lösen
     await supabase
       .from("team_members")
       .update({ is_captain: false })
-      .eq("profile_id", profile_id); // Person: bisherige Kapitänsrolle lösen
-    await supabase
-      .from("team_members")
-      .update({ is_captain: false })
-      .eq("team_id", team_id); // Team: bisherigen Kapitän lösen
-    await supabase
-      .from("team_members")
-      .update({ is_captain: true, is_vice_captain: false })
-      .eq("team_id", team_id)
-      .eq("profile_id", profile_id);
+      .eq("team_id", team_id);
+    await admin
+      .from("member_invites")
+      .update({ captain_of: null })
+      .eq("captain_of", team_id);
+    if (istInvite) {
+      await admin
+        .from("member_invites")
+        .update({ captain_of: team_id })
+        .eq("id", ref);
+      // nicht gleichzeitig Vize desselben Teams
+      await admin
+        .from("member_invites")
+        .update({ vice_of: null })
+        .eq("id", ref)
+        .eq("vice_of", team_id);
+    } else {
+      // Person kann nur bei EINEM Team Kapitän sein
+      await supabase
+        .from("team_members")
+        .update({ is_captain: false })
+        .eq("profile_id", ref);
+      await supabase
+        .from("team_members")
+        .update({ is_captain: true, is_vice_captain: false })
+        .eq("team_id", team_id)
+        .eq("profile_id", ref);
+    }
   } else if (role === "vice") {
     await supabase
       .from("team_members")
       .update({ is_vice_captain: false })
-      .eq("profile_id", profile_id);
-    await supabase
-      .from("team_members")
-      .update({ is_vice_captain: false })
       .eq("team_id", team_id);
-    await supabase
-      .from("team_members")
-      .update({ is_vice_captain: true, is_captain: false })
-      .eq("team_id", team_id)
-      .eq("profile_id", profile_id);
+    await admin
+      .from("member_invites")
+      .update({ vice_of: null })
+      .eq("vice_of", team_id);
+    if (istInvite) {
+      await admin
+        .from("member_invites")
+        .update({ vice_of: team_id })
+        .eq("id", ref);
+      await admin
+        .from("member_invites")
+        .update({ captain_of: null })
+        .eq("id", ref)
+        .eq("captain_of", team_id);
+    } else {
+      await supabase
+        .from("team_members")
+        .update({ is_vice_captain: false })
+        .eq("profile_id", ref);
+      await supabase
+        .from("team_members")
+        .update({ is_vice_captain: true, is_captain: false })
+        .eq("team_id", team_id)
+        .eq("profile_id", ref);
+    }
   } else {
-    await supabase
-      .from("team_members")
-      .update({ is_captain: false, is_vice_captain: false })
-      .eq("team_id", team_id)
-      .eq("profile_id", profile_id);
+    // 'none': Rolle im aktuellen Team lösen
+    if (istInvite) {
+      await admin
+        .from("member_invites")
+        .update({ captain_of: null })
+        .eq("id", ref)
+        .eq("captain_of", team_id);
+      await admin
+        .from("member_invites")
+        .update({ vice_of: null })
+        .eq("id", ref)
+        .eq("vice_of", team_id);
+    } else {
+      await supabase
+        .from("team_members")
+        .update({ is_captain: false, is_vice_captain: false })
+        .eq("team_id", team_id)
+        .eq("profile_id", ref);
+    }
   }
 
   revalidatePath(`/mitglieder/admin/mannschaften/${team_id}`);
