@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth";
 import { getTeamBySlug } from "@/lib/queries";
 import { getTeamRoster, getManageableTeamIds } from "@/lib/member-queries";
+import { listTeamInvites } from "@/lib/invites";
 import { createClient } from "@/lib/supabase/server";
 import { createTeamEvent, updateTeamEvent, deleteTeamEvent } from "./actions";
 import { berlinISOToLocalInput } from "@/lib/tz";
@@ -34,6 +35,9 @@ export default async function MemberTeamDetailPage({
   if (!team) notFound();
 
   const roster = await getTeamRoster(team.id);
+  // Vorab angelegte Namen (noch nicht registriert), die diesem Team
+  // zugeordnet sind – gehören zum Kader, nur ohne eigenen Zugang.
+  const teamInvites = await listTeamInvites(team.id);
   const manageable = await getManageableTeamIds(profile);
   const canManage = manageable.has(team.id);
 
@@ -78,10 +82,10 @@ export default async function MemberTeamDetailPage({
         <h2 className="mb-3 text-lg font-semibold">
           Kader{" "}
           <span className="text-sm font-normal text-muted">
-            ({roster.length})
+            ({roster.length + teamInvites.length})
           </span>
         </h2>
-        {roster.length === 0 ? (
+        {roster.length === 0 && teamInvites.length === 0 ? (
           <EmptyState
             title="Noch keine Spieler zugeordnet"
             hint="Spieler werden unter „Mannschaften verwalten“ hinzugefügt."
@@ -114,6 +118,22 @@ export default async function MemberTeamDetailPage({
                       {m.profile.phone}
                     </a>
                   )}
+                </div>
+              ))}
+              {/* Vorab angelegte Namen (noch nicht angemeldet) */}
+              {teamInvites.map((inv) => (
+                <div
+                  key={inv.id}
+                  className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{inv.full_name}</span>
+                    {inv.captain_of === team.id && (
+                      <Badge tone="primary">Kapitän</Badge>
+                    )}
+                    {inv.vice_of === team.id && <Badge>Vize</Badge>}
+                    <Badge tone="warn">noch nicht angemeldet</Badge>
+                  </div>
                 </div>
               ))}
             </CardBody>
