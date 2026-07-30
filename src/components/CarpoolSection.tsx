@@ -73,6 +73,7 @@ export function CarpoolSection({
   const [abfahrt, setAbfahrt] = useState(meineAbfahrt ?? "");
   const [fahrerId, setFahrerId] = useState(meinFahrerId ?? "");
   const [fehler, setFehler] = useState("");
+  const [gespeichert, setGespeichert] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function speichern(
@@ -97,6 +98,7 @@ export function CarpoolSection({
         fahrerId: override?.fahrerId ?? fahrerId,
       });
       setFehler(res.ok ? "" : (res.message ?? "Konnte nicht gespeichert werden."));
+      setGespeichert(res.ok);
       router.refresh();
     });
   }
@@ -174,8 +176,10 @@ export function CarpoolSection({
             </span>
             <input
               value={ort}
-              onChange={(e) => setOrt(e.target.value)}
-              onBlur={() => ort !== (meinOrt ?? "") && speichern(rolle)}
+              onChange={(e) => {
+                setOrt(e.target.value);
+                setGespeichert(false);
+              }}
               placeholder="z. B. Roth, Bahnhofstr."
               maxLength={80}
               className={feld}
@@ -185,8 +189,10 @@ export function CarpoolSection({
             <span className="mb-1 block text-xs text-muted">🎯 Ziel</span>
             <input
               value={ziel}
-              onChange={(e) => setZiel(e.target.value)}
-              onBlur={() => ziel !== (meinZiel ?? "") && speichern(rolle)}
+              onChange={(e) => {
+                setZiel(e.target.value);
+                setGespeichert(false);
+              }}
               placeholder={zielVorgabe || "Spielort"}
               maxLength={80}
               className={feld}
@@ -198,8 +204,10 @@ export function CarpoolSection({
             </span>
             <input
               value={abfahrt}
-              onChange={(e) => setAbfahrt(e.target.value)}
-              onBlur={() => abfahrt !== (meineAbfahrt ?? "") && speichern(rolle)}
+              onChange={(e) => {
+                setAbfahrt(e.target.value);
+                setGespeichert(false);
+              }}
               placeholder="z. B. 17:30 ab Roth"
               maxLength={80}
               className={feld}
@@ -228,8 +236,20 @@ export function CarpoolSection({
             </label>
           )}
 
-          <div className="sm:col-span-3 text-xs text-muted">
-            Ziel leer = Spielort. Wird automatisch gespeichert.
+          <div className="sm:col-span-3 flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => speichern(rolle)}
+              disabled={isPending}
+              className="rounded-lg bg-primary px-4 py-1.5 text-sm font-medium text-primary-fg hover:opacity-90 disabled:opacity-60"
+            >
+              💾 Speichern
+            </button>
+            {isPending ? (
+              <span className="text-sm text-muted">speichert …</span>
+            ) : gespeichert ? (
+              <span className="text-sm text-ok">✓ gespeichert</span>
+            ) : null}
+            <span className="text-xs text-muted">Ziel leer = Spielort.</span>
           </div>
         </div>
       )}
