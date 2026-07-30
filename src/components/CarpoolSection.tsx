@@ -72,6 +72,7 @@ export function CarpoolSection({
   const [ziel, setZiel] = useState(meinZiel ?? "");
   const [abfahrt, setAbfahrt] = useState(meineAbfahrt ?? "");
   const [fahrerId, setFahrerId] = useState(meinFahrerId ?? "");
+  const [fehler, setFehler] = useState("");
   const [isPending, startTransition] = useTransition();
 
   function speichern(
@@ -88,13 +89,14 @@ export function CarpoolSection({
     if (override?.seats != null) setSeats(override.seats);
     if (override?.fahrerId != null) setFahrerId(override.fahrerId);
     startTransition(async () => {
-      await setCarpool(eventId, neueRolle, {
+      const res = await setCarpool(eventId, neueRolle, {
         seats: override?.seats ?? seats,
         ort: override?.ort ?? ort,
         ziel: override?.ziel ?? ziel,
         abfahrt: override?.abfahrt ?? abfahrt,
         fahrerId: override?.fahrerId ?? fahrerId,
       });
+      setFehler(res.ok ? "" : (res.message ?? "Konnte nicht gespeichert werden."));
       router.refresh();
     });
   }
@@ -156,6 +158,12 @@ export function CarpoolSection({
           </button>
         )}
       </div>
+
+      {fehler && (
+        <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
+          ⚠️ {fehler}
+        </p>
+      )}
 
       {/* Mini-Planung: von wo, Ziel, Abfahrt (+ bei wem ich mitfahre) */}
       {rolle && (

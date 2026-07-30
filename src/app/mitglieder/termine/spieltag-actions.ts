@@ -29,7 +29,7 @@ export async function setCarpool(
     abfahrt?: string;
     fahrerId?: string | null; // nur Mitfahrer: bei welchem Fahrer
   },
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; message?: string }> {
   const profile = await requireProfile();
   const supabase = await createClient();
 
@@ -55,7 +55,14 @@ export async function setCarpool(
       fahrer_id: role === "mitfahrer" ? (opts?.fahrerId || null) : null,
       updated_at: new Date().toISOString(),
     });
-    if (error) return { ok: false };
+    if (error) {
+      return {
+        ok: false,
+        message: /column|schema|does not exist/i.test(error.message)
+          ? "Bitte zuerst ALLE_ERWEITERUNGEN.sql im Supabase-SQL-Editor ausführen."
+          : error.message,
+      };
+    }
   }
 
   revalidatePath(`/mitglieder/termine/${eventId}`);
