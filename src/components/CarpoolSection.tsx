@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { setCarpool } from "@/app/mitglieder/termine/spieltag-actions";
 
 export interface CarpoolFahrer {
+  profileId: string;
   name: string;
   seats: number | null;
   ort: string;
@@ -13,24 +14,33 @@ export interface CarpoolFahrer {
 }
 
 export interface CarpoolMitfahrer {
+  profileId: string;
   name: string;
   ort: string;
   ziel: string;
   abfahrt: string;
+  fahrerId: string | null;
 }
 
-/** Google-Maps-Routen-Link (öffnet die Karten-App mit fertiger Route). */
-function mapsRoute(origin: string, destination: string): string | null {
+/** Google-Maps-Routen-Link – mit optionalen Zwischenstopps (Abholorte). */
+function mapsRoute(
+  origin: string,
+  destination: string,
+  waypoints: string[] = [],
+): string | null {
   if (!destination) return null;
   const p = new URLSearchParams({ api: "1", destination });
   if (origin) p.set("origin", origin);
+  const stops = waypoints.filter(Boolean);
+  if (stops.length) p.set("waypoints", stops.join("|"));
   return `https://www.google.com/maps/dir/?${p.toString()}`;
 }
 
 /**
- * Fahrgemeinschaft am Termin: „Ich fahre" / „Ich suche eine
- * Mitfahrgelegenheit" mit optionaler Mini-Planung: von wo, Ziel, Abfahrt/
- * Zeit-Hinweis und ein „Route öffnen"-Link. Jeder pflegt nur seinen Eintrag.
+ * Fahrgemeinschaft am Termin mit Mini-Planung: „Ich fahre" / „Ich suche eine
+ * Mitfahrgelegenheit", je mit Startort, Ziel und Abfahrts-Hinweis. Mitfahrer
+ * können angeben, bei WEM sie mitfahren; jeder Fahrer bekommt dann eine
+ * Sammel-Route (Startort → Abholorte der Mitfahrer → Ziel).
  */
 export function CarpoolSection({
   eventId,
@@ -39,6 +49,7 @@ export function CarpoolSection({
   meinOrt,
   meinZiel,
   meineAbfahrt,
+  meinFahrerId,
   zielVorgabe,
   fahrer,
   mitfahrer,
@@ -49,6 +60,7 @@ export function CarpoolSection({
   meinOrt: string;
   meinZiel: string;
   meineAbfahrt: string;
+  meinFahrerId: string | null;
   zielVorgabe: string; // Spielort (Standard-Ziel)
   fahrer: CarpoolFahrer[];
   mitfahrer: CarpoolMitfahrer[];
@@ -59,6 +71,7 @@ export function CarpoolSection({
   const [ort, setOrt] = useState(meinOrt ?? "");
   const [ziel, setZiel] = useState(meinZiel ?? "");
   const [abfahrt, setAbfahrt] = useState(meineAbfahrt ?? "");
+  const [fahrerId, setFahrerId] = useState(meinFahrerId ?? "");
   const [isPending, startTransition] = useTransition();
 
   function speichern(
@@ -68,16 +81,19 @@ export function CarpoolSection({
       ort?: string;
       ziel?: string;
       abfahrt?: string;
+      fahrerId?: string;
     },
   ) {
     setRolle(neueRolle);
     if (override?.seats != null) setSeats(override.seats);
+    if (override?.fahrerId != null) setFahrerId(override.fahrerId);
     startTransition(async () => {
       await setCarpool(eventId, neueRolle, {
         seats: override?.seats ?? seats,
         ort: override?.ort ?? ort,
         ziel: override?.ziel ?? ziel,
         abfahrt: override?.abfahrt ?? abfahrt,
+        fahrerId: override?.fahrerId ?? fahrerId,
       });
       router.refresh();
     });
@@ -93,7 +109,8 @@ export function CarpoolSection({
   const feld =
     "w-full rounded-lg border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-primary";
 
-  const meineRoute = mapsRoute(ort, ziel || zielVorgabe);
+  const fahrerName = (id: string | null) =>
+    fahrer.find((f) => f.profileId === id)?.name ?? null;
 
   return (
     <div className="space-y-3">
@@ -140,7 +157,7 @@ export function CarpoolSection({
         )}
       </div>
 
-      {/* Mini-Planung: von wo, Ziel, Abfahrt + Route */}
+      {/* Mini-Planung: von wo, Ziel, Abfahrt (+ bei wem ich mitfahre) */}
       {rolle && (
         <div className="grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-3">
           <label className="text-sm">
@@ -180,61 +197,108 @@ export function CarpoolSection({
               className={feld}
             />
           </label>
-          <div className="sm:col-span-3 flex flex-wrap items-center gap-3">
-            {meineRoute && (
-              <a
-                href={meineRoute}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-primary hover:underline"
+
+          {/* Mitfahrer: bei welchem Fahrer? */}
+          {rolle === "mitfahrer" && fahrer.length > 0 && (
+            <label className="text-sm sm:col-span-3">
+              <span className="mb-1 block text-xs text-muted">
+                🚗 Ich fahre mit
+              </span>
+              <select
+                value={fahrerId}
+                onChange={(e) => speichern("mitfahrer", { fahrerId: e.target.value })}
+                className={feld}
               >
-                🗺 Route in Google Maps öffnen
-              </a>
-            )}
-            <span className="text-xs text-muted">
-              Ziel leer = Spielort. Wird automatisch gespeichert.
-            </span>
+                <option value="">– noch offen –</option>
+                {fahrer.map((f) => (
+                  <option key={f.profileId} value={f.profileId}>
+                    {f.name}
+                    {f.ort ? ` (ab ${f.ort})` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <div className="sm:col-span-3 text-xs text-muted">
+            Ziel leer = Spielort. Wird automatisch gespeichert.
           </div>
         </div>
       )}
 
       {(fahrer.length > 0 || mitfahrer.length > 0) && (
-        <div className="grid gap-2 text-sm sm:grid-cols-2">
+        <div className="space-y-3 text-sm">
+          {/* Fahrer mit ihren Mitfahrern + Sammel-Route */}
           <div>
             <p className="font-medium">🚗 Fahrer</p>
             {fahrer.length === 0 ? (
               <p className="text-muted">– noch niemand –</p>
             ) : (
-              <ul className="space-y-1 text-muted">
-                {fahrer.map((f) => (
-                  <li key={f.name}>
-                    <span className="text-foreground">{f.name}</span>
-                    {f.seats ? ` (${f.seats} Plätze frei)` : ""}
-                    {f.ort ? ` · ab ${f.ort}` : ""}
-                    {f.ziel ? ` → ${f.ziel}` : ""}
-                    {f.abfahrt ? ` · 🕒 ${f.abfahrt}` : ""}
-                  </li>
-                ))}
+              <ul className="space-y-2">
+                {fahrer.map((f) => {
+                  const meine = mitfahrer.filter((m) => m.fahrerId === f.profileId);
+                  const route = mapsRoute(
+                    f.ort,
+                    f.ziel || zielVorgabe,
+                    meine.map((m) => m.ort),
+                  );
+                  return (
+                    <li key={f.profileId} className="rounded-lg bg-border/15 px-3 py-2">
+                      <div className="text-muted">
+                        <span className="font-medium text-foreground">
+                          {f.name}
+                        </span>
+                        {f.seats
+                          ? ` · ${meine.length}/${f.seats} belegt`
+                          : ""}
+                        {f.ort ? ` · ab ${f.ort}` : ""}
+                        {f.ziel ? ` → ${f.ziel}` : ""}
+                        {f.abfahrt ? ` · 🕒 ${f.abfahrt}` : ""}
+                      </div>
+                      {meine.length > 0 && (
+                        <div className="mt-1 text-muted">
+                          Mitfahrer:{" "}
+                          {meine
+                            .map((m) => `${m.name}${m.ort ? ` (${m.ort})` : ""}`)
+                            .join(", ")}
+                        </div>
+                      )}
+                      {route && (
+                        <a
+                          href={route}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-block text-primary hover:underline"
+                        >
+                          🗺 Route{meine.length ? " mit Mitfahrern" : ""} öffnen
+                        </a>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
-          <div>
-            <p className="font-medium">🙋 Suchen eine Mitfahrgelegenheit</p>
-            {mitfahrer.length === 0 ? (
-              <p className="text-muted">– noch niemand –</p>
-            ) : (
+
+          {/* Wer noch keine Mitfahrgelegenheit hat */}
+          {mitfahrer.length > 0 && (
+            <div>
+              <p className="font-medium">🙋 Suchen eine Mitfahrgelegenheit</p>
               <ul className="space-y-1 text-muted">
                 {mitfahrer.map((m) => (
-                  <li key={m.name}>
+                  <li key={m.profileId}>
                     <span className="text-foreground">{m.name}</span>
                     {m.ort ? ` · von ${m.ort}` : ""}
                     {m.ziel ? ` → ${m.ziel}` : ""}
                     {m.abfahrt ? ` · 🕒 ${m.abfahrt}` : ""}
+                    {m.fahrerId
+                      ? ` · ✅ fährt mit ${fahrerName(m.fahrerId) ?? "?"}`
+                      : ""}
                   </li>
                 ))}
               </ul>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>

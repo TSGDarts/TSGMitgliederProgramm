@@ -22,7 +22,13 @@ import { berechneErfolge } from "@/lib/erfolge";
 export async function setCarpool(
   eventId: string,
   role: "fahrer" | "mitfahrer" | null,
-  opts?: { seats?: number; ort?: string; ziel?: string; abfahrt?: string },
+  opts?: {
+    seats?: number;
+    ort?: string;
+    ziel?: string;
+    abfahrt?: string;
+    fahrerId?: string | null; // nur Mitfahrer: bei welchem Fahrer
+  },
 ): Promise<{ ok: boolean }> {
   const profile = await requireProfile();
   const supabase = await createClient();
@@ -45,6 +51,8 @@ export async function setCarpool(
       ort: (opts?.ort ?? "").trim().slice(0, 80),
       ziel: (opts?.ziel ?? "").trim().slice(0, 80),
       abfahrt: (opts?.abfahrt ?? "").trim().slice(0, 80),
+      // Zuordnung zum Fahrer nur für Mitfahrer
+      fahrer_id: role === "mitfahrer" ? (opts?.fahrerId || null) : null,
       updated_at: new Date().toISOString(),
     });
     if (error) return { ok: false };

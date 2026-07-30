@@ -1623,3 +1623,13 @@ alter table teams add column if not exists nuliga_table_url text;
 alter table event_carpool add column if not exists ort text not null default '';
 alter table event_carpool add column if not exists ziel text not null default '';
 alter table event_carpool add column if not exists abfahrt text not null default '';
+
+-- ============================================================
+-- 60: Fahrgemeinschaft – Mitfahrer-Zuordnung zum Fahrer
+-- ============================================================
+
+-- 60: Fahrgemeinschaft – Mitfahrer kann angeben, bei welchem Fahrer er
+-- mitfährt (für die Sammel-Route des Fahrers). Mehrfach ausführbar.
+
+alter table event_carpool
+  add column if not exists fahrer_id uuid references profiles (id) on delete set null;

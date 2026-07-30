@@ -112,7 +112,7 @@ export default async function EventDetailPage({
     !spiegel
       ? supabase
           .from("event_carpool")
-          .select("profile_id, role, seats, ort, ziel, abfahrt, profiles(full_name)")
+          .select("profile_id, role, seats, ort, ziel, abfahrt, fahrer_id, profiles(full_name)")
           .eq("event_id", event.id)
       : Promise.resolve({ data: null }),
     istHeimspiel
@@ -197,23 +197,28 @@ export default async function EventDetailPage({
   let meinOrt = "";
   let meinZiel = "";
   let meineAbfahrt = "";
+  let meinFahrerId: string | null = null;
   if (!spiegel) {
     for (const row of carpoolRes.data ?? []) {
       const name =
         (row.profiles as unknown as { full_name: string } | null)?.full_name ??
         "?";
+      const profileId = row.profile_id as string;
       const ort = (row.ort as string | null) ?? "";
       const ziel = (row.ziel as string | null) ?? "";
       const abfahrt = (row.abfahrt as string | null) ?? "";
-      if (row.profile_id === profile.id) {
+      const fahrerId = (row.fahrer_id as string | null) ?? null;
+      if (profileId === profile.id) {
         meineRolle = row.role as "fahrer" | "mitfahrer";
         meineSeats = (row.seats as number | null) ?? null;
         meinOrt = ort;
         meinZiel = ziel;
         meineAbfahrt = abfahrt;
+        meinFahrerId = fahrerId;
       }
       if (row.role === "fahrer") {
         fahrer.push({
+          profileId,
           name,
           seats: (row.seats as number | null) ?? null,
           ort,
@@ -221,7 +226,7 @@ export default async function EventDetailPage({
           abfahrt,
         });
       } else {
-        mitfahrerListe.push({ name, ort, ziel, abfahrt });
+        mitfahrerListe.push({ profileId, name, ort, ziel, abfahrt, fahrerId });
       }
     }
   }
@@ -434,6 +439,7 @@ export default async function EventDetailPage({
             meinOrt={meinOrt}
             meinZiel={meinZiel}
             meineAbfahrt={meineAbfahrt}
+            meinFahrerId={meinFahrerId}
             zielVorgabe={event.location ?? ""}
             fahrer={fahrer}
             mitfahrer={mitfahrerListe}
