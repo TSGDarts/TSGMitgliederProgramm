@@ -1612,3 +1612,14 @@ alter table member_invites add column if not exists member_since date;
 -- Liga-Tabelle). Mehrfach ausführbar (idempotent).
 
 alter table teams add column if not exists nuliga_table_url text;
+
+-- ============================================================
+-- 59: Fahrgemeinschaft – Ort (von wo)
+-- ============================================================
+
+-- 59: Fahrgemeinschaft – optionaler Ort (von wo man mitfährt / Startort des
+-- Fahrers). Mehrfach ausführbar (idempotent).
+
+alter table event_carpool add column if not exists ort text not null default '';
+alter table event_carpool add column if not exists ziel text not null default '';
+alter table event_carpool add column if not exists abfahrt text not null default '';

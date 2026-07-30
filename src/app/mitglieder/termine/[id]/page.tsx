@@ -12,7 +12,11 @@ import {
 import { getGegnerVorlage, getSpielModi } from "@/lib/settings";
 import { RsvpButtons } from "@/components/RsvpButtons";
 import { AddressLine } from "@/components/AddressLine";
-import { CarpoolSection, type CarpoolFahrer } from "@/components/CarpoolSection";
+import {
+  CarpoolSection,
+  type CarpoolFahrer,
+  type CarpoolMitfahrer,
+} from "@/components/CarpoolSection";
 import { HelferSection, type HelferEintrag } from "@/components/HelferSection";
 import { LineupSection } from "@/components/LineupSection";
 import { GegnerNachricht } from "@/components/GegnerNachricht";
@@ -108,7 +112,7 @@ export default async function EventDetailPage({
     !spiegel
       ? supabase
           .from("event_carpool")
-          .select("profile_id, role, seats, profiles(full_name)")
+          .select("profile_id, role, seats, ort, ziel, abfahrt, profiles(full_name)")
           .eq("event_id", event.id)
       : Promise.resolve({ data: null }),
     istHeimspiel
@@ -187,22 +191,37 @@ export default async function EventDetailPage({
 
   // Fahrgemeinschaft
   const fahrer: CarpoolFahrer[] = [];
-  const mitfahrerListe: string[] = [];
+  const mitfahrerListe: CarpoolMitfahrer[] = [];
   let meineRolle: "fahrer" | "mitfahrer" | null = null;
   let meineSeats: number | null = null;
+  let meinOrt = "";
+  let meinZiel = "";
+  let meineAbfahrt = "";
   if (!spiegel) {
     for (const row of carpoolRes.data ?? []) {
       const name =
         (row.profiles as unknown as { full_name: string } | null)?.full_name ??
         "?";
+      const ort = (row.ort as string | null) ?? "";
+      const ziel = (row.ziel as string | null) ?? "";
+      const abfahrt = (row.abfahrt as string | null) ?? "";
       if (row.profile_id === profile.id) {
         meineRolle = row.role as "fahrer" | "mitfahrer";
         meineSeats = (row.seats as number | null) ?? null;
+        meinOrt = ort;
+        meinZiel = ziel;
+        meineAbfahrt = abfahrt;
       }
       if (row.role === "fahrer") {
-        fahrer.push({ name, seats: (row.seats as number | null) ?? null });
+        fahrer.push({
+          name,
+          seats: (row.seats as number | null) ?? null,
+          ort,
+          ziel,
+          abfahrt,
+        });
       } else {
-        mitfahrerListe.push(name);
+        mitfahrerListe.push({ name, ort, ziel, abfahrt });
       }
     }
   }
@@ -412,6 +431,10 @@ export default async function EventDetailPage({
             eventId={event.id}
             meineRolle={meineRolle}
             meineSeats={meineSeats}
+            meinOrt={meinOrt}
+            meinZiel={meinZiel}
+            meineAbfahrt={meineAbfahrt}
+            zielVorgabe={event.location ?? ""}
             fahrer={fahrer}
             mitfahrer={mitfahrerListe}
           />

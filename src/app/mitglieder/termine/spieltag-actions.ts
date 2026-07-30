@@ -17,10 +17,12 @@ import { vereinsAggregat } from "@/lib/statistik";
 import { berechneErfolge } from "@/lib/erfolge";
 
 // Fahrgemeinschaft: jeder pflegt seinen eigenen Eintrag pro Termin.
+// `ort` = von wo (Startort des Fahrers / Abholort des Mitfahrers),
+// `ziel` = Zielort (leer = Spielort), `abfahrt` = freier Zeit-/Abfahrts-Hinweis.
 export async function setCarpool(
   eventId: string,
   role: "fahrer" | "mitfahrer" | null,
-  seats?: number,
+  opts?: { seats?: number; ort?: string; ziel?: string; abfahrt?: string },
 ): Promise<{ ok: boolean }> {
   const profile = await requireProfile();
   const supabase = await createClient();
@@ -38,8 +40,11 @@ export async function setCarpool(
       role,
       seats:
         role === "fahrer"
-          ? Math.max(1, Math.min(8, Math.round(seats ?? 3)))
+          ? Math.max(1, Math.min(8, Math.round(opts?.seats ?? 3)))
           : null,
+      ort: (opts?.ort ?? "").trim().slice(0, 80),
+      ziel: (opts?.ziel ?? "").trim().slice(0, 80),
+      abfahrt: (opts?.abfahrt ?? "").trim().slice(0, 80),
       updated_at: new Date().toISOString(),
     });
     if (error) return { ok: false };
