@@ -8,6 +8,7 @@ export interface Tournament {
   starts_at: string;
   ends_at?: string | null; // optionales Turnierende (mehrtägig)
   details_tbd?: boolean | null; // noch keine Details verfügbar – „Details folgen“
+  max_participants?: number | null; // maximale Teilnehmerzahl (NULL = unbegrenzt)
   entry_deadline: string | null;
   doors_time?: string | null; // Einlass, z. B. "12:00"
   location: string;

@@ -1633,3 +1633,12 @@ alter table event_carpool add column if not exists abfahrt text not null default
 
 alter table event_carpool
   add column if not exists fahrer_id uuid references profiles (id) on delete set null;
+
+-- ============================================================
+-- 61: Turniere – maximale Teilnehmerzahl
+-- ============================================================
+
+-- 61: Turniere – maximale Teilnehmerzahl (leer/NULL = unbegrenzt).
+-- Mehrfach ausführbar (idempotent).
+
+alter table tournaments add column if not exists max_participants int;

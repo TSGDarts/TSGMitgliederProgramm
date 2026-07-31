@@ -75,6 +75,21 @@ function TournamentFields({ defaults }: { defaults?: Tournament }) {
             <option value="doppel">Doppelturnier</option>
           </select>
         </Field>
+        <Field
+          label="Max. Teilnehmer (optional)"
+          hint="Leer lassen = unbegrenzt"
+        >
+          <input
+            name="max_participants"
+            type="number"
+            min={1}
+            max={9999}
+            inputMode="numeric"
+            placeholder="unbegrenzt"
+            defaultValue={defaults?.max_participants ?? ""}
+            className={inputClass}
+          />
+        </Field>
         <Field label="Turniertag">
           <input
             name="starts_date"
@@ -352,6 +367,9 @@ export default async function TurnierePage({
                             )}
                           </>
                         )}
+                        {t.max_participants ? (
+                          <> · 👥 max. {t.max_participants} Teilnehmer</>
+                        ) : null}
                       </p>
                       {t.location && (
                         <p className="text-sm text-muted">

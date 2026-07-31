@@ -66,6 +66,14 @@ function readTournamentFields(formData: FormData) {
     ? "doppel"
     : "einzel";
 
+  // Max. Teilnehmer: leer/ungültig = unbegrenzt (NULL)
+  const maxRaw = String(formData.get("max_participants") ?? "").trim();
+  const maxNum = Number(maxRaw);
+  const max_participants =
+    maxRaw && Number.isInteger(maxNum) && maxNum > 0 && maxNum <= 9999
+      ? maxNum
+      : null;
+
   // "Anzeigen bis": leer -> letzter Turniertag (danach wandert es ins Archiv).
   // Nie früher als der letzte Turniertag – sonst bliebe ein Turnier nach
   // einer Datums-Korrektur fälschlich im Archiv hängen.
@@ -85,6 +93,7 @@ function readTournamentFields(formData: FormData) {
     starts_at,
     ends_at,
     details_tbd: formData.get("details_tbd") === "on",
+    max_participants,
     entry_deadline,
     doors_time: String(formData.get("doors_time") ?? "").trim(),
     location: String(formData.get("location") ?? "").trim(),
