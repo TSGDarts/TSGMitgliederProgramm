@@ -9,7 +9,7 @@ import { Einklappbar } from "@/components/Einklappbar";
 import { PdfPan } from "@/components/PdfPan";
 import { PageHeader, EmptyState } from "@/components/ui";
 
-export const metadata: Metadata = { title: "Termine & Zusagen" };
+export const metadata: Metadata = { title: "Zu- & Absagen" };
 
 export default async function MemberTerminePage() {
   const profile = await requireProfile();
@@ -18,7 +18,7 @@ export default async function MemberTerminePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Termine & Zusagen"
+        title="Zu- & Absagen"
         subtitle="Sag zu oder ab – für Spieltage, Freundschaftsspiele und Training (Monatsansicht unter „Kalender“ im Menü)"
       />
 

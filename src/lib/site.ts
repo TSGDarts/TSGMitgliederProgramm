@@ -21,7 +21,7 @@ export const memberNav = [
   { href: "/mitglieder/ergebnisse", label: "Ergebnisse", icon: "target" },
   { href: "/mitglieder/brett", label: "Schwarzes Brett", icon: "megaphone" },
   { href: "/mitglieder/geburtstage", label: "Geburtstage", icon: "cake" },
-  { href: "/mitglieder/termine", label: "Termine & Zusagen", icon: "calendar" },
+  { href: "/mitglieder/termine", label: "Zu- & Absagen", icon: "calendar" },
   { href: "/mitglieder/training", label: "Training", icon: "dumbbell" },
   { href: "/mitglieder/mannschaften", label: "Mannschaften", icon: "users" },
   { href: "/mitglieder/turniere", label: "Turniere", icon: "trophy" },
