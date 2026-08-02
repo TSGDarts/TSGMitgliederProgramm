@@ -46,9 +46,15 @@ export default async function DashboardPage({
   ]);
 
   // Gespiegelte Competition-Abende brauchen keine Rückmeldung
-  const offen = events.filter(
+  const offeneEvents = events.filter(
     (e) => e.myStatus === null && !isCompSpiegel(e),
-  ).length;
+  );
+  const offen = offeneEvents.length;
+  // Genau eine offene Rückmeldung → direkt zum Termin, sonst zur Liste
+  const offenZiel =
+    offen === 1
+      ? `/mitglieder/termine/${offeneEvents[0].id}`
+      : "/mitglieder/termine";
 
   // Läuft gerade eine Saisonabfrage, die ich noch nicht beantwortet habe?
   // (Mitglieder ohne Liga-Spielbetrieb betrifft sie nicht.)
@@ -99,15 +105,22 @@ export default async function DashboardPage({
       )}
 
       {offen > 0 && (
-        <Card className="border-warn/40 bg-warn/5">
-          <CardBody className="text-sm">
-            Du hast noch{" "}
-            <strong>
-              {offen} offene Rückmeldung{offen === 1 ? "" : "en"}
-            </strong>
-            . Bitte sag zu oder ab.
-          </CardBody>
-        </Card>
+        <Link href={offenZiel} className="block">
+          <Card className="border-warn/40 bg-warn/5 transition hover:border-warn">
+            <CardBody className="flex items-center justify-between gap-3 text-sm">
+              <span>
+                Du hast noch{" "}
+                <strong>
+                  {offen} offene Rückmeldung{offen === 1 ? "" : "en"}
+                </strong>
+                . Bitte sag zu oder ab.
+              </span>
+              <span className="shrink-0 font-medium text-warn">
+                {offen === 1 ? "Jetzt antworten →" : "Ansehen →"}
+              </span>
+            </CardBody>
+          </Card>
+        </Link>
       )}
 
       {ankuendigung && (
