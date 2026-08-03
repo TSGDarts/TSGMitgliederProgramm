@@ -12,7 +12,7 @@ import {
   ButtonLink,
 } from "@/components/ui";
 import Link from "next/link";
-import { isCompSpiegel } from "@/lib/types";
+import { brauchtRueckmeldung } from "@/lib/types";
 import type { Season } from "@/lib/season";
 
 export default async function DashboardPage({
@@ -45,9 +45,9 @@ export default async function DashboardPage({
       .maybeSingle(),
   ]);
 
-  // Gespiegelte Competition-Abende brauchen keine Rückmeldung
+  // Gespiegelte Competition-Abende und Info-Termine brauchen keine Rückmeldung
   const offeneEvents = events.filter(
-    (e) => e.myStatus === null && !isCompSpiegel(e),
+    (e) => e.myStatus === null && brauchtRueckmeldung(e),
   );
   const offen = offeneEvents.length;
   // Genau eine offene Rückmeldung → direkt zum Termin, sonst zur Liste

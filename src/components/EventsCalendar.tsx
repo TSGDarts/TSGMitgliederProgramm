@@ -6,7 +6,7 @@ import { formatTime } from "@/lib/format";
 import { CalendarEventChip } from "@/components/CalendarEventChip";
 import { MonthPicker } from "@/components/MonthPicker";
 import { KalenderZoom } from "@/components/KalenderZoom";
-import { isCompSpiegel } from "@/lib/types";
+import { brauchtRueckmeldung } from "@/lib/types";
 import { feiertageBayern } from "@/lib/feiertage";
 import type { EventRow, EventType, RsvpStatus } from "@/lib/types";
 import type { Tournament } from "@/lib/extras";
@@ -415,7 +415,7 @@ export async function EventsCalendar({
                               ? (defaultByTeam.get(ev.team_id) ?? null)
                               : null)
                         }
-                        rsvp={!isCompSpiegel(ev)}
+                        rsvp={brauchtRueckmeldung(ev)}
                       />
                     ))}
                   </div>

@@ -2,7 +2,11 @@ import Link from "next/link";
 import { Card, CardBody, Badge } from "@/components/ui";
 import { RsvpButtons } from "@/components/RsvpButtons";
 import { AddressLine } from "@/components/AddressLine";
-import { EVENT_TYPE_LABELS, isCompSpiegel } from "@/lib/types";
+import {
+  EVENT_TYPE_LABELS,
+  isCompSpiegel,
+  brauchtRueckmeldung,
+} from "@/lib/types";
 import type { EventWithStatus } from "@/lib/member-queries";
 import { formatDate, formatTime, formatUntil } from "@/lib/format";
 
@@ -79,8 +83,9 @@ export function EventCard({
           </div>
         </div>
 
-        {/* Gespiegelte Competition-Abende sind reine Anzeige – ohne Zu-/Absage */}
-        {!isCompSpiegel(event) && (
+        {/* Gespiegelte Competition-Abende und „nur zur Info"-Termine sind
+            reine Anzeige – ohne Zu-/Absage */}
+        {brauchtRueckmeldung(event) ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <RsvpButtons
               eventId={event.id}
@@ -106,7 +111,11 @@ export function EventCard({
               </Link>
             </span>
           </div>
-        )}
+        ) : event.info_only && !isCompSpiegel(event) ? (
+          <p className="text-sm text-muted">
+            📢 Nur zur Info – keine Zu-/Absage nötig.
+          </p>
+        ) : null}
       </CardBody>
     </Card>
   );

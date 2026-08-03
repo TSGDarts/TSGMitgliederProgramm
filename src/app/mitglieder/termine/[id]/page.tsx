@@ -349,6 +349,7 @@ export default async function EventDetailPage({
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone="primary">{EVENT_TYPE_LABELS[event.type]}</Badge>
         <Badge>{teamName ?? "Gesamter Verein"}</Badge>
+        {event.info_only && <Badge tone="warn">📢 nur zur Info</Badge>}
         {event.source === "nuliga" && <Badge>aus nuLiga</Badge>}
         {event.home_away === "heim" && <Badge tone="ok">🏠 Heim</Badge>}
         {event.home_away === "auswaerts" && (
@@ -397,6 +398,14 @@ export default async function EventDetailPage({
         </Card>
       ) : (
         <>
+      {event.info_only ? (
+        <Card className="bg-primary/5">
+          <CardBody className="text-sm text-muted">
+            📢 Dieser Termin ist <strong>nur zur Info</strong> – keine
+            Zu-/Absage nötig.
+          </CardBody>
+        </Card>
+      ) : (
       <Card className="bg-primary/5">
         <CardBody className="space-y-2">
           <p className="text-sm font-medium">Deine Rückmeldung</p>
@@ -410,6 +419,7 @@ export default async function EventDetailPage({
           />
         </CardBody>
       </Card>
+      )}
 
       {/* Aufstellung: Kapitän baut den Entwurf, gibt frei → Push an den Kader */}
       {istSpiel && (canManage || (lineupReleased && lineupEntries.length > 0)) && (
@@ -511,6 +521,7 @@ export default async function EventDetailPage({
         </details>
       )}
 
+      {!event.info_only && (
       <section className="grid gap-4 sm:grid-cols-2">
         {groups.map((g) => {
           const list = byStatus(g.key);
@@ -564,6 +575,7 @@ export default async function EventDetailPage({
           );
         })}
       </section>
+      )}
         </>
       )}
     </div>

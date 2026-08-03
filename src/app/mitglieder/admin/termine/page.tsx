@@ -407,6 +407,13 @@ export default async function AdminEventsPage({
                 (gilt nur für öffentliche Vereins- und Spieltermine)
               </span>
             </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="info_only" />
+              📢 Nur zur Info – keine Zu-/Absage nötig
+              <span className="text-xs text-muted">
+                (blendet Rückmeldung und Teilnehmerlisten aus)
+              </span>
+            </label>
             <Button type="submit">Termin anlegen</Button>
           </form>
       </Einklappbar>
@@ -433,6 +440,7 @@ export default async function AdminEventsPage({
                         <Badge tone="warn">🚗 Auswärts</Badge>
                       )}
                       {!ev.is_public && <Badge tone="warn">intern</Badge>}
+                      {ev.info_only && <Badge>📢 nur Info</Badge>}
                       {(inviteesByEvent.get(ev.id)?.size ?? 0) > 0 && (
                         <Badge tone="warn">
                           👥 nur Eingeladene ({inviteesByEvent.get(ev.id)!.size})
@@ -699,6 +707,17 @@ export default async function AdminEventsPage({
                       📤 Automatisch an die Competition-App übergeben
                       <span className="text-xs text-muted">
                         (gilt nur für öffentliche Vereins- und Spieltermine)
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        name="info_only"
+                        defaultChecked={ev.info_only ?? false}
+                      />
+                      📢 Nur zur Info – keine Zu-/Absage nötig
+                      <span className="text-xs text-muted">
+                        (blendet Rückmeldung und Teilnehmerlisten aus)
                       </span>
                     </label>
                     <Button type="submit">Änderungen speichern</Button>

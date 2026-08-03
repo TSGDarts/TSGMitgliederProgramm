@@ -104,6 +104,7 @@ export interface EventRow {
   ends_at: string | null;
   time_tbd?: boolean | null; // genaue Uhrzeit noch nicht bekannt
   feed_export?: boolean | null; // an die Competition-App übergeben (Dart-Feed)
+  info_only?: boolean | null; // nur zur Info – keine Zu-/Absage nötig
   trainer_ids?: string[] | null; // anwesende Trainer (nur bei Trainings)
   contact_ids?: string[] | null; // Ansprechpartner (mehrere möglich)
   source: "manual" | "nuliga";
@@ -119,6 +120,17 @@ export interface EventRow {
  */
 export function isCompSpiegel(ev: { source_uid?: string | null }): boolean {
   return (ev.source_uid ?? "").startsWith("comp-app:cd-");
+}
+
+/**
+ * Braucht dieser Termin eine Zu-/Absage? Nein bei gespiegelten
+ * Competition-Abenden und bei „nur zur Info"-Terminen.
+ */
+export function brauchtRueckmeldung(ev: {
+  source_uid?: string | null;
+  info_only?: boolean | null;
+}): boolean {
+  return !isCompSpiegel(ev) && !ev.info_only;
 }
 
 /**

@@ -185,6 +185,7 @@ export async function createEvent(formData: FormData) {
       // Trainings gehen NIE an die Competition-App (Feed führt sie ohnehin
       // nicht) – Haken wird für Trainings immer als „aus“ erzwungen.
       feed_export: type === "training" ? false : formData.get("feed_export") === "on",
+      info_only: formData.get("info_only") === "on",
       contact_ids: formData.getAll("contact_ids").map(String).filter(Boolean),
       source: "manual",
       created_by: profile.id,
@@ -263,6 +264,7 @@ export async function updateEvent(formData: FormData) {
       time_tbd: formData.get("time_tbd") === "on" || zeitLeer,
       // Trainings gehen NIE an die Competition-App
       feed_export: type === "training" ? false : formData.get("feed_export") === "on",
+      info_only: formData.get("info_only") === "on",
       contact_ids: formData.getAll("contact_ids").map(String).filter(Boolean),
     })
     .eq("id", id);
