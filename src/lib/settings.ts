@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminSupabase } from "@/lib/supabase/admin";
 import { berlinLocalToISO } from "@/lib/tz";
 
 /**
@@ -142,6 +143,58 @@ export function waNummer(telefon: string): string {
   if (ziffern.startsWith("00")) ziffern = ziffern.slice(2);
   else if (ziffern.startsWith("0")) ziffern = `49${ziffern.slice(1)}`;
   return ziffern;
+}
+
+export interface KasseLink {
+  titel: string;
+  url: string;
+}
+
+/**
+ * Wichtige Kassen-Links (z. B. Kassenbuch- und Getränke-Tabelle). Gepflegt
+ * vom Kassierer unter „Kasse“ – gespeichert als Zeilen „Titel | Adresse“.
+ * Ablage bewusst in secure_settings (nur über den Server lesbar), damit die
+ * Adressen NICHT für alle Mitglieder einsehbar sind.
+ */
+export function parseKasseLinks(roh: string): KasseLink[] {
+  return roh
+    .split(/\r?\n/)
+    .map((zeile) => {
+      const [titelRoh, ...rest] = zeile.split("|");
+      const url = rest.join("|").trim();
+      const titel = titelRoh.trim();
+      // Ohne Trennzeichen: die Zeile ist nur die Adresse
+      if (!url) {
+        return /^https?:\/\//i.test(titel)
+          ? { titel: "Link", url: titel }
+          : null;
+      }
+      return /^https?:\/\//i.test(url) ? { titel: titel || "Link", url } : null;
+    })
+    .filter((l): l is KasseLink => l !== null);
+}
+
+/**
+ * Rohtext der Kassen-Links. ACHTUNG: liest über den Service-Zugang – nur
+ * nach einer Rechte-Prüfung (requireTreasurer) aufrufen!
+ */
+export async function getKasseLinksText(): Promise<string> {
+  try {
+    const admin = createAdminSupabase();
+    const { data } = await admin
+      .from("secure_settings")
+      .select("value")
+      .eq("key", "kasse_links")
+      .maybeSingle();
+    return (data?.value as string) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/** Kassen-Links als Liste – nur nach Rechte-Prüfung aufrufen (s. o.). */
+export async function getKasseLinks(): Promise<KasseLink[]> {
+  return parseKasseLinks(await getKasseLinksText());
 }
 
 export async function getGegnerVorlage(): Promise<string> {

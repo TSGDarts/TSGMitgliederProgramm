@@ -148,6 +148,24 @@ export async function importKontostand(
   };
 }
 
+/**
+ * Wichtige Kassen-Links speichern (Zeilen „Titel | Adresse“). Ablage in
+ * secure_settings: nur über den Server lesbar, damit die Adressen nicht für
+ * alle Mitglieder einsehbar sind (Einsicht nur mit Kassen-Berechtigung).
+ */
+export async function saveKasseLinks(formData: FormData): Promise<void> {
+  await requireTreasurer();
+  const text = String(formData.get("kasse_links") ?? "").slice(0, 4000);
+
+  const admin = createAdminSupabase();
+  await admin.from("secure_settings").upsert({
+    key: "kasse_links",
+    value: text,
+    updated_at: new Date().toISOString(),
+  });
+  revalidatePath("/mitglieder/kasse");
+}
+
 /** Einen Import (mitsamt Buchungen) löschen. */
 export async function deleteImport(formData: FormData): Promise<void> {
   await requireTreasurer();

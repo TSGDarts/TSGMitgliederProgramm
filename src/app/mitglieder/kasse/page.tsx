@@ -6,9 +6,12 @@ import { Einklappbar } from "@/components/Einklappbar";
 import { ImportForm } from "@/components/ImportForm";
 import { AuslageEntscheidung } from "@/components/AuslageEntscheidung";
 import { KasseDateiLink } from "@/components/KasseDateiLink";
+import { KasseLinkListe } from "@/components/KasseLinkListe";
 import { KasseVerlauf } from "@/components/KasseVerlauf";
 import { monatsVerlauf } from "@/lib/kasse-verlauf";
-import { deleteImport } from "./actions";
+import { getKasseLinks, getKasseLinksText } from "@/lib/settings";
+import { deleteImport, saveKasseLinks } from "./actions";
+import { Button, Field, inputClass } from "@/components/ui";
 import { PageHeader, Card, CardBody, Badge, EmptyState } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 
@@ -78,6 +81,10 @@ export default async function KassePage() {
     buchungen = data ?? [];
   }
   const verlauf = monatsVerlauf(buchungen);
+  const [kasseLinks, kasseLinksText] = await Promise.all([
+    getKasseLinks(),
+    getKasseLinksText(),
+  ]);
 
   const namen = new Map(
     ((profileRes.data ?? []) as { id: string; full_name: string }[]).map((p) => [
@@ -141,6 +148,43 @@ export default async function KassePage() {
           hint="Lade unten die aktuelle Excel-Auswertung vom Hauptverein hoch."
         />
       )}
+
+      {/* Wichtige Links (Kassenbuch, Getränkeliste …) */}
+      <Einklappbar
+        id="kasse-links"
+        title={`🔗 Wichtige Links (${kasseLinks.length})`}
+        defaultOpen={kasseLinks.length > 0}
+      >
+        <div className="space-y-4">
+          <KasseLinkListe links={kasseLinks} />
+          <details className="rounded-lg border border-border">
+            <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-primary">
+              ✏️ Links bearbeiten
+            </summary>
+            <form
+              action={saveKasseLinks}
+              className="space-y-3 border-t border-border p-4"
+            >
+              <Field
+                label="Ein Link pro Zeile"
+                hint="Aufbau: Titel | Adresse – z. B. „Kassenbuch | https://docs.google.com/…“"
+              >
+                <textarea
+                  name="kasse_links"
+                  rows={5}
+                  defaultValue={kasseLinksText}
+                  placeholder={"Kassenbuch | https://…\nGetränke | https://…"}
+                  className={inputClass}
+                />
+              </Field>
+              <p className="text-xs text-muted">
+                🔒 Nur Kassierer und Admins sehen diese Links.
+              </p>
+              <Button type="submit">Speichern</Button>
+            </form>
+          </details>
+        </div>
+      </Einklappbar>
 
       {/* Kontostand-Verlauf */}
       {verlauf.length >= 2 && (
