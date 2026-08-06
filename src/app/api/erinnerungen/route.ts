@@ -218,6 +218,27 @@ export async function GET() {
     .lte("starts_at", new Date(jetzt + 31 * 864e5).toISOString());
   const events = (eventData as EventRow[]) ?? [];
 
+  // Namen der eingetragenen Trainer (für „💪 Trainer: …“ in der Erinnerung).
+  // trainer_ids kann Profile UND vorab angelegte Namen enthalten.
+  const trainerIds = [...new Set(events.flatMap((e) => e.trainer_ids ?? []))];
+  const trainerNameById = new Map<string, string>();
+  if (trainerIds.length > 0) {
+    const [{ data: tProf }, { data: tInv }] = await Promise.all([
+      admin.from("profiles").select("id, full_name").in("id", trainerIds),
+      admin.from("member_invites").select("id, full_name").in("id", trainerIds),
+    ]);
+    for (const t of [...(tProf ?? []), ...(tInv ?? [])]) {
+      trainerNameById.set(t.id as string, (t.full_name as string) ?? "");
+    }
+  }
+  const trainerZusatz = (ev: EventRow) => {
+    const namen = (ev.trainer_ids ?? [])
+      .map((id) => trainerNameById.get(id) ?? "")
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+    return namen.length > 0 ? ` · 💪 Trainer: ${namen.join(", ")}` : "";
+  };
+
   const { data: tourData } = await admin.from("tournaments").select("*");
   const turniere = ((tourData as Tournament[]) ?? []).filter(
     (t) =>
@@ -327,7 +348,7 @@ export async function GET() {
             : `, ${formatTime(ev.starts_at)} Uhr`;
         await benachrichtige(empfaenger, {
           title: `⏰ ${wann}: ${ev.title}`,
-          body: `${formatDate(ev.starts_at)}${zeit}${ev.location ? ` · ${ev.location}` : ""}`,
+          body: `${formatDate(ev.starts_at)}${zeit}${ev.location ? ` · ${ev.location}` : ""}${trainerZusatz(ev)}`,
           url: `/mitglieder/termine/${ev.id}`,
         });
         verschickt++;

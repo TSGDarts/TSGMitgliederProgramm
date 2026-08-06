@@ -81,6 +81,7 @@ export async function createTraining(formData: FormData) {
         starts_at: fields.starts_at,
         time_tbd: false,
         type: fields.type,
+        trainer_ids: fields.trainer_ids,
       },
       [],
       profile.id,

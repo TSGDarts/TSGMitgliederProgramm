@@ -326,18 +326,47 @@ function terminZeile(ev: Pick<EventRow, "starts_at" | "time_tbd">): string {
   return `${datum}, ${formatTime(ev.starts_at)} Uhr`;
 }
 
+/**
+ * Namen der eingetragenen Trainer. Die IDs können Profile ODER vorab
+ * angelegte Namen (member_invites) sein – beide Quellen abfragen.
+ */
+async function trainerNamen(ids?: string[] | null): Promise<string[]> {
+  if (!ids?.length) return [];
+  try {
+    const admin = createAdminSupabase();
+    const [{ data: profile }, { data: invites }] = await Promise.all([
+      admin.from("profiles").select("full_name").in("id", ids),
+      admin.from("member_invites").select("full_name").in("id", ids),
+    ]);
+    return [...(profile ?? []), ...(invites ?? [])]
+      .map((t) => (t.full_name as string) ?? "")
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+  } catch {
+    return [];
+  }
+}
+
 /** Benachrichtigung „Neuer Termin“ an alle relevanten Mitglieder. */
 export async function meldeNeuenTermin(
-  event: Pick<EventRow, "id" | "title" | "team_id" | "starts_at" | "time_tbd" | "type">,
+  event: Pick<
+    EventRow,
+    "id" | "title" | "team_id" | "starts_at" | "time_tbd" | "type"
+  > & { trainer_ids?: string[] | null },
   inviteeIds: string[],
   ausserId?: string,
 ) {
   try {
     const empfaenger = await empfaengerFuerEvent(event, inviteeIds, ausserId);
     const art = event.type === "training" ? "Neues Training" : "Neuer Termin";
+    // Bei Trainings die anwesenden Trainer mit ansagen
+    const trainer = await trainerNamen(event.trainer_ids);
+    const trainerText = trainer.length
+      ? ` · 💪 Trainer: ${trainer.join(", ")}`
+      : "";
     await benachrichtige(empfaenger, {
       title: `${art}: ${event.title}`,
-      body: `${terminZeile(event)} – jetzt zu- oder absagen.`,
+      body: `${terminZeile(event)}${trainerText} – jetzt zu- oder absagen.`,
       url: `/mitglieder/termine/${event.id}`,
     });
   } catch {
