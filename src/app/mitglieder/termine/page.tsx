@@ -6,7 +6,6 @@ import { siteUrl } from "@/lib/supabase/config";
 import { EventCard } from "@/components/EventCard";
 import { CalendarSubscribe } from "@/components/CalendarSubscribe";
 import { Einklappbar } from "@/components/Einklappbar";
-import { PdfPan } from "@/components/PdfPan";
 import { PageHeader, EmptyState } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Zu- & Absagen" };
@@ -24,21 +23,7 @@ export default async function MemberTerminePage() {
 
       <ListView profileId={profile.id} />
 
-      <Einklappbar
-        id="termine-rahmenterminplan"
-        title="📄 Rahmenterminplan 2026/27 & 2027/28"
-        defaultOpen={false}
-      >
-        <p className="mb-3 text-sm text-muted">
-          Der offizielle Rahmenterminplan (Mittelfranken / BDV / DDV) – die
-          Spielwochen stehen auch oben im Kalender.
-        </p>
-        <PdfPan
-          src="/rahmenterminplan.pdf"
-          titel="Rahmenterminplan 2026/27 & 2027/28"
-          seiten={2}
-        />
-      </Einklappbar>
+      {/* Der Rahmenterminplan hat jetzt einen eigenen Reiter im Menü */}
 
       <Einklappbar
         id="termine-kalender-abo"

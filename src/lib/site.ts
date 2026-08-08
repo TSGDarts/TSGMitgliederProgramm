@@ -18,6 +18,7 @@ export const publicNav = [{ href: "/ergebnisse", label: "Ergebnisse" }];
 export const memberNav = [
   { href: "/mitglieder", label: "Übersicht", icon: "home" },
   { href: "/mitglieder/kalender", label: "Kalender", icon: "calendar" },
+  { href: "/mitglieder/rahmenterminplan", label: "Rahmenterminplan", icon: "calendar" },
   { href: "/mitglieder/ergebnisse", label: "Ergebnisse", icon: "target" },
   { href: "/mitglieder/brett", label: "Schwarzes Brett", icon: "megaphone" },
   { href: "/mitglieder/geburtstage", label: "Geburtstage", icon: "cake" },
