@@ -253,6 +253,35 @@ export default async function AdminEinstellungenPage({
         </div>
       </Einklappbar>
 
+      <Einklappbar id="einstellungen-sicherung" title="💾 Daten-Sicherung">
+        <div className="space-y-3 text-sm">
+          <p className="text-muted">
+            Lädt alle wichtigen Daten der App als eine ZIP-Datei herunter:
+            je Tabelle eine Excel-Datei (CSV) – Mitglieder, Mannschaften,
+            Termine mit Zu-/Absagen, Saisonplanung, Kasse u. v. m. – plus
+            eine vollständige JSON-Datei für den Notfall
+            (Wiederherstellung).
+          </p>
+          <p className="text-muted">
+            <strong>Empfehlung:</strong> etwa einmal im Monat herunterladen
+            und die Datei an einem geschützten Ort ablegen (z.&nbsp;B. im
+            Vereins-SharePoint) – sie enthält persönliche Daten. Nicht
+            enthalten sind hochgeladene Dateien (Flyer, Kassen-Belege) und
+            geheime Zugangsdaten.
+          </p>
+          <a
+            href="/mitglieder/admin/einstellungen/sicherung"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg transition hover:opacity-90"
+          >
+            💾 Sicherung jetzt herunterladen
+          </a>
+          <p className="text-xs text-muted">
+            Das Erstellen kann einige Sekunden dauern – bitte nur einmal
+            klicken.
+          </p>
+        </div>
+      </Einklappbar>
+
       <Einklappbar
         id="einstellungen-m365-anleitung"
         title="📖 Anleitung: Werte in Microsoft 365 anlegen"

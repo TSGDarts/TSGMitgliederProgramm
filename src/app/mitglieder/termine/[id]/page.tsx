@@ -23,7 +23,8 @@ import { GegnerNachricht } from "@/components/GegnerNachricht";
 import { MatchUrlForm } from "@/components/MatchUrlForm";
 import { ErgebnisMelden } from "@/components/ErgebnisMelden";
 import type { LineupEintrag } from "@/app/mitglieder/termine/spieltag-actions";
-import { PageHeader, Card, CardBody, Badge } from "@/components/ui";
+import { erinnereOhneAntwort } from "@/app/mitglieder/termine/actions";
+import { PageHeader, Card, CardBody, Badge, Button } from "@/components/ui";
 import {
   EVENT_TYPE_LABELS,
   RSVP_LABELS,
@@ -46,10 +47,13 @@ const groups: { key: RsvpStatus | "open"; label: string; tone: string }[] = [
 
 export default async function EventDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ angestupst?: string; fehler?: string }>;
 }) {
   const { id } = await params;
+  const { angestupst, fehler } = await searchParams;
   const profile = await requireProfile();
   const event = await getEvent(id);
   if (!event) notFound();
@@ -284,6 +288,20 @@ export default async function EventDetailPage({
       key === "open" ? p.status === null : p.status === key,
     );
 
+  // „Anstupsen“: Erinnerung an alle ohne Antwort (Kapitän/Vize des Teams,
+  // bei Vereinsterminen Admin/Bearbeiter). Zählt den Betrachter selbst
+  // nicht mit – die Action erinnert ihn auch nicht.
+  const ohneAntwort = byStatus("open").filter(
+    (p) => p.profile.id !== profile.id,
+  );
+  const terminVorbei =
+    new Date(event.ends_at ?? event.starts_at).getTime() < Date.now();
+  const darfAnstupsen =
+    !spiegel &&
+    !event.info_only &&
+    !terminVorbei &&
+    (profile.role === "admin" || profile.role === "editor" || canManage);
+
   return (
     <div className="space-y-6">
       <Link
@@ -292,6 +310,27 @@ export default async function EventDetailPage({
       >
         ← Alle Termine
       </Link>
+
+      {fehler ? (
+        <Card className="border-danger/40 bg-danger/10">
+          <CardBody className="text-sm">
+            <span className="font-semibold text-danger">⚠️ </span>
+            {fehler}
+          </CardBody>
+        </Card>
+      ) : null}
+
+      {angestupst ? (
+        <Card className="border-ok/40 bg-ok/10">
+          <CardBody className="text-sm font-semibold text-ok">
+            ✓ Erinnerung verschickt – an{" "}
+            {Number(angestupst) === 1
+              ? "1 Person"
+              : `${Number(angestupst) || 0} Personen`}{" "}
+            ohne Antwort.
+          </CardBody>
+        </Card>
+      ) : null}
 
       <PageHeader
         title={event.title}
@@ -349,6 +388,13 @@ export default async function EventDetailPage({
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone="primary">{EVENT_TYPE_LABELS[event.type]}</Badge>
         <Badge>{teamName ?? "Gesamter Verein"}</Badge>
+        <a
+          href={`/mitglieder/termine/${event.id}/ics`}
+          title="Termin als Kalender-Datei herunterladen und in den Handy-Kalender übernehmen"
+          className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium hover:bg-border/40"
+        >
+          📅 In meinen Kalender
+        </a>
         {event.info_only && <Badge tone="warn">📢 nur zur Info</Badge>}
         {event.source === "nuliga" && <Badge>aus nuLiga</Badge>}
         {event.home_away === "heim" && <Badge tone="ok">🏠 Heim</Badge>}
@@ -522,6 +568,19 @@ export default async function EventDetailPage({
       )}
 
       {!event.info_only && (
+      <>
+      {darfAnstupsen && ohneAntwort.length > 0 && (
+        <form action={erinnereOhneAntwort}>
+          <input type="hidden" name="eventId" value={event.id} />
+          <Button type="submit" variant="secondary">
+            🔔 Erinnerung an alle ohne Antwort senden ({ohneAntwort.length})
+          </Button>
+          <p className="mt-1 text-xs text-muted">
+            Schickt allen unter „Keine Rückmeldung“ einen Push (und ggf.
+            E-Mail) – höchstens einmal pro Tag.
+          </p>
+        </form>
+      )}
       <section className="grid gap-4 sm:grid-cols-2">
         {groups.map((g) => {
           const list = byStatus(g.key);
@@ -575,6 +634,7 @@ export default async function EventDetailPage({
           );
         })}
       </section>
+      </>
       )}
         </>
       )}

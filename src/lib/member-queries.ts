@@ -61,9 +61,30 @@ export async function getMemberEvents(
   const { data } = await query;
   const events = (data as EventRow[] | null) ?? [];
 
-  // Relevanz: vereinsweite Termine (team_id = null) oder eigene Mannschaft.
-  const relevant = events.filter(
-    (e) => e.team_id === null || teamIds.includes(e.team_id),
+  // Einladungslisten beachten: Bei Terminen MIT Einladungsliste zählt nur,
+  // wer eingeladen ist (unabhängig von der Mannschaft) – wie in den
+  // Teilnehmerlisten und Erinnerungen. Normale Mitglieder sehen fremde
+  // Einladungs-Termine per RLS ohnehin nicht; Admins/Bearbeiter sehen sie,
+  // sollen sie hier aber nicht als eigene/offene Termine gezählt bekommen.
+  const alleIds = events.map((e) => e.id);
+  const mitListe = new Set<string>();
+  const eingeladen = new Set<string>();
+  if (alleIds.length) {
+    const { data: invRows } = await supabase
+      .from("event_invitees")
+      .select("event_id, profile_id")
+      .in("event_id", alleIds);
+    for (const row of invRows ?? []) {
+      mitListe.add(row.event_id as string);
+      if (row.profile_id === userId) eingeladen.add(row.event_id as string);
+    }
+  }
+
+  // Relevanz: eingeladen ODER vereinsweiter Termin ODER eigene Mannschaft.
+  const relevant = events.filter((e) =>
+    mitListe.has(e.id)
+      ? eingeladen.has(e.id)
+      : e.team_id === null || teamIds.includes(e.team_id),
   );
   const limited = opts.limit ? relevant.slice(0, opts.limit) : relevant;
 

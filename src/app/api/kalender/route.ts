@@ -3,6 +3,14 @@ import { createAdminSupabase } from "@/lib/supabase/admin";
 import { formatDate, formatTime } from "@/lib/format";
 import { feiertageBayern } from "@/lib/feiertage";
 import { eventKategorie } from "@/lib/types";
+import {
+  berlinClock,
+  icsDatei,
+  icsKopf,
+  pushVevent,
+  utcStamp,
+  type IcsVevent,
+} from "@/lib/ics";
 import type { EventRow } from "@/lib/types";
 import type { Tournament } from "@/lib/extras";
 
@@ -46,50 +54,8 @@ const berlinDay = new Intl.DateTimeFormat("sv-SE", {
   day: "2-digit",
 });
 
-const berlinTime = new Intl.DateTimeFormat("de-DE", {
-  timeZone: "Europe/Berlin",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-function icsEscape(s: string): string {
-  return s
-    .replace(/\\/g, "\\\\")
-    .replace(/;/g, "\\;")
-    .replace(/,/g, "\\,")
-    .replace(/\r?\n/g, "\\n");
-}
-
-/** ISO-Zeitpunkt als ICS-UTC-Stempel, z. B. 20260918T173000Z */
-function utcStamp(iso: string): string {
-  return new Date(iso)
-    .toISOString()
-    .replace(/[-:]/g, "")
-    .replace(/\.\d{3}Z$/, "Z");
-}
-
-/** Berliner Kalendertag als ICS-Datum, z. B. 20260918 */
-function dayStamp(iso: string): string {
-  return berlinDay.format(new Date(iso)).replace(/-/g, "");
-}
-
-/** Folgetag (für DTEND ganztägiger Termine; +36h ist sicher über DST-Wechsel) */
-function nextDayStamp(iso: string): string {
-  return berlinDay
-    .format(new Date(new Date(iso).getTime() + 36 * 3600e3))
-    .replace(/-/g, "");
-}
-
-/** RFC 5545: lange Zeilen falten (Fortsetzungszeilen beginnen mit Leerzeichen) */
-function fold(line: string): string {
-  let out = "";
-  let rest = line;
-  while (rest.length > 74) {
-    out += rest.slice(0, 74) + "\r\n ";
-    rest = rest.slice(74);
-  }
-  return out + rest;
-}
+// ICS-Bausteine (Escapen, Zeitstempel, Zeilenfaltung): gemeinsame Helfer
+// in lib/ics.ts – auch der Einzeltermin-Download nutzt sie.
 
 export async function GET(request: Request) {
   let admin;
@@ -163,38 +129,8 @@ export async function GET(request: Request) {
   ]);
 
   const stamp = utcStamp(new Date().toISOString());
-  const lines: string[] = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//TSG 08 Roth Dart//Mitglieder-App//DE",
-    "CALSCALE:GREGORIAN",
-    "METHOD:PUBLISH",
-    `X-WR-CALNAME:${icsEscape(kalName)}`,
-    "X-WR-TIMEZONE:Europe/Berlin",
-  ];
-
-  function pushEvent(o: {
-    uid: string;
-    start: string;
-    end?: string | null;
-    allDay: boolean;
-    summary: string;
-    location?: string | null;
-    description?: string;
-  }) {
-    lines.push("BEGIN:VEVENT", `UID:${o.uid}`, `DTSTAMP:${stamp}`);
-    if (o.allDay) {
-      lines.push(`DTSTART;VALUE=DATE:${dayStamp(o.start)}`);
-      lines.push(`DTEND;VALUE=DATE:${nextDayStamp(o.end ?? o.start)}`);
-    } else {
-      lines.push(`DTSTART:${utcStamp(o.start)}`);
-      if (o.end) lines.push(`DTEND:${utcStamp(o.end)}`);
-    }
-    lines.push(`SUMMARY:${icsEscape(o.summary)}`);
-    if (o.location) lines.push(`LOCATION:${icsEscape(o.location)}`);
-    if (o.description) lines.push(`DESCRIPTION:${icsEscape(o.description)}`);
-    lines.push("END:VEVENT");
-  }
+  const lines: string[] = icsKopf(kalName);
+  const pushEvent = (o: IcsVevent) => pushVevent(lines, stamp, o);
 
   for (const ev of ((eventData as EventRow[]) ?? [])) {
     // Gewählte Kategorien + Mannschafts-Filter anwenden
@@ -213,7 +149,7 @@ export async function GET(request: Request) {
       continue;
     }
     const allDay =
-      !!ev.time_tbd || berlinTime.format(new Date(ev.starts_at)) === "00:00";
+      !!ev.time_tbd || berlinClock(ev.starts_at) === "00:00";
     const description = [
       ev.time_tbd ? "⏳ Genaue Uhrzeit folgt noch" : "",
       ev.description ?? "",
@@ -238,7 +174,7 @@ export async function GET(request: Request) {
     const startKey = berlinDay.format(new Date(t.starts_at));
     if (t.display_until && t.display_until < startKey) continue;
     const allDay =
-      !!t.details_tbd || berlinTime.format(new Date(t.starts_at)) === "00:00";
+      !!t.details_tbd || berlinClock(t.starts_at) === "00:00";
     const description = [
       t.details_tbd ? "⏳ Details folgen" : "",
       !t.details_tbd && t.doors_time ? `Einlass ab ${t.doors_time} Uhr` : "",
@@ -277,9 +213,7 @@ export async function GET(request: Request) {
     }
   }
 
-  lines.push("END:VCALENDAR");
-
-  return new NextResponse(lines.map(fold).join("\r\n") + "\r\n", {
+  return new NextResponse(icsDatei(lines), {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
       "Content-Disposition": 'inline; filename="tsg-dart-termine.ics"',

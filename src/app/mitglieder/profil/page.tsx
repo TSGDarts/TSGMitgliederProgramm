@@ -145,6 +145,19 @@ export default async function ProfilPage({
                 />
                 ✉️ Alles zusätzlich per E-Mail erhalten
               </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="notify_wochenblick"
+                  defaultChecked={profile.notify_wochenblick ?? true}
+                />
+                🗓️ Sonntags-Überblick „Deine Dart-Woche“ erhalten
+              </label>
+              <p className="text-xs text-muted">
+                Jeden Sonntag eine kurze Übersicht: deine Termine der
+                kommenden Woche und offene Rückmeldungen. Kommt nur, wenn
+                in der Woche etwas ansteht.
+              </p>
               <p className="text-sm font-medium">⏰ Erinnerungen vor Terminen</p>
               <p className="text-xs text-muted">
                 Gilt für Push <em>und</em> E-Mail: Trage je Termin-Art ein,

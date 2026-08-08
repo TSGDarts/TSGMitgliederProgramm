@@ -429,7 +429,9 @@ alter table public.teams
 -- Erweiterung: Kapitän/Vize auch für vorab angelegte Namen
 -- ---------------------------------------------------------------------
 -- Im Supabase SQL-Editor EINMALIG ausführen.
--- Bei der Registrierung wandert die Rolle automatisch mit.
+-- Hinweis (Stand 2026-07-23): Bei der Registrierung wird die Rolle NICHT
+-- mehr automatisch übernommen – Kader und Kapitäns-Rollen pflegt der Admin
+-- unter „Mannschaften verwalten“ bzw. über die Saisonplanung.
 -- =====================================================================
 
 alter table public.member_invites
@@ -1669,3 +1671,13 @@ values (
   E'Kassenbuch | https://docs.google.com/spreadsheets/d/1aa4MK8Bh3fxHJ3y2rgyfCHdTXoJ1pPM_CixCYToZS4c/edit?usp=sharing\nGetränke (nur Leserechte) | https://docs.google.com/spreadsheets/d/1iLgC6PkHfGOTO1GTn_czGthEa3EpOvOFG90ljfMsBUc/edit?usp=drivesdk'
 )
 on conflict (key) do nothing;
+
+-- ============================================================
+-- 64: Wochen-Überblick am Sonntag
+-- ============================================================
+
+-- 64: Sonntags-Überblick per Push/E-Mail („Deine Dart-Woche“): Termine der
+-- kommenden Woche + offene Rückmeldungen, verschickt vom täglichen
+-- Erinnerungs-Lauf. Standard: eingeschaltet, im Profil abwählbar.
+
+alter table profiles add column if not exists notify_wochenblick boolean not null default true;

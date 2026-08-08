@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { benachrichtige } from "@/lib/benachrichtigung";
 import { formatDate, formatTime } from "@/lib/format";
-import { eventKategorie } from "@/lib/types";
-import type { EventRow } from "@/lib/types";
+import { brauchtRueckmeldung, eventKategorie } from "@/lib/types";
+import type { EventRow, RsvpStatus } from "@/lib/types";
 import type { Tournament } from "@/lib/extras";
 
 // Täglicher Erinnerungs-Lauf (Vercel-Cron, siehe vercel.json): Jedes
@@ -202,6 +202,124 @@ export async function GET() {
     }
   } catch {
     // best-effort
+  }
+
+  // 🗓️ Wochen-Überblick am Sonntag („Deine Dart-Woche“): je Mitglied die
+  // eigenen Termine der kommenden 7 Tage + offene Rückmeldungen. Einmal
+  // pro Sonntag (notification_log-Sperre), im Profil abwählbar. Wer keine
+  // Termine in der Woche hat, bekommt nichts.
+  try {
+    const wochentag = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Europe/Berlin",
+      weekday: "short",
+    }).format(new Date());
+    if (wochentag === "Sun") {
+      const heute = berlinDay.format(new Date());
+      const { error: logError } = await admin
+        .from("notification_log")
+        .insert({ key: `wochenblick:${heute}` });
+      if (!logError) {
+        const { data: wochenData } = await admin
+          .from("events")
+          .select("*")
+          .gte("starts_at", new Date().toISOString())
+          .lte("starts_at", new Date(Date.now() + 7 * 864e5).toISOString())
+          .order("starts_at");
+        const wochenEvents = (wochenData as EventRow[]) ?? [];
+        if (wochenEvents.length > 0) {
+          const eventIds = wochenEvents.map((e) => e.id);
+          const [
+            { data: wKaderRows },
+            { data: wInvRows },
+            { data: wRsvpRows },
+            { data: wTeamRows },
+          ] = await Promise.all([
+            admin.from("team_members").select("team_id, profile_id"),
+            admin
+              .from("event_invitees")
+              .select("event_id, profile_id")
+              .in("event_id", eventIds),
+            admin
+              .from("rsvps")
+              .select("event_id, profile_id")
+              .in("event_id", eventIds),
+            admin.from("teams").select("id, default_rsvp"),
+          ]);
+          const wKader = new Map<string, Set<string>>();
+          for (const row of wKaderRows ?? []) {
+            const set =
+              wKader.get(row.team_id as string) ?? new Set<string>();
+            set.add(row.profile_id as string);
+            wKader.set(row.team_id as string, set);
+          }
+          const wEingeladen = new Map<string, Set<string>>();
+          for (const row of wInvRows ?? []) {
+            const set =
+              wEingeladen.get(row.event_id as string) ?? new Set<string>();
+            set.add(row.profile_id as string);
+            wEingeladen.set(row.event_id as string, set);
+          }
+          const wGeantwortet = new Set(
+            (wRsvpRows ?? []).map(
+              (r) => `${r.event_id as string}:${r.profile_id as string}`,
+            ),
+          );
+          const wTeamDefault = new Map<string, string>(
+            (wTeamRows ?? [])
+              .filter((t) => t.default_rsvp)
+              .map((t) => [t.id as string, t.default_rsvp as string]),
+          );
+
+          for (const p of abonnenten ?? []) {
+            if (p.notify_wochenblick === false) continue;
+            const meine = wochenEvents.filter((ev) => {
+              const invitierte = wEingeladen.get(ev.id);
+              if (invitierte && invitierte.size > 0) {
+                return invitierte.has(p.id as string);
+              }
+              if (ev.team_id) {
+                return wKader.get(ev.team_id)?.has(p.id as string) ?? false;
+              }
+              return true; // vereinsweiter Termin
+            });
+            if (meine.length === 0) continue;
+            // Offene Rückmeldungen (Vorbelegungen zählen als Antwort)
+            const offene = meine.filter((ev) => {
+              if (!brauchtRueckmeldung(ev)) return false;
+              if (wGeantwortet.has(`${ev.id}:${p.id as string}`)) return false;
+              const persoenlich =
+                ev.type === "training"
+                  ? (((p.training_default_rsvp as string) ||
+                      null) as RsvpStatus | null)
+                  : null;
+              const standard =
+                persoenlich ??
+                (ev.team_id ? (wTeamDefault.get(ev.team_id) ?? null) : null);
+              return !standard;
+            }).length;
+            const zeilen = meine
+              .slice(0, 3)
+              .map((ev) => `• ${formatDate(ev.starts_at)}: ${ev.title}`);
+            if (meine.length > 3) {
+              zeilen.push(`… und ${meine.length - 3} weitere`);
+            }
+            if (offene > 0) {
+              zeilen.push(
+                `❗ ${offene} offene Rückmeldung${offene === 1 ? "" : "en"} – bitte zu- oder absagen.`,
+              );
+            }
+            await benachrichtige([p.id as string], {
+              title: `🗓️ Deine Dart-Woche: ${meine.length} Termin${meine.length === 1 ? "" : "e"}`,
+              body: zeilen.join("\n"),
+              url: "/mitglieder",
+            });
+            verschickt++;
+          }
+        }
+      }
+    }
+  } catch {
+    // Spalte/Tabelle fehlt noch (ALLE_ERWEITERUNGEN nicht ausgeführt) – überspringen
   }
 
   if (gruppen.size === 0) {

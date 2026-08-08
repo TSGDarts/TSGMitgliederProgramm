@@ -34,6 +34,7 @@ export async function updateProfile(formData: FormData) {
       birthday_congrats,
       training_default_rsvp,
       notify_email: formData.get("notify_email") === "on",
+      notify_wochenblick: formData.get("notify_wochenblick") === "on",
       notify_trotz_zusage: formData.get("notify_trotz_zusage") === "on",
       notify_trotz_vielleicht: formData.get("notify_trotz_vielleicht") === "on",
       notify_trotz_absage: formData.get("notify_trotz_absage") === "on",
