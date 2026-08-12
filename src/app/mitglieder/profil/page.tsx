@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { requireProfile } from "@/lib/auth";
-import { updateProfile } from "./actions";
+import { createClient } from "@/lib/supabase/server";
+import { updateJerseySize, updateProfile } from "./actions";
 import { sammleLigaStatistikSaisons } from "@/lib/statistik";
 import { LigaStatistikKacheln } from "@/components/LigaStatistik";
 import { ErfolgeListe } from "@/components/ErfolgeListe";
 import { Einklappbar } from "@/components/Einklappbar";
 import { PushSettings } from "@/components/PushSettings";
+import { TrikotgroessenTabelle } from "@/components/TrikotgroessenTabelle";
+import { JERSEY_SIZES, jerseySizeLabel } from "@/lib/jersey";
 import {
   PageHeader,
   Card,
@@ -32,11 +35,24 @@ const ERINNERUNG_ARTEN: { key: string; label: string }[] = [
 export default async function ProfilPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; gespeichert?: string }>;
+  searchParams: Promise<{
+    fehler?: string;
+    gespeichert?: string;
+    trikot_fehler?: string;
+  }>;
 }) {
   const profile = await requireProfile();
-  const { fehler, gespeichert } = await searchParams;
-  const statistiken = await sammleLigaStatistikSaisons(profile.full_name ?? "");
+  const { fehler, gespeichert, trikot_fehler } = await searchParams;
+  const supabase = await createClient();
+  const [statistiken, { data: jerseySetting }] = await Promise.all([
+    sammleLigaStatistikSaisons(profile.full_name ?? ""),
+    supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "jersey_survey_open")
+      .maybeSingle(),
+  ]);
+  const jerseySurveyOpen = jerseySetting?.value === "true";
 
   return (
     <div className="max-w-lg space-y-6">
@@ -56,6 +72,77 @@ export default async function ProfilPage({
           <CardBody className="font-semibold text-ok">✓ Gespeichert.</CardBody>
         </Card>
       ) : null}
+
+      {(jerseySurveyOpen || profile.jersey_size || trikot_fehler) && (
+        <Card
+          id="trikotgroesse"
+          className="scroll-mt-6 border-primary/40 bg-primary/5"
+        >
+          <CardBody className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-bold">👕 Deine Trikotgröße</h2>
+              {profile.jersey_size && (
+                <Badge tone="ok">
+                  gewählt: {jerseySizeLabel(profile.jersey_size)}
+                </Badge>
+              )}
+            </div>
+
+            {trikot_fehler && (
+              <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm font-medium text-danger">
+                ⚠️ {trikot_fehler}
+              </p>
+            )}
+
+            {jerseySurveyOpen ? (
+              <>
+                <p className="text-sm text-muted">
+                  Bitte wähle die Größe für dein Trikot. Wenn Mustertrikots da
+                  sind, probiere am besten eines an. Ansonsten hilft dir die
+                  Maßtabelle unten. Solange die Abfrage offen ist, kannst du
+                  deine Auswahl jederzeit ändern.
+                </p>
+                <form
+                  action={updateJerseySize}
+                  className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end"
+                >
+                  <div className="min-w-0 flex-1">
+                    <Field
+                      label="Trikotgröße"
+                      hint="2XS heißt in der Hersteller-Tabelle XXS."
+                    >
+                      <select
+                        name="jersey_size"
+                        required
+                        defaultValue={profile.jersey_size ?? ""}
+                        className={inputClass}
+                      >
+                        <option value="" disabled>
+                          Bitte auswählen
+                        </option>
+                        {JERSEY_SIZES.map((size) => (
+                          <option key={size} value={size}>
+                            {jerseySizeLabel(size)}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
+                  <Button type="submit">
+                    {profile.jersey_size ? "Größe ändern" : "Größe speichern"}
+                  </Button>
+                </form>
+                <TrikotgroessenTabelle />
+              </>
+            ) : (
+              <p className="text-sm text-muted">
+                Die Abfrage ist momentan geschlossen. Deine gespeicherte Größe
+                bleibt erhalten.
+              </p>
+            )}
+          </CardBody>
+        </Card>
+      )}
 
       <Card>
         <CardBody className="space-y-4">

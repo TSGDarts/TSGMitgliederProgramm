@@ -2,7 +2,50 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { isJerseySize } from "@/lib/jersey";
+
+const PFAD = "/mitglieder/profil";
+
+/** Speichert die Trikotgröße separat vom restlichen Profilformular. */
+export async function updateJerseySize(formData: FormData) {
+  const profile = await requireProfile(PFAD);
+  const jerseySizeRaw = String(formData.get("jersey_size") ?? "");
+  if (!isJerseySize(jerseySizeRaw)) {
+    redirect(
+      `${PFAD}?trikot_fehler=${encodeURIComponent("Bitte wähle eine gültige Trikotgröße aus.")}#trikotgroesse`,
+    );
+  }
+
+  const supabase = await createClient();
+  // Die DB-Funktion prüft Öffnungsstatus und speichert atomar. Damit kann
+  // kein paralleles Schließen zwischen Prüfung und Update geraten.
+  const { data: gespeichert, error } = await supabase.rpc(
+    "set_own_jersey_size",
+    { new_size: jerseySizeRaw },
+  );
+  if (error) {
+    const text = /column|schema|relation|function|schema cache/i.test(
+      error.message,
+    )
+      ? "Bitte zuerst ALLE_ERWEITERUNGEN.sql im Supabase SQL-Editor ausführen."
+      : error.message;
+    redirect(`${PFAD}?trikot_fehler=${encodeURIComponent(text)}#trikotgroesse`);
+  }
+  if (!gespeichert) {
+    redirect(
+      `${PFAD}?trikot_fehler=${encodeURIComponent("Die Trikotgrößen-Abfrage ist momentan geschlossen.")}#trikotgroesse`,
+    );
+  }
+
+  revalidatePath(PFAD);
+  revalidatePath("/mitglieder");
+  revalidatePath("/mitglieder/admin/mitglieder");
+  redirect(
+    `${PFAD}?gespeichert=trikot-${profile.id}-${Date.now()}#trikotgroesse`,
+  );
+}
 
 export async function updateProfile(formData: FormData) {
   const full_name = String(formData.get("full_name") ?? "").trim();
@@ -71,10 +114,10 @@ export async function updateProfile(formData: FormData) {
     const text = /column|schema|relation/i.test(error.message)
       ? "Bitte zuerst ALLE_ERWEITERUNGEN.sql im Supabase SQL-Editor ausführen."
       : error.message;
-    redirect(`/mitglieder/profil?fehler=${encodeURIComponent(text)}`);
+    redirect(`${PFAD}?fehler=${encodeURIComponent(text)}`);
   }
 
-  revalidatePath("/mitglieder/profil");
+  revalidatePath(PFAD);
   revalidatePath("/mitglieder");
-  redirect(`/mitglieder/profil?gespeichert=${Date.now()}`);
+  redirect(`${PFAD}?gespeichert=${Date.now()}`);
 }

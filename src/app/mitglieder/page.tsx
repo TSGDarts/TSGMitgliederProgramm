@@ -43,7 +43,13 @@ export default async function DashboardPage({
   };
 
   // Unabhängige Abfragen parallel starten (spart spürbar Ladezeit)
-  const [events, openSeasonRes, ankuendigungRes, secretAblauf] =
+  const [
+    events,
+    openSeasonRes,
+    ankuendigungRes,
+    jerseySettingRes,
+    secretAblauf,
+  ] =
     await Promise.all([
       getMemberEvents(profile.id, { limit: 5 }),
       supabase
@@ -62,8 +68,14 @@ export default async function DashboardPage({
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "jersey_survey_open")
+        .maybeSingle(),
       ladeSecretAblauf(),
     ]);
+  const jerseySurveyOpen = jerseySettingRes.data?.value === "true";
 
   // Warnung für Admins, wenn der M365-Schlüssel bald abläuft (30 Tage) –
   // gleiche Logik wie auf der Einstellungen-Seite, hier gut sichtbar oben
@@ -135,6 +147,26 @@ export default async function DashboardPage({
               <span>⚠️ {secretWarnung}</span>
               <span className="shrink-0 font-medium text-danger">
                 Zu den Einstellungen →
+              </span>
+            </CardBody>
+          </Card>
+        </Link>
+      )}
+
+      {jerseySurveyOpen && !profile.jersey_size && (
+        <Link href="/mitglieder/profil#trikotgroesse" className="block">
+          <Card className="border-primary/40 bg-primary/5 transition hover:border-primary">
+            <CardBody className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold">
+                  👕 Welche Trikotgröße brauchst du?
+                </p>
+                <p className="text-sm text-muted">
+                  Bitte wähle deine Größe von 2XS bis 9XL aus.
+                </p>
+              </div>
+              <span className="shrink-0 font-medium text-primary">
+                Größe auswählen →
               </span>
             </CardBody>
           </Card>

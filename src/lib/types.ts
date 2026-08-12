@@ -1,5 +1,7 @@
 // Zentrale Typen für die Datenbank-Tabellen.
 
+import type { JerseySize } from "@/lib/jersey";
+
 export type Role = "admin" | "editor" | "player" | "member";
 
 export const ROLE_LABELS: Record<Role, string> = {
@@ -25,6 +27,7 @@ export interface Profile {
   full_name: string;
   email: string | null;
   phone: string | null;
+  jersey_size?: JerseySize | null; // aktuelle Auswahl für Trikotbestellungen
   birthday?: string | null; // JJJJ-MM-TT
   birthday_public?: boolean | null; // im Mitglieder-Kalender anzeigen?
   birthday_congrats?: boolean | null; // in der Mitgliedergruppe gratulieren ok?

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { sendeTestMail } from "@/lib/benachrichtigung";
+import { benachrichtige, sendeTestMail } from "@/lib/benachrichtigung";
 
 const PFAD = "/mitglieder/admin/einstellungen";
 
@@ -74,6 +74,56 @@ export async function saveFragenEinstellungen(formData: FormData) {
   revalidatePath(PFAD);
   revalidatePath("/mitglieder/fragen");
   redirect(`${PFAD}?gespeichert=fragen-${Date.now()}`);
+}
+
+/** Öffnet oder schließt die Trikotgrößen-Abfrage. */
+export async function saveJerseySurveySetting(formData: FormData) {
+  const profile = await requireAdmin();
+  const open = String(formData.get("open") ?? "") === "true";
+  const supabase = await createClient();
+
+  // Atomare Statusänderung: genau ein paralleler Öffnungsvorgang bekommt
+  // `true` zurück und darf Benachrichtigungen auslösen.
+  const { data: wurdeGeoeffnet, error } = await supabase.rpc(
+    "set_jersey_survey_open",
+    { new_open: open },
+  );
+  if (error) {
+    const text = /column|schema|relation|function|schema cache/i.test(
+      error.message,
+    )
+      ? "Bitte zuerst ALLE_ERWEITERUNGEN.sql im Supabase SQL-Editor ausführen."
+      : error.message;
+    redirect(`${PFAD}?fehler=${encodeURIComponent(text)}`);
+  }
+
+  // Nur beim Wechsel von geschlossen auf offen benachrichtigen – und nur
+  // Mitglieder, die noch keine Größe gewählt haben.
+  if (wurdeGeoeffnet) {
+    const { data: offeneProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("is_active", true)
+      .is("jersey_size", null)
+      .neq("id", profile.id);
+    if (profileError) {
+      redirect(`${PFAD}?fehler=${encodeURIComponent(profileError.message)}`);
+    }
+    await benachrichtige(
+      (offeneProfile ?? []).map((p) => p.id as string),
+      {
+        title: "👕 Trikotgröße auswählen",
+        body: "Bitte wähle deine Trikotgröße von 2XS bis 9XL in der App aus.",
+        url: "/mitglieder/profil#trikotgroesse",
+      },
+    );
+  }
+
+  revalidatePath(PFAD);
+  revalidatePath("/mitglieder");
+  revalidatePath("/mitglieder/profil");
+  revalidatePath("/mitglieder/admin/mitglieder");
+  redirect(`${PFAD}?gespeichert=trikot-${Date.now()}`);
 }
 
 /** Test-E-Mail an die eigene Adresse schicken. */

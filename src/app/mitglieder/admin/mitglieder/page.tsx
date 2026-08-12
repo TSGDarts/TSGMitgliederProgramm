@@ -22,6 +22,7 @@ import {
   inputClass,
 } from "@/components/ui";
 import type { Profile } from "@/lib/types";
+import { JERSEY_SIZES, jerseySizeLabel } from "@/lib/jersey";
 
 export const metadata: Metadata = { title: "Mitglieder verwalten" };
 
@@ -33,13 +34,20 @@ export default async function AdminMembersPage({
   const { fehler, gespeichert } = await searchParams;
   const me = await requireAdmin();
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("profiles")
-    .select("*")
-    .order("full_name");
+  const [{ data }, { data: jerseySetting }] = await Promise.all([
+    supabase.from("profiles").select("*").order("full_name"),
+    supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "jersey_survey_open")
+      .maybeSingle(),
+  ]);
   const members = (data as Profile[]) ?? [];
   const aktive = members.filter((m) => m.is_active);
   const ehemalige = members.filter((m) => !m.is_active);
+  const jerseySurveyOpen = jerseySetting?.value === "true";
+  const jerseyOffen = aktive.filter((m) => !m.jersey_size);
+  const jerseyBeantwortet = aktive.length - jerseyOffen.length;
 
   // Vorab angelegte Namen, die noch auf die Selbst-Anmeldung warten
   const { data: invitesData } = await supabase
@@ -88,6 +96,70 @@ export default async function AdminMembersPage({
       ) : null}
 
       <CreateMemberForm />
+
+      <section id="trikotgroessen" className="scroll-mt-6">
+        <Card className="border-primary/30">
+          <CardBody className="space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-lg font-bold">👕 Trikotgrößen</h2>
+                  <Badge tone={jerseySurveyOpen ? "ok" : "neutral"}>
+                    Abfrage {jerseySurveyOpen ? "offen" : "geschlossen"}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-sm text-muted">
+                  {jerseyBeantwortet} von {aktive.length} aktiven,
+                  registrierten Mitgliedern haben eine Größe gewählt.
+                </p>
+              </div>
+              <Link
+                href="/mitglieder/admin/einstellungen#einstellungen-trikotgroesse"
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                Abfrage verwalten →
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-7">
+              {JERSEY_SIZES.map((size) => {
+                const anzahl = aktive.filter(
+                  (member) => member.jersey_size === size,
+                ).length;
+                return (
+                  <div
+                    key={size}
+                    className="rounded-lg border border-border bg-background px-3 py-2 text-center"
+                  >
+                    <p className="text-xs text-muted">
+                      {jerseySizeLabel(size)}
+                    </p>
+                    <p className="text-lg font-bold">{anzahl}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {jerseyOffen.length > 0 ? (
+              <details className="rounded-lg border border-warn/40 bg-warn/5">
+                <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-warn">
+                  Noch offen: {jerseyOffen.length}
+                </summary>
+                <p className="border-t border-warn/20 px-4 py-3 text-sm text-muted">
+                  {jerseyOffen
+                    .map((member) => member.full_name || member.email || "?")
+                    .join(", ")}
+                </p>
+              </details>
+            ) : (
+              <p className="rounded-lg bg-ok/10 px-4 py-3 text-sm font-medium text-ok">
+                ✓ Alle aktiven, registrierten Mitglieder haben eine Größe
+                gewählt.
+              </p>
+            )}
+          </CardBody>
+        </Card>
+      </section>
 
       {wartende.length > 0 && (
         <section>
@@ -286,6 +358,13 @@ export default async function AdminMembersPage({
                     {m.is_trainer && <Badge tone="ok">💪 Trainer</Badge>}
                     {m.is_planner && <Badge tone="ok">🧠 Saisonplaner</Badge>}
                     {m.is_treasurer && <Badge tone="ok">💰 Kassierer</Badge>}
+                    {m.jersey_size ? (
+                      <Badge tone="primary">
+                        👕 {jerseySizeLabel(m.jersey_size)}
+                      </Badge>
+                    ) : (
+                      jerseySurveyOpen && <Badge tone="warn">👕 Größe offen</Badge>
+                    )}
                     {m.left_on && (
                       <Badge tone="warn">👋 Austritt zum {m.left_on}</Badge>
                     )}

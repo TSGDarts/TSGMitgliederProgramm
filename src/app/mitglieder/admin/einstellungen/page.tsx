@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { formatDate } from "@/lib/format";
 import {
   saveMailEinstellungen,
   saveFragenEinstellungen,
+  saveJerseySurveySetting,
   testMailAction,
 } from "./actions";
 import { Einklappbar } from "@/components/Einklappbar";
@@ -13,6 +15,7 @@ import {
   Card,
   CardBody,
   Button,
+  Badge,
   Field,
   inputClass,
 } from "@/components/ui";
@@ -35,6 +38,7 @@ export default async function AdminEinstellungenPage({
   let ablauf = "";
   let fragenEmail = "";
   let fragenWhatsapp = "";
+  let jerseySurveyOpen = false;
   try {
     const admin = createAdminSupabase();
     const { data } = await admin
@@ -58,11 +62,17 @@ export default async function AdminEinstellungenPage({
     const { data: appData } = await admin
       .from("app_settings")
       .select("key, value")
-      .in("key", ["fragen_email", "fragen_whatsapp"]);
+      .in("key", [
+        "fragen_email",
+        "fragen_whatsapp",
+        "jersey_survey_open",
+      ]);
     for (const row of appData ?? []) {
       if (row.key === "fragen_email") fragenEmail = (row.value as string) ?? "";
       if (row.key === "fragen_whatsapp")
         fragenWhatsapp = (row.value as string) ?? "";
+      if (row.key === "jersey_survey_open")
+        jerseySurveyOpen = row.value === "true";
     }
   } catch {
     // Tabelle fehlt noch – Formular zeigt dann leere Felder
@@ -120,6 +130,54 @@ export default async function AdminEinstellungenPage({
           <CardBody className="text-sm">⚠️ {ablaufWarnung}</CardBody>
         </Card>
       ) : null}
+
+      <section id="einstellungen-trikotgroesse" className="scroll-mt-6">
+        <Einklappbar
+          id="einstellungen-trikotgroesse"
+          title={
+            <span className="flex flex-wrap items-center gap-2">
+              👕 Trikotgrößen-Abfrage
+              <Badge tone={jerseySurveyOpen ? "ok" : "neutral"}>
+                {jerseySurveyOpen ? "offen" : "geschlossen"}
+              </Badge>
+            </span>
+          }
+          defaultOpen
+        >
+          <div className="space-y-4 text-sm">
+            <p className="text-muted">
+              Im geschlossenen Zustand sehen Mitglieder noch keine neue
+              Abfrage. Beim Öffnen erscheint auf ihrer Startseite ein Hinweis;
+              Mitglieder ohne Auswahl erhalten außerdem eine Benachrichtigung.
+              Gewählt wird im eigenen Profil, die Zusammenfassung findest du
+              in der Mitgliederverwaltung.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <form action={saveJerseySurveySetting}>
+                <input
+                  type="hidden"
+                  name="open"
+                  value={String(!jerseySurveyOpen)}
+                />
+                <Button
+                  type="submit"
+                  variant={jerseySurveyOpen ? "secondary" : "primary"}
+                >
+                  {jerseySurveyOpen
+                    ? "Abfrage schließen"
+                    : "Abfrage öffnen & Mitglieder benachrichtigen"}
+                </Button>
+              </form>
+              <Link
+                href="/mitglieder/admin/mitglieder#trikotgroessen"
+                className="font-medium text-primary hover:underline"
+              >
+                Antworten ansehen →
+              </Link>
+            </div>
+          </div>
+        </Einklappbar>
+      </section>
 
       <Einklappbar
         id="einstellungen-mail"
