@@ -24,6 +24,16 @@ export function NuLigaEmbed({
 
   return (
     <div className="space-y-2">
+      <p className="text-sm">
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="font-medium text-primary hover:underline"
+        >
+          Kompletter Spielplan direkt bei nuLiga öffnen ↗
+        </a>
+      </p>
       <div className="overflow-hidden rounded-xl border border-border bg-surface">
         <iframe
           src={url}
@@ -34,15 +44,8 @@ export function NuLigaEmbed({
         />
       </div>
       <p className="text-sm text-muted">
-        Wird die Tabelle oben nicht angezeigt, blockiert nuLiga die Einbettung.{" "}
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-primary hover:underline"
-        >
-          Direkt bei nuLiga öffnen →
-        </a>
+        Wird der Spielplan nicht angezeigt, blockiert nuLiga möglicherweise die
+        Einbettung. Nutze dann den direkten Link darüber.
       </p>
     </div>
   );

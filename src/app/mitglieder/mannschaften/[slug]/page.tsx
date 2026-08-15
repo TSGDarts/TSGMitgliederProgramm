@@ -78,6 +78,14 @@ export default async function MemberTeamDetailPage({
         </Card>
       )}
 
+      <Einklappbar
+        id={`mannschaft-${team.id}-nuliga-v2`}
+        title="📋 Kompletter Spielplan bei nuLiga"
+        defaultOpen={false}
+      >
+        <NuLigaEmbed url={team.nuliga_url} title={`nuLiga – ${team.name}`} />
+      </Einklappbar>
+
       {/* Liga-Tabelle (live aus nuLiga) */}
       {tabelle && (
         <section>
@@ -341,14 +349,6 @@ export default async function MemberTeamDetailPage({
           )}
         </section>
       )}
-
-      <Einklappbar
-        id={`mannschaft-${team.id}-nuliga`}
-        title="📋 Kompletter Spielplan bei nuLiga"
-        defaultOpen={false}
-      >
-        <NuLigaEmbed url={team.nuliga_url} title={`nuLiga – ${team.name}`} />
-      </Einklappbar>
 
       {/* Mannschaftsmitglieder bewusst am Seitenende */}
       <section>
