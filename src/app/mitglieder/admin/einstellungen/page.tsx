@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/format";
 import {
   saveMailEinstellungen,
   saveFragenEinstellungen,
+  saveNuligaStaffelUrl,
   saveJerseySurveySetting,
   testMailAction,
 } from "./actions";
@@ -19,6 +20,11 @@ import {
   Field,
   inputClass,
 } from "@/components/ui";
+import {
+  NULIGA_STAFFEL_URL_KEY,
+  NULIGA_STAFFEL_URL_STANDARD,
+  normalizeNuligaStaffelUrl,
+} from "@/lib/settings";
 
 export const metadata: Metadata = { title: "Einstellungen" };
 
@@ -38,6 +44,7 @@ export default async function AdminEinstellungenPage({
   let ablauf = "";
   let fragenEmail = "";
   let fragenWhatsapp = "";
+  let nuligaStaffelUrl = NULIGA_STAFFEL_URL_STANDARD;
   let jerseySurveyOpen = false;
   try {
     const admin = createAdminSupabase();
@@ -65,12 +72,17 @@ export default async function AdminEinstellungenPage({
       .in("key", [
         "fragen_email",
         "fragen_whatsapp",
+        NULIGA_STAFFEL_URL_KEY,
         "jersey_survey_open",
       ]);
     for (const row of appData ?? []) {
       if (row.key === "fragen_email") fragenEmail = (row.value as string) ?? "";
       if (row.key === "fragen_whatsapp")
         fragenWhatsapp = (row.value as string) ?? "";
+      if (row.key === NULIGA_STAFFEL_URL_KEY)
+        nuligaStaffelUrl =
+          normalizeNuligaStaffelUrl((row.value as string) ?? "") ??
+          NULIGA_STAFFEL_URL_STANDARD;
       if (row.key === "jersey_survey_open")
         jerseySurveyOpen = row.value === "true";
     }
@@ -130,6 +142,50 @@ export default async function AdminEinstellungenPage({
           <CardBody className="text-sm">⚠️ {ablaufWarnung}</CardBody>
         </Card>
       ) : null}
+
+      <Einklappbar
+        id="einstellungen-nuliga-staffel"
+        title="🏆 nuLiga-Staffel"
+        zuklappBei={
+          gespeichert?.startsWith("nuliga-") ? gespeichert : undefined
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            Der Reiter „nuLiga“ im Mitglieder-Menü öffnet direkt diese
+            öffentliche Staffel-Seite. Beim Saisonwechsel hier einfach die
+            neue nuLiga-Adresse eintragen.
+          </p>
+          <form action={saveNuligaStaffelUrl} className="space-y-4">
+            <Field
+              label="nuLiga-Staffel-Adresse"
+              hint="Die öffentliche leaguePage-Adresse der aktuellen Staffel"
+            >
+              <input
+                name="url"
+                type="url"
+                required
+                maxLength={2048}
+                autoComplete="url"
+                defaultValue={nuligaStaffelUrl}
+                className={inputClass}
+              />
+            </Field>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="submit">Speichern</Button>
+              <a
+                href={nuligaStaffelUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Aktuelle Staffel öffnen – öffnet in neuem Tab"
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                Aktuelle Staffel öffnen ↗
+              </a>
+            </div>
+          </form>
+        </div>
+      </Einklappbar>
 
       <section id="einstellungen-trikotgroesse" className="scroll-mt-6">
         <Einklappbar

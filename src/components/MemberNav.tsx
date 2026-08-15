@@ -5,7 +5,12 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useNavOrder } from "./navOrder";
 
-type Item = { href: string; label: string; external?: boolean };
+type Item = {
+  href: string;
+  label: string;
+  external?: boolean;
+  externalHref?: string;
+};
 
 /** Aktiv-Erkennung – auch für Einträge mit ?-Parametern (z. B. Ergebnisse). */
 function istAktiv(
@@ -43,9 +48,10 @@ export function MemberNav({
     item.external ? (
       <a
         key={item.href}
-        href={item.href}
+        href={item.externalHref ?? item.href}
         target="_blank"
-        rel="noreferrer"
+        rel="noopener noreferrer"
+        aria-label={`${item.label} – öffnet in neuem Tab`}
         className="block whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-muted transition hover:bg-border/40 hover:text-foreground"
       >
         {item.label} ↗

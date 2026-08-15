@@ -5,7 +5,12 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useNavOrder } from "./navOrder";
 
-type Item = { href: string; label: string; external?: boolean };
+type Item = {
+  href: string;
+  label: string;
+  external?: boolean;
+  externalHref?: string;
+};
 
 /**
  * Handy-Navigation: ☰-Knopf öffnet eine seitliche Schublade mit allen
@@ -61,9 +66,10 @@ export function MobileMenu({
     item.external ? (
       <a
         key={item.href}
-        href={item.href}
+        href={item.externalHref ?? item.href}
         target="_blank"
-        rel="noreferrer"
+        rel="noopener noreferrer"
+        aria-label={`${item.label} – öffnet in neuem Tab`}
         onClick={() => setOpen(false)}
         className="block rounded-lg px-3 py-2.5 text-sm font-medium text-muted hover:bg-border/40 hover:text-foreground"
       >

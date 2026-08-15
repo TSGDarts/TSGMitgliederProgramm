@@ -7,8 +7,9 @@ export const site = {
   fullName: "Turn- und Sportgemeinschaft 08 Roth e.V. – Dart",
   tagline: "Dart-Abteilung der TSG 08 Roth",
   contactEmail: "dart@tsg08roth.de",
-  // Öffentliche nuLiga-Startseite des Verbands (Beispiel – bitte anpassen):
-  nuligaPortalUrl: "https://dwbv.liga.nu/cgi-bin/WebObjects/nuLigaDART.woa",
+  // Aktuelle öffentliche Staffel-Seite; kann der Admin in der App ändern.
+  nuligaStaffelUrl:
+    "https://bdv-dart.liga.nu/cgi-bin/WebObjects/nuLigaDARTDE.woa/wa/leaguePage?championship=MFr+2026/27",
 };
 
 // Öffentliche Navigation: nur Seiten, die auch OHNE Login erreichbar sind

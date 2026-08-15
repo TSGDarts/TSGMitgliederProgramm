@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getAllTeams } from "@/lib/member-queries";
-import { site } from "@/lib/site";
+import { getNuligaStaffelUrl } from "@/lib/settings";
 import { PageHeader, Card, CardBody, EmptyState } from "@/components/ui";
 
 export const metadata: Metadata = { title: "nuLiga" };
 
 export default async function NuLigaPage() {
-  const teams = await getAllTeams();
+  const [teams, nuligaStaffelUrl] = await Promise.all([
+    getAllTeams(),
+    getNuligaStaffelUrl(),
+  ]);
   const withNuliga = teams.filter((t) => t.nuliga_url);
 
   return (
@@ -26,12 +29,13 @@ export default async function NuLigaPage() {
           . Tabellen und Spielpläne siehst du hier bzw. auf der jeweiligen
           Mannschaftsseite.{" "}
           <a
-            href={site.nuligaPortalUrl}
+            href={nuligaStaffelUrl}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
+            aria-label="Aktuelle Staffel bei nuLiga öffnen – öffnet in neuem Tab"
             className="text-primary hover:underline"
           >
-            nuLiga-Portal öffnen →
+            Aktuelle Staffel bei nuLiga öffnen ↗
           </a>
         </CardBody>
       </Card>

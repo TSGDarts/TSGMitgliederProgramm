@@ -6,6 +6,10 @@ import { requireAdmin } from "@/lib/auth";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { benachrichtige, sendeTestMail } from "@/lib/benachrichtigung";
+import {
+  NULIGA_STAFFEL_URL_KEY,
+  normalizeNuligaStaffelUrl,
+} from "@/lib/settings";
 
 const PFAD = "/mitglieder/admin/einstellungen";
 
@@ -74,6 +78,37 @@ export async function saveFragenEinstellungen(formData: FormData) {
   revalidatePath(PFAD);
   revalidatePath("/mitglieder/fragen");
   redirect(`${PFAD}?gespeichert=fragen-${Date.now()}`);
+}
+
+/** Direkte Staffel-Adresse des nuLiga-Menülinks speichern. */
+export async function saveNuligaStaffelUrl(formData: FormData) {
+  await requireAdmin();
+
+  const url = normalizeNuligaStaffelUrl(
+    String(formData.get("url") ?? ""),
+  );
+  if (!url) {
+    redirect(
+      `${PFAD}?fehler=${encodeURIComponent(
+        "Bitte eine gültige öffentliche HTTPS-Adresse auf liga.nu eintragen.",
+      )}`,
+    );
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("app_settings").upsert({
+    key: NULIGA_STAFFEL_URL_KEY,
+    value: url,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) {
+    redirect(`${PFAD}?fehler=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath(PFAD);
+  revalidatePath("/mitglieder", "layout");
+  revalidatePath("/mitglieder/nuliga");
+  redirect(`${PFAD}?gespeichert=nuliga-${Date.now()}`);
 }
 
 /** Öffnet oder schließt die Trikotgrößen-Abfrage. */

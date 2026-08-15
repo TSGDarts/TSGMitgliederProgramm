@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { requireProfile, canPlanSeason, canManageKasse } from "@/lib/auth";
 import { getManageableTeamIds } from "@/lib/member-queries";
+import { getNuligaStaffelUrl } from "@/lib/settings";
 import {
   memberNav,
   adminNav,
@@ -27,9 +28,21 @@ export default async function MemberLayout({
   // Locaboo-Reiter (Raumbelegung des Hauptvereins) nur für
   // Kapitäne/Vize/Bearbeiter/Admins einblenden; Planungs-Reiter nur für
   // Saisonplaner (Haken vom Admin) und Admins
-  const zeigeLocaboo = (await getManageableTeamIds(profile)).size > 0;
+  const [manageableTeamIds, nuligaStaffelUrl] = await Promise.all([
+    getManageableTeamIds(profile),
+    getNuligaStaffelUrl(),
+  ]);
+  const zeigeLocaboo = manageableTeamIds.size > 0;
   const hauptNav = (() => {
-    const kopie: (typeof memberNav)[number][] = [...memberNav];
+    const kopie = memberNav.map((item) =>
+      item.href === "/mitglieder/nuliga"
+        ? {
+            ...item,
+            external: true,
+            externalHref: nuligaStaffelUrl,
+          }
+        : item,
+    );
     if (zeigeLocaboo) {
       const i = kopie.findIndex((n) => n.href === "/mitglieder/nuliga");
       kopie.splice(i + 1, 0, locabooNavItem);

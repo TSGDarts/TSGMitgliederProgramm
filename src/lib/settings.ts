@@ -1,6 +1,62 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { berlinLocalToISO } from "@/lib/tz";
+import { site } from "@/lib/site";
+
+export const NULIGA_STAFFEL_URL_KEY = "nuliga_staffel_url";
+export const NULIGA_STAFFEL_URL_STANDARD = site.nuligaStaffelUrl;
+
+/**
+ * Erlaubt ausschließlich öffentliche HTTPS-Adressen der offiziellen
+ * nuLiga-Domain. So kann aus dem zentralen Menü kein fremder Link werden.
+ */
+export function normalizeNuligaStaffelUrl(raw: string): string | null {
+  const value = raw.trim();
+  if (
+    !value ||
+    value.length > 2048 ||
+    /[\u0000-\u001f\u007f]/u.test(value)
+  ) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase();
+    const isNuligaHost =
+      hostname === "liga.nu" || hostname.endsWith(".liga.nu");
+    if (
+      url.protocol !== "https:" ||
+      !isNuligaHost ||
+      url.username ||
+      url.password ||
+      url.port
+    ) {
+      return null;
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** Aktuelle Staffel-Adresse für den direkten nuLiga-Menülink. */
+export async function getNuligaStaffelUrl(): Promise<string> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", NULIGA_STAFFEL_URL_KEY)
+      .maybeSingle();
+    return (
+      normalizeNuligaStaffelUrl((data?.value as string) ?? "") ??
+      NULIGA_STAFFEL_URL_STANDARD
+    );
+  } catch {
+    return NULIGA_STAFFEL_URL_STANDARD;
+  }
+}
 
 /**
  * Archiv-Frist für Termine: so viele Tage nach ihrem Datum verschwinden
