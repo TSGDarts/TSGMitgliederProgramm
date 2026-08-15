@@ -165,7 +165,8 @@ export default async function MemberTeamDetailPage({
 
           {teamEvents.length > 0 && (
             <div className="space-y-2">
-              {teamEvents.map((ev, index) => (
+              {(() => {
+                const eventCards = teamEvents.map((ev, index) => (
                 <details
                   key={ev.id}
                   open={index === 0}
@@ -302,7 +303,40 @@ export default async function MemberTeamDetailPage({
                     </details>
                   </div>
                 </details>
-              ))}
+                ));
+                const [firstEventCard, ...moreEventCards] = eventCards;
+
+                return (
+                  <>
+                    {firstEventCard}
+                    {moreEventCards.length > 0 && (
+                      <details className="group/weitere">
+                        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl border border-border bg-surface px-5 py-3 font-medium text-primary shadow-sm [&::-webkit-details-marker]:hidden">
+                          <span className="group-open/weitere:hidden">
+                            {moreEventCards.length === 1
+                              ? "1 weiteren Termin anzeigen"
+                              : `Weitere ${moreEventCards.length} Termine anzeigen`}
+                          </span>
+                          <span className="hidden group-open/weitere:inline">
+                            {moreEventCards.length === 1
+                              ? "1 weiteren Termin ausblenden"
+                              : `Weitere ${moreEventCards.length} Termine ausblenden`}
+                          </span>
+                          <span
+                            aria-hidden
+                            className="shrink-0 text-muted transition-transform group-open/weitere:rotate-180"
+                          >
+                            ▾
+                          </span>
+                        </summary>
+                        <div className="mt-2 space-y-2">
+                          {moreEventCards}
+                        </div>
+                      </details>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
         </section>
