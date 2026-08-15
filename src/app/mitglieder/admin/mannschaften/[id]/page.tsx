@@ -198,7 +198,9 @@ export default async function AdminTeamDetailPage({
           <h2 className="font-semibold">Spieltermine importieren</h2>
           <p className="text-sm text-muted">
             Liest den nuLiga-Kalender und legt die Punktspiele als Termine an
-            (bestehende werden aktualisiert).
+            (bestehende werden aktualisiert). Gegnervereine, Mannschaftsnummer,
+            Heim/Auswärts und die Auswärtsadresse werden automatisch übernommen;
+            bereits gepflegte Gegnerdaten bleiben erhalten.
           </p>
           <ImportButton teamId={team.id} icalUrl={team.nuliga_ical_url ?? ""} />
         </CardBody>

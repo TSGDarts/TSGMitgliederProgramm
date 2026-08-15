@@ -8,6 +8,12 @@ import { benachrichtige } from "@/lib/benachrichtigung";
 import { formatDate, formatTime } from "@/lib/format";
 import { slugify } from "@/lib/slug";
 import { parseIcal } from "@/lib/ical";
+import {
+  normalizeOpponentName,
+  parseNuligaMatch,
+  resolveNuligaOpponentTeams,
+  type NuligaMatchInfo,
+} from "@/lib/nuliga-opponents";
 
 function revalidateTeams() {
   revalidatePath("/mitglieder/admin/mannschaften");
@@ -295,6 +301,173 @@ export async function setTeamRole(formData: FormData) {
 
 export type ImportResult = { ok: boolean; message: string };
 
+type ImportedOpponent = {
+  id: string;
+  name: string;
+  address: string | null;
+  street: string | null;
+  zip: string | null;
+  city: string | null;
+};
+
+type ImportedOpponentLink = {
+  opponent_id: string | null;
+  opponent_team_no: number | null;
+  home_away: "heim" | "auswaerts";
+};
+
+async function syncImportedOpponents(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  parsedMatches: (NuligaMatchInfo | null)[],
+): Promise<{
+  links: (ImportedOpponentLink | null)[];
+  opponentsFound: number;
+  opponentsCreated: number;
+  addressesAdded: number;
+  unrecognized: number;
+  hadErrors: boolean;
+}> {
+  const { data, error: loadError } = await supabase
+    .from("opponents")
+    .select("id,name,address,street,zip,city")
+    .order("created_at", { ascending: true });
+
+  const matches = resolveNuligaOpponentTeams(parsedMatches);
+  const links: (ImportedOpponentLink | null)[] = matches.map((match) =>
+    match
+      ? {
+          opponent_id: null,
+          opponent_team_no: null,
+          home_away: match.homeAway,
+        }
+      : null,
+  );
+  let unrecognized = matches.filter((match) => !match).length;
+
+  if (loadError) {
+    return {
+      links,
+      opponentsFound: 0,
+      opponentsCreated: 0,
+      addressesAdded: 0,
+      unrecognized,
+      hadErrors: true,
+    };
+  }
+
+  const opponentsByName = new Map<string, ImportedOpponent>();
+  const duplicateKeys = new Set<string>();
+  for (const row of (data ?? []) as ImportedOpponent[]) {
+    const key = normalizeOpponentName(row.name);
+    if (!key) continue;
+    if (opponentsByName.has(key)) duplicateKeys.add(key);
+    else opponentsByName.set(key, row);
+  }
+
+  let opponentsCreated = 0;
+  let addressesAdded = 0;
+  let hadErrors = false;
+
+  for (let index = 0; index < matches.length; index++) {
+    const match = matches[index];
+    if (!match) continue;
+    const key = normalizeOpponentName(match.opponentName);
+    if (!key || duplicateKeys.has(key)) {
+      unrecognized++;
+      hadErrors = true;
+      continue;
+    }
+    let opponent = opponentsByName.get(key);
+    let linkedTeamNo = match.opponentTeamNo;
+    if (!opponent && match.opponentTeamNo > 1) {
+      const legacyKey = normalizeOpponentName(match.rawOpponentName);
+      if (duplicateKeys.has(legacyKey)) {
+        unrecognized++;
+        hadErrors = true;
+        continue;
+      }
+      // Ältere Einträge wurden teils samt Mannschaftssuffix angelegt.
+      // Diese weiterverwenden; die Nummer steckt dann bereits im Namen.
+      opponent = opponentsByName.get(legacyKey);
+      if (opponent) linkedTeamNo = 1;
+    }
+
+    if (!opponent) {
+      const address = match.opponentAddress;
+      const { data: created, error } = await supabase
+        .from("opponents")
+        .insert({
+          name: match.opponentName,
+          address: address?.address ?? "",
+          street: address?.street ?? "",
+          zip: address?.zip ?? "",
+          city: address?.city ?? "",
+          notes: "",
+        })
+        .select("id,name,address,street,zip,city")
+        .single();
+      if (error || !created) {
+        hadErrors = true;
+        continue;
+      }
+      opponent = created as ImportedOpponent;
+      opponentsByName.set(key, opponent);
+      opponentsCreated++;
+      if (address) addressesAdded++;
+    } else if (match.opponentAddress) {
+      const street = opponent.street?.trim() || match.opponentAddress.street;
+      const zip = opponent.zip?.trim() || match.opponentAddress.zip;
+      const city = opponent.city?.trim() || match.opponentAddress.city;
+      const address =
+        opponent.address?.trim() ||
+        [street, [zip, city].filter(Boolean).join(" ")]
+          .filter(Boolean)
+          .join(", ");
+      const addressUpdate: Partial<
+        Pick<ImportedOpponent, "address" | "street" | "zip" | "city">
+      > = {};
+      if (!opponent.street?.trim()) addressUpdate.street = street;
+      if (!opponent.zip?.trim()) addressUpdate.zip = zip;
+      if (!opponent.city?.trim()) addressUpdate.city = city;
+      if (!opponent.address?.trim()) addressUpdate.address = address;
+
+      if (Object.keys(addressUpdate).length > 0) {
+        const { data: updated, error } = await supabase
+          .from("opponents")
+          .update(addressUpdate)
+          .eq("id", opponent.id)
+          .select("id,name,address,street,zip,city")
+          .single();
+        if (error || !updated) {
+          hadErrors = true;
+        } else {
+          opponent = updated as ImportedOpponent;
+          opponentsByName.set(key, opponent);
+          addressesAdded++;
+        }
+      }
+    }
+
+    links[index] = {
+      opponent_id: opponent.id,
+      opponent_team_no: linkedTeamNo,
+      home_away: match.homeAway,
+    };
+  }
+
+  const opponentsFound = new Set(
+    links.map((link) => link?.opponent_id).filter(Boolean),
+  ).size;
+  return {
+    links,
+    opponentsFound,
+    opponentsCreated,
+    addressesAdded,
+    unrecognized,
+    hadErrors,
+  };
+}
+
 /** Liest den nuLiga-iCal-Feed einer Mannschaft und legt/aktualisiert die Termine. */
 export async function importNuligaIcal(
   _prev: ImportResult | null,
@@ -342,30 +515,57 @@ export async function importNuligaIcal(
   }
 
   const supabase = await createClient();
-  const rows = events.map((e) => ({
-    team_id,
-    title: e.summary,
-    description: e.description,
-    location: e.location,
-    type: "match" as const,
-    starts_at: e.start,
-    ends_at: e.end,
-    source: "nuliga" as const,
-    source_uid: `nuliga:${team_id}:${e.uid}`,
-    is_public: true,
-  }));
+  const { data: team, error: teamError } = await supabase
+    .from("teams")
+    .select("name,league,slug")
+    .eq("id", team_id)
+    .maybeSingle();
+  if (teamError || !team) {
+    return { ok: false, message: "Mannschaft wurde nicht gefunden." };
+  }
+
+  const parsedMatches = events.map((event) =>
+    parseNuligaMatch(event, team.name as string, (team.league as string) || ""),
+  );
+  const opponentSync = await syncImportedOpponents(supabase, parsedMatches);
+  const rows = events.map((e, index) => {
+    const link = opponentSync.links[index];
+    return {
+      team_id,
+      title: e.summary,
+      description: e.description,
+      location: e.location,
+      type: "match" as const,
+      starts_at: e.start,
+      ends_at: e.end,
+      source: "nuliga" as const,
+      source_uid: `nuliga:${team_id}:${e.uid}`,
+      is_public: true,
+      opponent_id: link?.opponent_id ?? null,
+      opponent_team_no: link?.opponent_team_no ?? null,
+      home_away: link?.home_away ?? "",
+    };
+  });
 
   // Abgleich von Hand (kein Upsert – der eindeutige source_uid-Index ist
   // ein Teil-Index, mit dem die Upsert-Automatik nicht umgehen kann):
   // bekannte Spieltage aktualisieren, neue anlegen.
   const { data: vorhandene } = await supabase
     .from("events")
-    .select("id, source_uid, starts_at")
+    .select(
+      "id, source_uid, starts_at, opponent_id, opponent_team_no, home_away",
+    )
     .in("source_uid", rows.map((r) => r.source_uid));
   const bekannt = new Map(
     (vorhandene ?? []).map((v) => [
       v.source_uid as string,
-      { id: v.id as string, starts_at: v.starts_at as string },
+      {
+        id: v.id as string,
+        starts_at: v.starts_at as string,
+        opponent_id: (v.opponent_id as string | null) ?? null,
+        opponent_team_no: (v.opponent_team_no as number | null) ?? null,
+        home_away: (v.home_away as string | null) ?? "",
+      },
     ]),
   );
 
@@ -378,6 +578,22 @@ export async function importNuligaIcal(
   for (const row of rows) {
     const bestehend = bekannt.get(row.source_uid);
     if (bestehend) {
+      const opponentUpdate: Record<string, string | number> = {};
+      const sameOrEmptyOpponent =
+        !bestehend.opponent_id || bestehend.opponent_id === row.opponent_id;
+      if (!bestehend.opponent_id && row.opponent_id) {
+        opponentUpdate.opponent_id = row.opponent_id;
+      }
+      if (
+        sameOrEmptyOpponent &&
+        bestehend.opponent_team_no == null &&
+        row.opponent_team_no != null
+      ) {
+        opponentUpdate.opponent_team_no = row.opponent_team_no;
+      }
+      if (!bestehend.home_away && row.home_away) {
+        opponentUpdate.home_away = row.home_away;
+      }
       const { error } = await supabase
         .from("events")
         .update({
@@ -386,6 +602,7 @@ export async function importNuligaIcal(
           location: row.location,
           starts_at: row.starts_at,
           ends_at: row.ends_at,
+          ...opponentUpdate,
         })
         .eq("id", bestehend.id);
       if (error) letzterFehler = error.message;
@@ -450,10 +667,27 @@ export async function importNuligaIcal(
 
   revalidatePath("/mitglieder/termine");
   revalidatePath("/termine");
+  revalidatePath("/mitglieder/admin/termine");
+  revalidatePath("/mitglieder/admin/gegner");
+  revalidatePath(`/mitglieder/admin/mannschaften/${team_id}`);
+  revalidatePath(`/mitglieder/mannschaften/${team.slug as string}`);
+  const opponentMessage =
+    ` Gegner: ${opponentSync.opponentsFound} erkannt, ` +
+    `${opponentSync.opponentsCreated} neu angelegt, ` +
+    `${opponentSync.addressesAdded} Adressen ergänzt.` +
+    (opponentSync.unrecognized > 0
+      ? ` ${opponentSync.unrecognized} Begegnung${
+          opponentSync.unrecognized === 1 ? "" : "en"
+        } konnte${opponentSync.unrecognized === 1 ? "" : "n"} nicht eindeutig zugeordnet werden.`
+      : "") +
+    (opponentSync.hadErrors
+      ? " Gegnerdaten konnten teilweise nicht gespeichert werden."
+      : "");
   return {
     ok: true,
     message:
       `${neu} Termine neu angelegt, ${aktualisiert} aktualisiert.` +
+      opponentMessage +
       (verlegt.length > 0
         ? ` ${verlegt.length} Verlegung${verlegt.length === 1 ? "" : "en"} erkannt – Kader wurde benachrichtigt.`
         : "") +

@@ -22,7 +22,7 @@ export function ImportButton({
         <input type="hidden" name="team_id" value={teamId} />
         <input type="hidden" name="ical_url" value={icalUrl} />
         <Button type="submit" variant="secondary" disabled={pending || !icalUrl}>
-          {pending ? "Importiere …" : "Termine aus nuLiga importieren"}
+          {pending ? "Importiere …" : "Termine & Gegner aus nuLiga importieren"}
         </Button>
       </form>
       {!icalUrl && (
