@@ -45,6 +45,34 @@ function descriptionField(description: string, label: string): string {
   return match ? compact(match[1]) : "";
 }
 
+/**
+ * Entfernt ausschließlich die von nuLiga ans SUMMARY angehängte
+ * Begegnungsnummer. Die Zahl muss mit der strukturierten Beschreibung
+ * übereinstimmen; Klammern im eigentlichen Mannschaftsnamen bleiben erhalten.
+ */
+export function cleanNuligaEventTitle(event: {
+  summary: string;
+  description?: string | null;
+}): string {
+  const summary = compact(event.summary, 500);
+  const suffix = /\s+\((\d+)\)\s*$/.exec(summary);
+  if (!suffix) return summary;
+
+  const description = event.description ?? "";
+  const matchNumber = descriptionField(description, "Begegnungs-Nr");
+  const guest = descriptionField(description, "Gast");
+  if (!/^\d+$/.test(matchNumber) || !guest) return summary;
+  if (Number(suffix[1]) !== Number(matchNumber)) return summary;
+
+  const cleaned = summary.slice(0, suffix.index).trim();
+  if (
+    !normalizeOpponentName(cleaned).endsWith(normalizeOpponentName(guest))
+  ) {
+    return summary;
+  }
+  return cleaned || summary;
+}
+
 function romanValue(value: string): number | null {
   const roman = value.toUpperCase();
   const values: Record<string, number> = {

@@ -9,6 +9,7 @@ import { formatDate, formatTime } from "@/lib/format";
 import { slugify } from "@/lib/slug";
 import { parseIcal } from "@/lib/ical";
 import {
+  cleanNuligaEventTitle,
   normalizeOpponentName,
   parseNuligaMatch,
   resolveNuligaOpponentTeams,
@@ -532,7 +533,7 @@ export async function importNuligaIcal(
     const link = opponentSync.links[index];
     return {
       team_id,
-      title: e.summary,
+      title: cleanNuligaEventTitle(e),
       description: e.description,
       location: e.location,
       type: "match" as const,

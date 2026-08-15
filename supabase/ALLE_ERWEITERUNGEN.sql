@@ -1826,3 +1826,21 @@ begin
   return found;
 end;
 $$;
+
+-- ============================================================
+-- 66: nuLiga-Begegnungsnummer aus Termin-Titeln entfernen
+-- ============================================================
+
+update public.events
+set title = regexp_replace(
+  title,
+  '[[:space:]]+\([0-9]+\)[[:space:]]*$',
+  ''
+)
+where source = 'nuliga'
+  and title ~ '[[:space:]]+\([0-9]+\)[[:space:]]*$'
+  and coalesce(description, '') ~ (
+    'Begegnungs-Nr:[[:space:]]*'
+    || substring(title from '\(([0-9]+)\)[[:space:]]*$')
+    || '([[:space:]]|$)'
+  );
