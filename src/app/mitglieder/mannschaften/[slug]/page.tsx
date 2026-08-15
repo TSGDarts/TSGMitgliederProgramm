@@ -9,6 +9,7 @@ import { createTeamEvent, updateTeamEvent, deleteTeamEvent } from "./actions";
 import { berlinISOToLocalInput } from "@/lib/tz";
 import { NuLigaEmbed } from "@/components/NuLigaEmbed";
 import { LigaTabelle } from "@/components/LigaTabelle";
+import { Einklappbar } from "@/components/Einklappbar";
 import { ladeNuligaTabelle } from "@/lib/nuliga-tabelle";
 import { formatHomeMatch } from "@/lib/extras";
 import {
@@ -77,69 +78,24 @@ export default async function MemberTeamDetailPage({
         </Card>
       )}
 
-      {/* Kader */}
-      <section>
-        <h2 className="mb-3 text-lg font-semibold">
-          Kader{" "}
-          <span className="text-sm font-normal text-muted">
-            ({roster.length + teamInvites.length})
-          </span>
-        </h2>
-        {roster.length === 0 && teamInvites.length === 0 ? (
-          <EmptyState
-            title="Noch keine Spieler zugeordnet"
-            hint="Spieler werden unter „Mannschaften verwalten“ hinzugefügt."
-          />
-        ) : (
+      {/* Liga-Tabelle (live aus nuLiga) */}
+      {tabelle && (
+        <section>
+          <h2 className="mb-3 text-lg font-semibold">
+            🏆 Liga-Tabelle
+            {tabelle.titel && (
+              <span className="ml-2 text-sm font-normal text-muted">
+                {tabelle.titel}
+              </span>
+            )}
+          </h2>
           <Card>
-            <CardBody className="divide-y divide-border p-0">
-              {roster.map((m) => (
-                <div
-                  key={m.profile_id}
-                  className="flex items-center justify-between gap-3 px-5 py-3"
-                >
-                  <div className="flex items-center gap-3">
-                    {m.jersey_number != null && (
-                      <span className="w-6 text-center text-sm font-bold text-muted">
-                        {m.jersey_number}
-                      </span>
-                    )}
-                    <span className="font-medium">
-                      {m.profile.full_name || m.profile.email}
-                    </span>
-                    {m.is_captain && <Badge tone="primary">Kapitän</Badge>}
-                    {m.is_vice_captain && <Badge>Vize</Badge>}
-                  </div>
-                  {m.profile.phone && (
-                    <a
-                      href={`tel:${m.profile.phone}`}
-                      className="text-sm text-primary hover:underline"
-                    >
-                      {m.profile.phone}
-                    </a>
-                  )}
-                </div>
-              ))}
-              {/* Vorab angelegte Namen (noch nicht angemeldet) */}
-              {teamInvites.map((inv) => (
-                <div
-                  key={inv.id}
-                  className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{inv.full_name}</span>
-                    {inv.captain_of === team.id && (
-                      <Badge tone="primary">Kapitän</Badge>
-                    )}
-                    {inv.vice_of === team.id && <Badge>Vize</Badge>}
-                    <Badge tone="warn">noch nicht angemeldet</Badge>
-                  </div>
-                </div>
-              ))}
+            <CardBody>
+              <LigaTabelle tabelle={tabelle} eigenerName={team.name} />
             </CardBody>
           </Card>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* Termin-Verwaltung für Kapitäne/Admins */}
       {canManage && (
@@ -149,8 +105,17 @@ export default async function MemberTeamDetailPage({
             <Badge tone="primary">Kapitän/Admin</Badge>
           </div>
 
-          <Card>
-            <CardBody>
+          <details className="group rounded-xl border border-border bg-surface shadow-sm">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 font-medium text-primary [&::-webkit-details-marker]:hidden">
+              <span>➕ Neuen Termin anlegen</span>
+              <span
+                aria-hidden
+                className="text-muted transition-transform group-open:rotate-180"
+              >
+                ▾
+              </span>
+            </summary>
+            <div className="border-t border-border p-5">
               <form
                 action={createTeamEvent.bind(null, slug)}
                 className="space-y-4"
@@ -195,42 +160,61 @@ export default async function MemberTeamDetailPage({
                 </label>
                 <Button type="submit">Termin anlegen</Button>
               </form>
-            </CardBody>
-          </Card>
+            </div>
+          </details>
 
           {teamEvents.length > 0 && (
             <div className="space-y-2">
-              {teamEvents.map((ev) => (
-                <Card key={ev.id}>
-                  <CardBody className="space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge tone="primary">
-                            {EVENT_TYPE_LABELS[ev.type]}
-                          </Badge>
-                          {ev.source === "nuliga" && <Badge>nuLiga</Badge>}
-                          {!ev.is_public && <Badge tone="warn">intern</Badge>}
-                          <span className="font-medium">{ev.title}</span>
-                        </div>
-                        <p className="mt-1 text-sm text-muted">
-                          {formatDate(ev.starts_at)} ·{" "}
-                          {ev.time_tbd
-                            ? "⏳ Uhrzeit folgt"
-                            : `${formatTime(ev.starts_at)} Uhr`}
-                          {ev.location ? ` · ${ev.location}` : ""}
-                        </p>
-                      </div>
+              {teamEvents.map((ev, index) => (
+                <details
+                  key={ev.id}
+                  open={index === 0}
+                  className="group rounded-xl border border-border bg-surface shadow-sm"
+                >
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <Badge tone="primary">
+                          {EVENT_TYPE_LABELS[ev.type]}
+                        </Badge>
+                        {ev.source === "nuliga" && <Badge>nuLiga</Badge>}
+                        {!ev.is_public && <Badge tone="warn">intern</Badge>}
+                        <span className="font-medium">{ev.title}</span>
+                      </span>
+                      <span className="mt-1 block text-sm text-muted">
+                        {formatDate(ev.starts_at)} ·{" "}
+                        {ev.time_tbd
+                          ? "⏳ Uhrzeit folgt"
+                          : `${formatTime(ev.starts_at)} Uhr`}
+                        {ev.location ? ` · ${ev.location}` : ""}
+                      </span>
+                    </span>
+                    <span
+                      aria-hidden
+                      className="shrink-0 text-muted transition-transform group-open:rotate-180"
+                    >
+                      ▾
+                    </span>
+                  </summary>
+
+                  <div className="space-y-4 border-t border-border p-5">
+                    {ev.description && (
+                      <p className="text-sm text-muted">{ev.description}</p>
+                    )}
+                    <div className="flex justify-end">
                       <form action={deleteTeamEvent.bind(null, slug)}>
                         <input type="hidden" name="team_id" value={team.id} />
                         <input type="hidden" name="event_id" value={ev.id} />
-                        <button className="text-sm text-danger hover:underline">
+                        <button
+                          type="submit"
+                          className="text-sm text-danger hover:underline"
+                          aria-label={`Termin ${ev.title} löschen`}
+                        >
                           Löschen
                         </button>
                       </form>
                     </div>
 
-                    {/* Bearbeiten (aufklappbar, vorausgefüllt) */}
                     <details className="rounded-lg border border-border">
                       <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-primary">
                         ✏️ Bearbeiten
@@ -310,43 +294,90 @@ export default async function MemberTeamDetailPage({
                             name="time_tbd"
                             defaultChecked={ev.time_tbd ?? false}
                           />
-                          ⏳ Genaue Uhrzeit noch nicht bekannt – „Uhrzeit
-                          folgt“ anzeigen
+                          ⏳ Genaue Uhrzeit noch nicht bekannt – „Uhrzeit folgt“
+                          anzeigen
                         </label>
                         <Button type="submit">Änderungen speichern</Button>
                       </form>
                     </details>
-                  </CardBody>
-                </Card>
+                  </div>
+                </details>
               ))}
             </div>
           )}
         </section>
       )}
 
-      {/* Liga-Tabelle (live aus nuLiga) */}
-      {tabelle && (
-        <section>
-          <h2 className="mb-3 text-lg font-semibold">
-            🏆 Liga-Tabelle
-            {tabelle.titel && (
-              <span className="ml-2 text-sm font-normal text-muted">
-                {tabelle.titel}
-              </span>
-            )}
-          </h2>
+      <Einklappbar
+        id={`mannschaft-${team.id}-nuliga`}
+        title="📋 Kompletter Spielplan bei nuLiga"
+        defaultOpen={false}
+      >
+        <NuLigaEmbed url={team.nuliga_url} title={`nuLiga – ${team.name}`} />
+      </Einklappbar>
+
+      {/* Mannschaftsmitglieder bewusst am Seitenende */}
+      <section>
+        <h2 className="mb-3 text-lg font-semibold">
+          Mannschaftsmitglieder{" "}
+          <span className="text-sm font-normal text-muted">
+            ({roster.length + teamInvites.length})
+          </span>
+        </h2>
+        {roster.length === 0 && teamInvites.length === 0 ? (
+          <EmptyState
+            title="Noch keine Spieler zugeordnet"
+            hint="Spieler werden unter „Mannschaften verwalten“ hinzugefügt."
+          />
+        ) : (
           <Card>
-            <CardBody>
-              <LigaTabelle tabelle={tabelle} />
+            <CardBody className="divide-y divide-border p-0">
+              {roster.map((m) => (
+                <div
+                  key={m.profile_id}
+                  className="flex items-center justify-between gap-3 px-5 py-3"
+                >
+                  <div className="flex items-center gap-3">
+                    {m.jersey_number != null && (
+                      <span className="w-6 text-center text-sm font-bold text-muted">
+                        {m.jersey_number}
+                      </span>
+                    )}
+                    <span className="font-medium">
+                      {m.profile.full_name || m.profile.email}
+                    </span>
+                    {m.is_captain && <Badge tone="primary">Kapitän</Badge>}
+                    {m.is_vice_captain && <Badge>Vize</Badge>}
+                  </div>
+                  {m.profile.phone && (
+                    <a
+                      href={`tel:${m.profile.phone}`}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      {m.profile.phone}
+                    </a>
+                  )}
+                </div>
+              ))}
+              {/* Vorab angelegte Namen (noch nicht angemeldet) */}
+              {teamInvites.map((inv) => (
+                <div
+                  key={inv.id}
+                  className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{inv.full_name}</span>
+                    {inv.captain_of === team.id && (
+                      <Badge tone="primary">Kapitän</Badge>
+                    )}
+                    {inv.vice_of === team.id && <Badge>Vize</Badge>}
+                    <Badge tone="warn">noch nicht angemeldet</Badge>
+                  </div>
+                </div>
+              ))}
             </CardBody>
           </Card>
-        </section>
-      )}
-
-      {/* nuLiga */}
-      <section>
-        <h2 className="mb-3 text-lg font-semibold">Tabelle & Spielplan (nuLiga)</h2>
-        <NuLigaEmbed url={team.nuliga_url} title={`nuLiga – ${team.name}`} />
+        )}
       </section>
     </div>
   );
