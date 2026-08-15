@@ -11,7 +11,7 @@ import { feiertageBayern } from "@/lib/feiertage";
 import type { EventRow, EventType, RsvpStatus } from "@/lib/types";
 import type { Tournament } from "@/lib/extras";
 
-// Monats-Kalender mit Mannschafts-Filter. Wiederverwendbar:
+// Monats-Kalender mit Mannschafts-Mehrfachfilter. Wiederverwendbar:
 // "base" ist die Seite, auf der er eingebettet ist (Links bleiben dort).
 
 const berlinDay = new Intl.DateTimeFormat("sv-SE", {
@@ -68,11 +68,30 @@ export async function EventsCalendar({
 }: {
   base: string;
   monat?: string;
-  team?: string;
+  team?: string | string[];
 }) {
   const { y, m } = parseMonth(monat);
   const teams = await getAllTeams();
-  const teamFilter = team ?? "";
+  const filterOrder = ["verein", ...teams.map((t) => t.id)];
+  const requestedFilters = new Set(
+    (Array.isArray(team) ? team : [team ?? ""])
+      .flatMap((value) => value.split(","))
+      .filter(Boolean),
+  );
+  const selectedFilters = filterOrder.filter((value) =>
+    requestedFilters.has(value),
+  );
+  const selectedFilterSet = new Set(selectedFilters);
+  const teamFilter = selectedFilters.join(",");
+  const showAll = selectedFilters.length === 0;
+
+  const toggleFilter = (value: string): string | undefined => {
+    const next = new Set(selectedFilters);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    const ordered = filterOrder.filter((entry) => next.has(entry));
+    return ordered.length ? ordered.join(",") : undefined;
+  };
 
   // Rasterbereich (Montag vor dem 1. bis Sonntag nach dem Letzten)
   const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
@@ -92,10 +111,12 @@ export async function EventsCalendar({
     .lt("starts_at", new Date(gridStart + totalCells * 864e5).toISOString())
     .order("starts_at");
   let events = (data as EventRow[]) ?? [];
-  if (teamFilter === "verein") {
-    events = events.filter((e) => e.team_id === null);
-  } else if (teamFilter) {
-    events = events.filter((e) => e.team_id === teamFilter);
+  if (!showAll) {
+    events = events.filter((e) =>
+      e.team_id === null
+        ? selectedFilterSet.has("verein")
+        : selectedFilterSet.has(e.team_id),
+    );
   }
 
   // Archiv-Frist: ältere Termine ausblenden (bleiben in der Datenbank).
@@ -165,10 +186,10 @@ export async function EventsCalendar({
     }
   }
 
-  // Turniere im Umkreis: erscheinen bei „Alle“ und „Verein“ als eigene
-  // Kärtchen (mehrtägige an jedem Tag ihres Zeitraums).
+  // Turniere im Umkreis: erscheinen bei „Alle“ oder sobald „Verein“ Teil der
+  // Auswahl ist (mehrtägige an jedem Tag ihres Zeitraums).
   const tournamentsByDay = new Map<string, Tournament[]>();
-  if (!teamFilter || teamFilter === "verein") {
+  if (showAll || selectedFilterSet.has("verein")) {
     const gridEndIso = new Date(
       gridStart + totalCells * 864e5,
     ).toISOString();
@@ -260,7 +281,7 @@ export async function EventsCalendar({
   const next = addMonth(y, m, 1);
 
   const filterChip = (active: boolean) =>
-    `rounded-full px-3 py-1 text-sm font-medium ${
+    `inline-flex min-h-11 items-center rounded-full px-3 py-1 text-sm font-medium sm:min-h-0 ${
       active
         ? "bg-primary text-primary-fg"
         : "border border-border text-muted hover:text-foreground"
@@ -270,28 +291,58 @@ export async function EventsCalendar({
     <section className="space-y-4">
       {/* Mannschafts-Filter + Heute-Knopf */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-2">
+        <div
+          className="flex flex-wrap items-center gap-2"
+          role="group"
+          aria-label="Termine anzeigen von – mehrere auswählbar"
+        >
+          <span className="w-full text-xs text-muted">
+            Termine anzeigen von (mehrere auswählbar):
+          </span>
           <Link
             href={makeHref(base, { monat: ym(y, m) })}
-            className={filterChip(!teamFilter)}
+            className={filterChip(showAll)}
+            aria-label={
+              showAll ? "Alle Termine, ausgewählt" : "Alle Filter zurücksetzen"
+            }
           >
-            Alle
+            {showAll && "✓ "}Alle
           </Link>
           <Link
-            href={makeHref(base, { monat: ym(y, m), team: "verein" })}
-            className={filterChip(teamFilter === "verein")}
+            href={makeHref(base, {
+              monat: ym(y, m),
+              team: toggleFilter("verein"),
+            })}
+            className={filterChip(selectedFilterSet.has("verein"))}
+            aria-label={`Verein ${
+              selectedFilterSet.has("verein")
+                ? "ausgewählt; aus Auswahl entfernen"
+                : "zur Auswahl hinzufügen"
+            }`}
           >
-            Verein
+            {selectedFilterSet.has("verein") && "✓ "}Verein
           </Link>
-          {teams.map((t) => (
-            <Link
-              key={t.id}
-              href={makeHref(base, { monat: ym(y, m), team: t.id })}
-              className={filterChip(teamFilter === t.id)}
-            >
-              {t.name}
-            </Link>
-          ))}
+          {teams.map((t) => {
+            const active = selectedFilterSet.has(t.id);
+            return (
+              <Link
+                key={t.id}
+                href={makeHref(base, {
+                  monat: ym(y, m),
+                  team: toggleFilter(t.id),
+                })}
+                className={filterChip(active)}
+                aria-label={`${t.name} ${
+                  active
+                    ? "ausgewählt; aus Auswahl entfernen"
+                    : "zur Auswahl hinzufügen"
+                }`}
+              >
+                {active && "✓ "}
+                {t.name}
+              </Link>
+            );
+          })}
         </div>
         <Link
           href={makeHref(base, { team: teamFilter || undefined })}
