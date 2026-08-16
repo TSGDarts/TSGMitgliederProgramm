@@ -6,12 +6,22 @@ import { getTeamRoster, getManageableTeamIds } from "@/lib/member-queries";
 import { listTeamInvites } from "@/lib/invites";
 import { createClient } from "@/lib/supabase/server";
 import { createTeamEvent, updateTeamEvent, deleteTeamEvent } from "./actions";
-import { berlinISOToLocalInput } from "@/lib/tz";
+import {
+  berlinISOToLocalInput,
+  berlinLocalToISO,
+} from "@/lib/tz";
 import { NuLigaEmbed } from "@/components/NuLigaEmbed";
 import { LigaTabelle } from "@/components/LigaTabelle";
+import { LineupSection } from "@/components/LineupSection";
 import { Einklappbar } from "@/components/Einklappbar";
 import { ladeNuligaTabelle } from "@/lib/nuliga-tabelle";
 import { formatHomeMatch } from "@/lib/extras";
+import { getSpielModi } from "@/lib/settings";
+import {
+  lineupModeKeyForEvent,
+  lineupModeOptionsForEvent,
+} from "@/lib/lineup";
+import type { LineupEintrag } from "@/app/mitglieder/termine/spieltag-actions";
 import {
   PageHeader,
   Card,
@@ -42,22 +52,80 @@ export default async function MemberTeamDetailPage({
   const manageable = await getManageableTeamIds(profile);
   const canManage = manageable.has(team.id);
 
-  // Liga-Tabelle live aus nuLiga (Tabellen-Link, sonst normaler nuLiga-Link)
-  const tabelle = await ladeNuligaTabelle(
-    team.nuliga_table_url || team.nuliga_url || "",
+  const supabase = await createClient();
+  // Request-Zeitpunkt für die dynamische Terminabfrage der Server-Seite.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
+  const todayBerlin = berlinISOToLocalInput(new Date(now).toISOString()).slice(
+    0,
+    10,
   );
+  const eventCutoff = canManage
+    ? new Date(now - 7 * 864e5).toISOString()
+    : berlinLocalToISO(`${todayBerlin}T00:00`)!;
 
-  let teamEvents: EventRow[] = [];
-  if (canManage) {
-    const supabase = await createClient();
-    const { data } = await supabase
+  // Spieltermine werden auch für normale Mitglieder geladen, damit eine
+  // veröffentlichte Aufstellung direkt unter der Mannschaft sichtbar ist.
+  const [tabelle, eventsRes, modi] = await Promise.all([
+    ladeNuligaTabelle(team.nuliga_table_url || team.nuliga_url || ""),
+    supabase
       .from("events")
       .select("*")
       .eq("team_id", team.id)
-      .gte("starts_at", new Date(Date.now() - 7 * 864e5).toISOString())
-      .order("starts_at", { ascending: true });
-    teamEvents = (data as EventRow[]) ?? [];
+      .gte("starts_at", eventCutoff)
+      .order("starts_at", { ascending: true }),
+    getSpielModi(),
+  ]);
+  const geladeneEvents = (eventsRes.data as EventRow[] | null) ?? [];
+  const teamEvents = canManage ? geladeneEvents : [];
+  const aufstellungsEvents = geladeneEvents.filter(
+    (event) =>
+      berlinISOToLocalInput(event.starts_at).slice(0, 10) >= todayBerlin &&
+      ["match", "pokal", "friendly"].includes(event.type),
+  );
+
+  const lineupByEvent = new Map<
+    string,
+    { entries: LineupEintrag[]; released: boolean }
+  >();
+  if (aufstellungsEvents.length > 0) {
+    const { data } = await supabase
+      .from("event_lineups")
+      .select("event_id, entries, released")
+      .in(
+        "event_id",
+        aufstellungsEvents.map((event) => event.id),
+      );
+    for (const row of data ?? []) {
+      lineupByEvent.set(row.event_id as string, {
+        entries: Array.isArray(row.entries)
+          ? (row.entries as unknown as LineupEintrag[])
+          : [],
+        released: !!row.released,
+      });
+    }
   }
+
+  const sichtbareAufstellungsEvents = canManage
+    ? aufstellungsEvents
+    : aufstellungsEvents.filter((event) => {
+        const lineup = lineupByEvent.get(event.id);
+        return (
+          !!lineup?.released &&
+          lineup.entries.some((entry) => entry && entry.name)
+        );
+      });
+  const lineupRoster = [
+    ...roster.map((member) => ({
+      id: member.profile_id,
+      name: member.profile.full_name || member.profile.email || "?",
+    })),
+    ...teamInvites.map((invite) => ({
+      id: invite.id,
+      inviteId: invite.id,
+      name: invite.full_name,
+    })),
+  ];
 
   return (
     <div className="space-y-6">
@@ -76,6 +144,138 @@ export default async function MemberTeamDetailPage({
             {formatHomeMatch(team.home_match_weekday, team.home_match_time)}
           </CardBody>
         </Card>
+      )}
+
+      {(canManage || sichtbareAufstellungsEvents.length > 0) && (
+        <section id="aufstellungen" className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-semibold">
+              📋 Voraussichtliche Aufstellungen
+            </h2>
+            {canManage && <Badge tone="primary">Kapitän/Admin</Badge>}
+          </div>
+          {canManage && (
+            <p className="text-sm text-muted">
+              Wähle den kommenden Spieltag, stelle Einzel und Doppel passend
+              zum Mannschaftsmodus auf und veröffentliche den Entwurf für den
+              Kader.
+            </p>
+          )}
+
+          {sichtbareAufstellungsEvents.length === 0 ? (
+            <EmptyState
+              title="Kein kommender Spieltag"
+              hint="Sobald ein Punkt-, Pokal- oder Freundschaftsspiel angelegt ist, kann hier die Aufstellung geplant werden."
+            />
+          ) : (
+            <div className="space-y-2">
+              {sichtbareAufstellungsEvents.map((event, index) => {
+                const lineup = lineupByEvent.get(event.id) ?? {
+                  entries: [],
+                  released: false,
+                };
+                const modusOptionen = lineupModeOptionsForEvent(
+                  event,
+                  team.spielmodus,
+                  modi,
+                );
+                const modusMeta = lineup.entries.find(
+                  (entry) => entry.entry_type === "mode",
+                );
+                const spielerEintraege = lineup.entries.filter(
+                  (entry) => entry.entry_type !== "mode",
+                );
+                const gespeicherterModus =
+                  modusMeta?.mode_key ??
+                  spielerEintraege.find((entry) => entry.mode_key)?.mode_key;
+                const modusKey = lineupModeKeyForEvent(
+                  event,
+                  modusOptionen,
+                  gespeicherterModus,
+                  spielerEintraege.length > 0,
+                );
+                const kopfzeilen = [
+                  `📋 Voraussichtliche Aufstellung ${event.title}`,
+                  event.time_tbd || formatTime(event.starts_at) === "00:00"
+                    ? `${formatDate(event.starts_at)} – Uhrzeit folgt`
+                    : `${formatDate(event.starts_at)}, Spielbeginn ${formatTime(event.starts_at)} Uhr`,
+                  event.location ? `📍 ${event.location}` : "",
+                  event.meet_home_time
+                    ? `🚌 Treffpunkt TSG: ${event.meet_home_time} Uhr`
+                    : "",
+                  event.meet_venue_time
+                    ? `🤝 Treffpunkt vor Ort: ${event.meet_venue_time} Uhr`
+                    : "",
+                  (event.match_url ?? "").trim()
+                    ? `🔗 Spiel live mitverfolgen: ${(event.match_url ?? "").trim()}`
+                    : "",
+                ].filter(Boolean);
+
+                return (
+                  <details
+                    key={event.id}
+                    open={index === 0}
+                    className="group rounded-xl border border-border bg-surface shadow-sm"
+                  >
+                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
+                      <span className="min-w-0">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <Badge tone="primary">
+                            {EVENT_TYPE_LABELS[event.type]}
+                          </Badge>
+                          {lineup.released ? (
+                            <Badge tone="ok">Veröffentlicht</Badge>
+                          ) : lineup.entries.length > 0 ? (
+                            <Badge tone="warn">Entwurf</Badge>
+                          ) : (
+                            <Badge>Noch nicht aufgestellt</Badge>
+                          )}
+                          <span className="font-medium">{event.title}</span>
+                        </span>
+                        <span className="mt-1 block text-sm text-muted">
+                          {formatDate(event.starts_at)} ·{" "}
+                          {event.time_tbd
+                            ? "⏳ Uhrzeit folgt"
+                            : `${formatTime(event.starts_at)} Uhr`}
+                          {event.home_away === "heim"
+                            ? " · Heimspiel"
+                            : event.home_away === "auswaerts"
+                              ? " · Auswärtsspiel"
+                              : ""}
+                        </span>
+                      </span>
+                      <span
+                        aria-hidden
+                        className="shrink-0 text-muted transition-transform group-open:rotate-180"
+                      >
+                        ▾
+                      </span>
+                    </summary>
+                    <div className="space-y-4 border-t border-border p-5">
+                      <LineupSection
+                        eventId={event.id}
+                        canManage={canManage}
+                        released={lineup.released}
+                        initialEntries={spielerEintraege}
+                        roster={lineupRoster}
+                        kopfzeilen={kopfzeilen}
+                        modusOptionen={modusOptionen}
+                        initialModusKey={modusKey}
+                        initialModusSnapshot={modusMeta?.mode_snapshot}
+                      />
+                      <Link
+                        href={`/mitglieder/termine/${event.id}`}
+                        className="inline-block text-sm text-primary hover:underline"
+                      >
+                        Zum vollständigen Spieltag →
+                      </Link>
+                    </div>
+                  </details>
+                );
+              })}
+            </div>
+          )}
+        </section>
       )}
 
       <Einklappbar

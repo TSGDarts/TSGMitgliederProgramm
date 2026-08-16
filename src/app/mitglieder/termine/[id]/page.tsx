@@ -10,6 +10,7 @@ import {
   getTeamRoster,
 } from "@/lib/member-queries";
 import { getGegnerVorlage, getSpielModi } from "@/lib/settings";
+import { listTeamInvites } from "@/lib/invites";
 import { RsvpButtons } from "@/components/RsvpButtons";
 import { AddressLine } from "@/components/AddressLine";
 import {
@@ -37,6 +38,10 @@ import {
   formatTime,
   formatUntil,
 } from "@/lib/format";
+import {
+  lineupModeKeyForEvent,
+  lineupModeOptionsForEvent,
+} from "@/lib/lineup";
 
 const groups: { key: RsvpStatus | "open"; label: string; tone: string }[] = [
   { key: "yes", label: "Zusagen", tone: "text-ok" },
@@ -84,6 +89,7 @@ export default async function EventDetailPage({
     kontaktRes,
     lineupRes,
     rosterRoh,
+    inviteRoh,
     modiRes,
     carpoolRes,
     helferRes,
@@ -112,6 +118,9 @@ export default async function EventDetailPage({
           .maybeSingle()
       : Promise.resolve({ data: null }),
     istSpiel && canManage ? getTeamRoster(event.team_id!) : Promise.resolve([]),
+    istSpiel && canManage
+      ? listTeamInvites(event.team_id!)
+      : Promise.resolve([]),
     istSpiel ? getSpielModi() : Promise.resolve(null),
     !spiegel
       ? supabase
@@ -155,27 +164,49 @@ export default async function EventDetailPage({
     lineupEntries = (lineupRes.data.entries as LineupEintrag[]) ?? [];
     lineupReleased = !!lineupRes.data.released;
   }
-  const roster: { id: string; name: string }[] = rosterRoh.map((m) => ({
-    id: m.profile_id,
-    name: m.profile.full_name || m.profile.email || "?",
-  }));
+  const lineupModusMeta = lineupEntries.find(
+    (entry) => entry.entry_type === "mode",
+  );
+  const lineupSpielerEintraege = lineupEntries.filter(
+    (entry) => entry.entry_type !== "mode",
+  );
+  const roster = [
+    ...rosterRoh.map((member) => ({
+      id: member.profile_id,
+      name: member.profile.full_name || member.profile.email || "?",
+    })),
+    ...inviteRoh.map((invite) => ({
+      id: invite.id,
+      inviteId: invite.id,
+      name: invite.full_name,
+    })),
+  ];
 
-  // Spielmodus (vom Admin gepflegt) – bei Punkt- und Pokalspielen;
-  // Liga-Modus kommt aus der Mannschaft (Teams spielen verschiedene Ligen)
-  let modusZeilen: string[] = [];
-  if (istSpiel && modiRes) {
-    const teamModus =
-      (event.team_id ? teams.get(event.team_id)?.spielmodus : "") ||
-      modiRes.liga;
-    if (event.type === "match" && teamModus) {
-      modusZeilen = [`Modus: ${teamModus}`];
-    } else if (event.type === "pokal") {
-      modusZeilen = [
-        modiRes.pokal ? `Pokal: ${modiRes.pokal}` : "",
-        modiRes.achter ? `8ter Cup: ${modiRes.achter}` : "",
-      ].filter(Boolean);
-    }
-  }
+  // Spielmodus (vom Admin gepflegt); beim Pokal kann der Kapitän zwischen
+  // den beiden hinterlegten Wettbewerben wählen. Die Auswahl steckt
+  // migrationsfrei in den JSON-Einträgen der Aufstellung.
+  const modusOptionen =
+    istSpiel && modiRes
+      ? lineupModeOptionsForEvent(
+          event,
+          event.team_id ? teams.get(event.team_id)?.spielmodus : "",
+          modiRes,
+        )
+      : [];
+  const gespeicherterModus =
+    lineupModusMeta?.mode_key ??
+    lineupSpielerEintraege.find((entry) => entry.mode_key)?.mode_key;
+  const lineupModusKey = lineupModeKeyForEvent(
+    event,
+    modusOptionen,
+    gespeicherterModus,
+    lineupSpielerEintraege.length > 0,
+  );
+  const lineupModus =
+    lineupModusMeta?.mode_snapshot?.trim() ||
+    modusOptionen.find((option) => option.key === lineupModusKey)?.mode ||
+    "";
+  const modusZeilen = lineupModus ? [`Modus: ${lineupModus}`] : [];
 
   const lineupKopf = [
     `📋 Aufstellung ${event.title}`,
@@ -187,7 +218,6 @@ export default async function EventDetailPage({
     event.meet_venue_time
       ? `🤝 Treffpunkt vor Ort: ${event.meet_venue_time} Uhr`
       : "",
-    ...modusZeilen.map((z) => `🎯 ${z}`),
     (event.match_url ?? "").trim()
       ? `🔗 Spiel live mitverfolgen: ${(event.match_url ?? "").trim()}`
       : "",
@@ -468,21 +498,26 @@ export default async function EventDetailPage({
       )}
 
       {/* Aufstellung: Kapitän baut den Entwurf, gibt frei → Push an den Kader */}
-      {istSpiel && (canManage || (lineupReleased && lineupEntries.length > 0)) && (
-        <Card>
-          <CardBody className="space-y-2">
-            <p className="font-medium">📋 Aufstellung</p>
-            <LineupSection
-              eventId={event.id}
-              canManage={canManage}
-              released={lineupReleased}
-              initialEntries={lineupEntries}
-              roster={roster}
-              kopfzeilen={lineupKopf}
-            />
-          </CardBody>
-        </Card>
-      )}
+      {istSpiel &&
+        (canManage ||
+          (lineupReleased && lineupSpielerEintraege.length > 0)) && (
+          <Card>
+            <CardBody className="space-y-2">
+              <p className="font-medium">📋 Aufstellung</p>
+              <LineupSection
+                eventId={event.id}
+                canManage={canManage}
+                released={lineupReleased}
+                initialEntries={lineupSpielerEintraege}
+                roster={roster}
+                kopfzeilen={lineupKopf}
+                modusOptionen={modusOptionen}
+                initialModusKey={lineupModusKey}
+                initialModusSnapshot={lineupModusMeta?.mode_snapshot}
+              />
+            </CardBody>
+          </Card>
+        )}
 
       {/* Fahrgemeinschaft */}
       <Card>
