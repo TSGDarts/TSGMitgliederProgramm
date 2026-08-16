@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useNavOrder } from "./navOrder";
+import { SortableNavList } from "./SortableNavList";
 
 type Item = {
   href: string;
@@ -41,7 +42,7 @@ export function MemberNav({
 }) {
   const pathname = usePathname();
   const search = useSearchParams();
-  const { sorted, move, reset, angepasst } = useNavOrder(items);
+  const { sorted, move, moveTo, reset, angepasst } = useNavOrder(items);
   const [anpassen, setAnpassen] = useState(false);
 
   const link = (item: Item) =>
@@ -70,38 +71,13 @@ export function MemberNav({
       </Link>
     );
 
-  const anpassZeile = (item: Item, index: number) => (
-    <div
-      key={item.href}
-      className="flex items-center justify-between gap-2 rounded-lg px-3 py-1.5 text-sm"
-    >
-      <span className="min-w-0 truncate">{item.label}</span>
-      <span className="flex gap-1">
-        <button
-          type="button"
-          onClick={() => move(item.href, -1)}
-          disabled={index === 0}
-          className="rounded border border-border px-1.5 hover:bg-border/40 disabled:opacity-30"
-          title="Nach oben"
-        >
-          ↑
-        </button>
-        <button
-          type="button"
-          onClick={() => move(item.href, 1)}
-          disabled={index === sorted.length - 1}
-          className="rounded border border-border px-1.5 hover:bg-border/40 disabled:opacity-30"
-          title="Nach unten"
-        >
-          ↓
-        </button>
-      </span>
-    </div>
-  );
-
   return (
     <nav className="flex flex-col gap-1">
-      {anpassen ? sorted.map(anpassZeile) : sorted.map(link)}
+      {anpassen ? (
+        <SortableNavList items={sorted} move={move} moveTo={moveTo} />
+      ) : (
+        sorted.map(link)
+      )}
 
       <div className="flex items-center gap-2 px-3 pt-1">
         <button

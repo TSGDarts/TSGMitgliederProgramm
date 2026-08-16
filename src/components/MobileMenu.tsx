@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useNavOrder } from "./navOrder";
+import { SortableNavList } from "./SortableNavList";
 
 type Item = {
   href: string;
@@ -31,7 +32,7 @@ export function MobileMenu({
   const pathname = usePathname();
   const search = useSearchParams();
   const suchtext = search.toString();
-  const { sorted, move, reset, angepasst } = useNavOrder(items);
+  const { sorted, move, moveTo, reset, angepasst } = useNavOrder(items);
 
   // Beim Seitenwechsel automatisch schließen (auch bei ?-Wechsel)
   useEffect(() => {
@@ -108,7 +109,10 @@ export function MobileMenu({
             className="absolute inset-0 bg-black/40"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute inset-y-0 right-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto bg-surface p-4 shadow-xl">
+          <div
+            data-nav-scroll-container
+            className="absolute inset-y-0 right-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto bg-surface p-4 shadow-xl"
+          >
             <div className="mb-2 flex items-center justify-between">
               <span className="px-3 font-bold">Menü</span>
               <button
@@ -121,34 +125,15 @@ export function MobileMenu({
               </button>
             </div>
             <nav className="flex flex-col gap-1">
-              {anpassen
-                ? sorted.map((item, index) => (
-                    <div
-                      key={item.href}
-                      className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm"
-                    >
-                      <span className="min-w-0 truncate">{item.label}</span>
-                      <span className="flex gap-1">
-                        <button
-                          type="button"
-                          onClick={() => move(item.href, -1)}
-                          disabled={index === 0}
-                          className="rounded border border-border px-2 py-0.5 hover:bg-border/40 disabled:opacity-30"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => move(item.href, 1)}
-                          disabled={index === sorted.length - 1}
-                          className="rounded border border-border px-2 py-0.5 hover:bg-border/40 disabled:opacity-30"
-                        >
-                          ↓
-                        </button>
-                      </span>
-                    </div>
-                  ))
-                : sorted.map(link)}
+              {anpassen ? (
+                <SortableNavList
+                  items={sorted}
+                  move={move}
+                  moveTo={moveTo}
+                />
+              ) : (
+                sorted.map(link)
+              )}
               <div className="flex items-center gap-3 px-3 pt-1">
                 <button
                   type="button"
