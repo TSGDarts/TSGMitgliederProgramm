@@ -9,8 +9,10 @@ import {
   saveGegnerVorlage,
 } from "./actions";
 import { getGegnerVorlage } from "@/lib/settings";
+import { OPPONENT_BACKFILL_SETTING } from "@/lib/nuliga-opponent-sync";
 import { AddressLine } from "@/components/AddressLine";
 import { Einklappbar } from "@/components/Einklappbar";
+import { OpponentBackfill } from "./OpponentBackfill";
 import {
   PageHeader,
   Card,
@@ -77,10 +79,22 @@ export default async function AdminOpponentsPage() {
   const { data: settingsData } = await supabase
     .from("app_settings")
     .select("key, value")
-    .in("key", ["home_street", "home_zip", "home_city", "home_address"]);
+    .in("key", [
+      "home_street",
+      "home_zip",
+      "home_city",
+      "home_address",
+      OPPONENT_BACKFILL_SETTING,
+    ]);
   const settings = new Map(
     (settingsData ?? []).map((s) => [s.key as string, s.value as string]),
   );
+  const backfillCompleted = Boolean(settings.get(OPPONENT_BACKFILL_SETTING));
+  const { count: missingOpponentLinks } = await supabase
+    .from("events")
+    .select("id", { count: "exact", head: true })
+    .eq("source", "nuliga")
+    .is("opponent_id", null);
   const homeAddress = settings.get("home_address") ?? "";
   const gegnerVorlage = await getGegnerVorlage();
 
@@ -88,7 +102,12 @@ export default async function AdminOpponentsPage() {
     <div className="space-y-8">
       <PageHeader
         title="Gegner verwalten"
-        subtitle="Gegnervereine mit Adresse einmalig hinterlegen – Termine wählen dann nur noch Gegner + Mannschafts-Nr."
+        subtitle="Gegner aus nuLiga-Spieltagen werden automatisch übernommen. Ansprechpartner, Boards und Notizen kannst du hier ergänzen."
+      />
+
+      <OpponentBackfill
+        remainingCount={missingOpponentLinks ?? 0}
+        shouldRun={!backfillCompleted}
       />
 
       {/* Eigene Heimspielstätte */}
@@ -155,7 +174,7 @@ export default async function AdminOpponentsPage() {
       <Card>
         <CardBody>
           <form action={createOpponent} className="space-y-4">
-            <h2 className="font-semibold">Neuer Gegner</h2>
+            <h2 className="font-semibold">Gegner manuell ergänzen</h2>
             <Field
               label="Vereinsname"
               hint="z. B. DC Schwabach – die Mannschafts-Nr. wählst du beim Termin"
@@ -201,7 +220,7 @@ export default async function AdminOpponentsPage() {
         {opponents.length === 0 ? (
           <EmptyState
             title="Noch keine Gegner angelegt"
-            hint="Lege oben die Gegnervereine mit ihren Adressen an."
+            hint="Vorhandene nuLiga-Spieltage werden automatisch ausgewertet. Weitere Gegner kannst du oben manuell anlegen."
           />
         ) : (
           opponents.map((o) => (
