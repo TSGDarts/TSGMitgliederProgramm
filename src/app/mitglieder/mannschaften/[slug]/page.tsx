@@ -146,6 +146,33 @@ export default async function MemberTeamDetailPage({
         </Card>
       )}
 
+      <Einklappbar
+        id={`mannschaft-${team.id}-nuliga-v2`}
+        title="📋 Kompletter Spielplan bei nuLiga"
+        defaultOpen={false}
+      >
+        <NuLigaEmbed url={team.nuliga_url} title={`nuLiga – ${team.name}`} />
+      </Einklappbar>
+
+      {/* Liga-Tabelle (live aus nuLiga) */}
+      {tabelle && (
+        <section>
+          <h2 className="mb-3 text-lg font-semibold">
+            🏆 Liga-Tabelle
+            {tabelle.titel && (
+              <span className="ml-2 text-sm font-normal text-muted">
+                {tabelle.titel}
+              </span>
+            )}
+          </h2>
+          <Card>
+            <CardBody>
+              <LigaTabelle tabelle={tabelle} eigenerName={team.name} />
+            </CardBody>
+          </Card>
+        </section>
+      )}
+
       {(canManage || sichtbareAufstellungsEvents.length > 0) && (
         <section id="aufstellungen" className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -275,33 +302,6 @@ export default async function MemberTeamDetailPage({
               })}
             </div>
           )}
-        </section>
-      )}
-
-      <Einklappbar
-        id={`mannschaft-${team.id}-nuliga-v2`}
-        title="📋 Kompletter Spielplan bei nuLiga"
-        defaultOpen={false}
-      >
-        <NuLigaEmbed url={team.nuliga_url} title={`nuLiga – ${team.name}`} />
-      </Einklappbar>
-
-      {/* Liga-Tabelle (live aus nuLiga) */}
-      {tabelle && (
-        <section>
-          <h2 className="mb-3 text-lg font-semibold">
-            🏆 Liga-Tabelle
-            {tabelle.titel && (
-              <span className="ml-2 text-sm font-normal text-muted">
-                {tabelle.titel}
-              </span>
-            )}
-          </h2>
-          <Card>
-            <CardBody>
-              <LigaTabelle tabelle={tabelle} eigenerName={team.name} />
-            </CardBody>
-          </Card>
         </section>
       )}
 
