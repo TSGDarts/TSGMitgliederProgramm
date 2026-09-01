@@ -21,6 +21,7 @@ import {
 import { HelferSection, type HelferEintrag } from "@/components/HelferSection";
 import { LineupSection } from "@/components/LineupSection";
 import { GegnerNachricht } from "@/components/GegnerNachricht";
+import { germanMobileForWhatsApp } from "@/lib/opponent-contacts";
 import { MatchUrlForm } from "@/components/MatchUrlForm";
 import { ErgebnisMelden } from "@/components/ErgebnisMelden";
 import type { LineupEintrag } from "@/app/mitglieder/termine/spieltag-actions";
@@ -137,8 +138,14 @@ export default async function EventDetailPage({
     istSpiel && canManage && event.home_away === "heim" && event.opponent_id
       ? supabase
           .from("opponents")
-          .select("contact_name")
+          .select(
+            "contact_name,opponent_team_contacts(name,phone,email)",
+          )
           .eq("id", event.opponent_id)
+          .eq(
+            "opponent_team_contacts.team_no",
+            event.opponent_team_no ?? 1,
+          )
           .maybeSingle()
       : Promise.resolve({ data: null }),
     istSpiel && canManage && event.home_away === "heim"
@@ -283,9 +290,31 @@ export default async function EventDetailPage({
 
   // Heimspiel-Nachricht an den Gegner (nur für Kapitän/Vize/Bearbeiter/Admin)
   let gegnerText: string | null = null;
+  let gegnerKontakt:
+    | { name: string; phone: string; email: string; whatsapp: string }
+    | null = null;
   if (istSpiel && canManage && event.home_away === "heim" && vorlageRes) {
+    const teamContact = (
+      (oppRes.data as
+        | {
+            opponent_team_contacts?: {
+              name: string;
+              phone: string;
+              email: string;
+            }[];
+          }
+        | null)?.opponent_team_contacts ?? []
+    )[0];
     const ansprech =
-      (oppRes.data?.contact_name as string | undefined) || "zusammen";
+      teamContact?.name ||
+      (oppRes.data?.contact_name as string | undefined) ||
+      "zusammen";
+    if (teamContact) {
+      gegnerKontakt = {
+        ...teamContact,
+        whatsapp: germanMobileForWhatsApp(teamContact.phone),
+      };
+    }
     const vorlage = vorlageRes;
     const uhr =
       event.time_tbd || formatTime(event.starts_at) === "00:00"
@@ -597,7 +626,13 @@ export default async function EventDetailPage({
             💬 Nachricht an den Gegner (Heimspiel)
           </summary>
           <div className="border-t border-border p-5">
-            <GegnerNachricht text={gegnerText} />
+            <GegnerNachricht
+              text={gegnerText}
+              recipientName={gegnerKontakt?.name ?? ""}
+              phone={gegnerKontakt?.phone ?? ""}
+              email={gegnerKontakt?.email ?? ""}
+              whatsappNumber={gegnerKontakt?.whatsapp ?? ""}
+            />
           </div>
         </details>
       )}

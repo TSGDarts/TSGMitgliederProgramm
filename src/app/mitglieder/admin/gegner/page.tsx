@@ -5,12 +5,17 @@ import {
   createOpponent,
   updateOpponent,
   deleteOpponent,
+  createOpponentTeamContact,
+  updateOpponentTeamContact,
+  deleteOpponentTeamContact,
   saveHomeAddress,
   saveGegnerVorlage,
 } from "./actions";
 import { getGegnerVorlage } from "@/lib/settings";
 import { OPPONENT_BACKFILL_SETTING } from "@/lib/nuliga-opponent-sync";
 import { AddressLine } from "@/components/AddressLine";
+import { romanTeamNo } from "@/lib/extras";
+import type { OpponentTeamContact } from "@/lib/opponent-contacts";
 import { Einklappbar } from "@/components/Einklappbar";
 import { OpponentBackfill } from "./OpponentBackfill";
 import {
@@ -65,15 +70,85 @@ function AddressFields({
   );
 }
 
+function OpponentContactFields({
+  contact,
+}: {
+  contact?: OpponentTeamContact;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+      <Field label="Mannschaft Nr.">
+        <input
+          name="team_no"
+          type="number"
+          min={1}
+          max={99}
+          required
+          defaultValue={contact?.team_no ?? 1}
+          className={inputClass}
+        />
+      </Field>
+      <div className="lg:col-span-2">
+        <Field label="Name">
+          <input
+            name="contact_name"
+            required
+            defaultValue={contact?.name ?? ""}
+            className={inputClass}
+          />
+        </Field>
+      </div>
+      <Field label="Telefon / Mobil">
+        <input
+          name="phone"
+          type="tel"
+          defaultValue={contact?.phone ?? ""}
+          className={inputClass}
+        />
+      </Field>
+      <div className="lg:col-span-2">
+        <Field label="E-Mail">
+          <input
+            name="email"
+            type="email"
+            defaultValue={contact?.email ?? ""}
+            className={inputClass}
+          />
+        </Field>
+      </div>
+      <div className="sm:col-span-2 lg:col-span-6">
+        <Field label="Öffentliche NuLiga-Quelle">
+          <input
+            name="source_url"
+            type="url"
+            defaultValue={contact?.source_url ?? ""}
+            placeholder="https://bdv-dart.liga.nu/…"
+            className={inputClass}
+          />
+        </Field>
+      </div>
+    </div>
+  );
+}
+
 export default async function AdminOpponentsPage() {
   await requireEditor();
   const supabase = await createClient();
 
-  const { data: oppData } = await supabase
-    .from("opponents")
-    .select("*")
-    .order("name");
+  const [{ data: oppData }, { data: contactData }] = await Promise.all([
+    supabase.from("opponents").select("*").order("name"),
+    supabase
+      .from("opponent_team_contacts")
+      .select("*")
+      .order("team_no"),
+  ]);
   const opponents = (oppData as Opponent[]) ?? [];
+  const contactsByOpponent = new Map<string, OpponentTeamContact[]>();
+  for (const contact of (contactData as OpponentTeamContact[] | null) ?? []) {
+    const current = contactsByOpponent.get(contact.opponent_id) ?? [];
+    current.push(contact);
+    contactsByOpponent.set(contact.opponent_id, current);
+  }
 
   // Heimspielstätte (getrennte Felder + zusammengesetzte Adresse)
   const { data: settingsData } = await supabase
@@ -102,7 +177,7 @@ export default async function AdminOpponentsPage() {
     <div className="space-y-8">
       <PageHeader
         title="Gegner verwalten"
-        subtitle="Gegner aus nuLiga-Spieltagen werden automatisch übernommen. Ansprechpartner, Boards und Notizen kannst du hier ergänzen."
+        subtitle="Gegner aus nuLiga-Spieltagen werden automatisch übernommen. Ansprechpartner pflegst du hier getrennt nach Mannschaft – mit Telefon, E-Mail und NuLiga-Quelle."
       />
 
       <OpponentBackfill
@@ -182,13 +257,7 @@ export default async function AdminOpponentsPage() {
               <input name="name" required className={inputClass} />
             </Field>
             <AddressFields />
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field
-                label="Ansprechpartner (optional)"
-                hint="Für die Heimspiel-Nachricht"
-              >
-                <input name="contact_name" className={inputClass} />
-              </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Anzahl Boards (optional)" hint="Falls bekannt">
                 <input
                   name="boards"
@@ -223,7 +292,9 @@ export default async function AdminOpponentsPage() {
             hint="Vorhandene nuLiga-Spieltage werden automatisch ausgewertet. Weitere Gegner kannst du oben manuell anlegen."
           />
         ) : (
-          opponents.map((o) => (
+          opponents.map((o) => {
+            const teamContacts = contactsByOpponent.get(o.id) ?? [];
+            return (
             <Card key={o.id}>
               <CardBody className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -241,9 +312,9 @@ export default async function AdminOpponentsPage() {
                         🎯 {o.boards} Boards
                       </p>
                     )}
-                    {o.contact_name && (
+                    {teamContacts.length === 0 && o.contact_name && (
                       <p className="mt-1 text-sm text-muted">
-                        👤 Ansprechpartner: {o.contact_name}
+                        👤 Allgemeiner Ansprechpartner: {o.contact_name}
                       </p>
                     )}
                     {o.notes && (
@@ -257,6 +328,51 @@ export default async function AdminOpponentsPage() {
                     </button>
                   </form>
                 </div>
+
+                {teamContacts.length > 0 && (
+                  <div className="space-y-2 rounded-lg bg-primary/5 p-3">
+                    <p className="text-sm font-semibold">
+                      👤 Mannschaftsansprechpartner
+                    </p>
+                    {teamContacts.map((contact) => (
+                      <div
+                        key={contact.id}
+                        className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm"
+                      >
+                        <span className="font-medium">
+                          Mannschaft {romanTeamNo(contact.team_no) || "I"}
+                        </span>
+                        <span>{contact.name}</span>
+                        {contact.phone && (
+                          <a
+                            href={`tel:${contact.phone}`}
+                            className="text-primary hover:underline"
+                          >
+                            {contact.phone}
+                          </a>
+                        )}
+                        {contact.email && (
+                          <a
+                            href={`mailto:${contact.email}`}
+                            className="text-primary hover:underline"
+                          >
+                            {contact.email}
+                          </a>
+                        )}
+                        {contact.source_url && (
+                          <a
+                            href={contact.source_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-primary hover:underline"
+                          >
+                            NuLiga ↗
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <details className="rounded-lg border border-border">
                   <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-primary">
@@ -282,14 +398,7 @@ export default async function AdminOpponentsPage() {
                         city: o.city ?? "",
                       }}
                     />
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <Field label="Ansprechpartner (optional)">
-                        <input
-                          name="contact_name"
-                          defaultValue={o.contact_name ?? ""}
-                          className={inputClass}
-                        />
-                      </Field>
+                    <div className="grid gap-4 sm:grid-cols-2">
                       <Field label="Anzahl Boards (optional)">
                         <input
                           name="boards"
@@ -309,10 +418,73 @@ export default async function AdminOpponentsPage() {
                     </div>
                     <Button type="submit">Änderungen speichern</Button>
                   </form>
+
+                  <div className="space-y-4 border-t border-border p-4">
+                    <div>
+                      <p className="font-medium">
+                        Ansprechpartner nach Mannschaft
+                      </p>
+                      <p className="text-xs text-muted">
+                        Diese Zuordnung wählt beim Heimspiel automatisch den
+                        richtigen WhatsApp-Empfänger.
+                      </p>
+                    </div>
+
+                    {teamContacts.map((contact) => (
+                      <div
+                        key={contact.id}
+                        className="space-y-3 rounded-lg border border-border p-3"
+                      >
+                        <form
+                          action={updateOpponentTeamContact}
+                          className="space-y-3"
+                        >
+                          <input
+                            type="hidden"
+                            name="contact_id"
+                            value={contact.id}
+                          />
+                          <OpponentContactFields contact={contact} />
+                          <Button type="submit" variant="secondary">
+                            Ansprechpartner speichern
+                          </Button>
+                        </form>
+                        <form action={deleteOpponentTeamContact}>
+                          <input
+                            type="hidden"
+                            name="contact_id"
+                            value={contact.id}
+                          />
+                          <button className="text-sm text-danger hover:underline">
+                            Ansprechpartner entfernen
+                          </button>
+                        </form>
+                      </div>
+                    ))}
+
+                    <form
+                      action={createOpponentTeamContact}
+                      className="space-y-3 rounded-lg border border-dashed border-border p-3"
+                    >
+                      <input
+                        type="hidden"
+                        name="opponent_id"
+                        value={o.id}
+                      />
+                      <p className="text-sm font-medium">
+                        + Ansprechpartner ergänzen
+                      </p>
+                      <OpponentContactFields />
+                      <Button type="submit" variant="secondary">
+                        Ansprechpartner hinzufügen
+                      </Button>
+                    </form>
+                  </div>
                 </details>
               </CardBody>
             </Card>
-          ))
+            );
+          })
         )}
       </section>
     </div>

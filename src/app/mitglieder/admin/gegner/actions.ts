@@ -33,6 +33,37 @@ function readAddress(formData: FormData) {
   };
 }
 
+function publicNuligaSource(value: FormDataEntryValue | null): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    const host = url.hostname.toLowerCase();
+    return url.protocol === "https:" &&
+      (host === "liga.nu" || host.endsWith(".liga.nu"))
+      ? url.toString()
+      : "";
+  } catch {
+    return "";
+  }
+}
+
+function readOpponentTeamContact(formData: FormData) {
+  const teamNo = Number(formData.get("team_no"));
+  const name = String(formData.get("contact_name") ?? "").trim().slice(0, 120);
+  if (!Number.isInteger(teamNo) || teamNo < 1 || teamNo > 99 || !name) {
+    return null;
+  }
+  return {
+    team_no: teamNo,
+    name,
+    phone: String(formData.get("phone") ?? "").trim().slice(0, 60),
+    email: String(formData.get("email") ?? "").trim().slice(0, 254),
+    source_url: publicNuligaSource(formData.get("source_url")),
+    updated_at: new Date().toISOString(),
+  };
+}
+
 type ImportedEvent = {
   id: string;
   team_id: string | null;
@@ -326,7 +357,7 @@ export async function createOpponent(formData: FormData) {
   const payload = {
     name,
     ...readAddress(formData),
-    contact_name: String(formData.get("contact_name") ?? "").trim(),
+    contact_name: "",
     notes: String(formData.get("notes") ?? "").trim(),
   };
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -364,7 +395,6 @@ export async function updateOpponent(formData: FormData) {
     .update({
       name,
       ...readAddress(formData),
-      contact_name: String(formData.get("contact_name") ?? "").trim(),
       notes: String(formData.get("notes") ?? "").trim(),
     })
     .eq("id", id);
@@ -378,6 +408,48 @@ export async function deleteOpponent(formData: FormData) {
 
   const supabase = await createClient();
   await supabase.from("opponents").delete().eq("id", id);
+  revalidate();
+}
+
+/** Einen Ansprechpartner eindeutig einer Gegner-Mannschaft zuordnen. */
+export async function createOpponentTeamContact(formData: FormData) {
+  await requireEditor();
+  const opponentId = String(formData.get("opponent_id") ?? "");
+  const contact = readOpponentTeamContact(formData);
+  if (!opponentId || !contact) return;
+
+  const supabase = await createClient();
+  await supabase.from("opponent_team_contacts").upsert(
+    {
+      opponent_id: opponentId,
+      ...contact,
+    },
+    { onConflict: "opponent_id,team_no" },
+  );
+  revalidate();
+}
+
+export async function updateOpponentTeamContact(formData: FormData) {
+  await requireEditor();
+  const id = String(formData.get("contact_id") ?? "");
+  const contact = readOpponentTeamContact(formData);
+  if (!id || !contact) return;
+
+  const supabase = await createClient();
+  await supabase
+    .from("opponent_team_contacts")
+    .update(contact)
+    .eq("id", id);
+  revalidate();
+}
+
+export async function deleteOpponentTeamContact(formData: FormData) {
+  await requireEditor();
+  const id = String(formData.get("contact_id") ?? "");
+  if (!id) return;
+
+  const supabase = await createClient();
+  await supabase.from("opponent_team_contacts").delete().eq("id", id);
   revalidate();
 }
 
