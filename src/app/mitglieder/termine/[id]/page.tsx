@@ -332,7 +332,7 @@ export default async function EventDetailPage({
     if (spielLink) {
       gegnerText = gegnerText.includes("{spiellink}")
         ? gegnerText.replaceAll("{spiellink}", spielLink)
-        : `${gegnerText}\n\nHier kommt ihr direkt zu unserem Spiel in der 2k-Software (auch zum Live-Mitverfolgen): ${spielLink}`;
+        : `${gegnerText.trimEnd()}\n\nHier kommt ihr direkt zu unserem Spiel in der 2k-Software (auch zum Live-Mitverfolgen):\n${spielLink}`;
     } else {
       // Kein Link hinterlegt: Zeilen mit dem Platzhalter weglassen
       gegnerText = gegnerText
