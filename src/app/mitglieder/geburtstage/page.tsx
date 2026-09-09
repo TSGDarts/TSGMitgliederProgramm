@@ -23,6 +23,13 @@ const tagFmt = new Intl.DateTimeFormat("de-DE", {
   timeZone: "Europe/Berlin",
 });
 
+const geburtsdatumFmt = new Intl.DateTimeFormat("de-DE", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "Europe/Berlin",
+});
+
 /** Nächstes Vorkommen (JJJJ-MM-TT) eines Tag-Monats ab heute + Tage bis dahin. */
 function naechstes(iso: string, heute: string) {
   const [, mm, dd] = iso.split("-");
@@ -110,7 +117,7 @@ export default async function GeburtstagePage() {
     .map((p) => {
       const n = naechstes(p.birthday!, heute);
       const alter = n.jahr - Number(p.birthday!.slice(0, 4));
-      return { name: p.name, ...n, alter };
+      return { name: p.name, geburtsdatum: p.birthday!, ...n, alter };
     })
     .sort((a, b) => a.bisTage - b.bisTage);
 
@@ -153,17 +160,25 @@ export default async function GeburtstagePage() {
             {geburtstage.map((g, i) => (
               <Card key={`${g.name}-${i}`} className={g.bisTage === 0 ? "border-primary/40 bg-primary/5" : ""}>
                 <CardBody className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-medium">
-                    {g.name}
-                    {g.alter % 10 === 0 && (
-                      <>
-                        {" "}
-                        <Badge tone="primary">
-                          {g.alter}. – runder Geburtstag! 🎈
-                        </Badge>
-                      </>
-                    )}
-                  </span>
+                  <div>
+                    <p className="font-medium">
+                      {g.name}
+                      {g.alter % 10 === 0 && (
+                        <>
+                          {" "}
+                          <Badge tone="primary">
+                            {g.alter}. – runder Geburtstag! 🎈
+                          </Badge>
+                        </>
+                      )}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted">
+                      Geburtsdatum:{" "}
+                      {geburtsdatumFmt.format(
+                        new Date(g.geburtsdatum + "T12:00:00Z"),
+                      )}
+                    </p>
+                  </div>
                   <span className="text-sm text-muted">
                     wird {g.alter} · {wann(g.bisTage, g.datum)}
                   </span>
