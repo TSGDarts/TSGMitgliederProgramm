@@ -18,6 +18,7 @@ import {
 import { berlinISOToLocalInput } from "@/lib/tz";
 import type { Team } from "@/lib/types";
 import type { EventWithStatus } from "@/lib/member-queries";
+import { TrainingSubmitButton } from "./TrainingSubmitButton";
 
 export const metadata: Metadata = { title: "Training" };
 
@@ -219,7 +220,7 @@ export default async function TrainingPage({
             className="space-y-4"
           >
             <TrainingFields teams={teams} trainer={trainer} selfId={profile.id} />
-            <Button type="submit">Training eintragen</Button>
+            <TrainingSubmitButton />
           </form>
         </Einklappbar>
       )}

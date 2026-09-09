@@ -50,7 +50,7 @@ function naechstes(iso: string, heute: string) {
   return { datum: d, jahr, bisTage };
 }
 
-const HORIZONT = 92; // Tage im Voraus
+const JUBILAEUMS_HORIZONT = 92; // Tage im Voraus
 
 export default async function GeburtstagePage() {
   await requireProfile();
@@ -112,7 +112,6 @@ export default async function GeburtstagePage() {
       const alter = n.jahr - Number(p.birthday!.slice(0, 4));
       return { name: p.name, ...n, alter };
     })
-    .filter((g) => g.bisTage <= HORIZONT)
     .sort((a, b) => a.bisTage - b.bisTage);
 
   // Kommende Vereinsjubiläen (aus „Mitglied seit")
@@ -123,7 +122,9 @@ export default async function GeburtstagePage() {
       const jahre = n.jahr - Number(p.member_since!.slice(0, 4));
       return { name: p.name, ...n, jahre };
     })
-    .filter((j) => j.jahre >= 1 && j.bisTage <= HORIZONT)
+    .filter(
+      (j) => j.jahre >= 1 && j.bisTage <= JUBILAEUMS_HORIZONT,
+    )
     .sort((a, b) => a.bisTage - b.bisTage);
 
   const wann = (bisTage: number, datum: string) =>
@@ -137,14 +138,14 @@ export default async function GeburtstagePage() {
     <div className="space-y-6">
       <PageHeader
         title="🎂 Geburtstage & Jubiläen"
-        subtitle="Die nächsten drei Monate auf einen Blick."
+        subtitle="Alle Geburtstage der nächsten zwölf Monate sowie die Vereinsjubiläen der nächsten drei Monate."
       />
 
       <section className="space-y-3">
         <h2 className="text-lg font-bold">🎂 Kommende Geburtstage</h2>
         {geburtstage.length === 0 ? (
           <EmptyState
-            title="Keine Geburtstage in den nächsten Wochen"
+            title="Keine Geburtstage zur Anzeige freigegeben"
             hint="Es werden nur Geburtstage angezeigt, deren Anzeige im Profil erlaubt ist."
           />
         ) : (
