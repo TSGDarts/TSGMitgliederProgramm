@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   getMemberEvents,
   getAllTeams,
+  getMatchAttendanceSummaries,
   type EventWithStatus,
 } from "@/lib/member-queries";
 import { siteUrl } from "@/lib/supabase/config";
@@ -15,12 +16,42 @@ import { PageHeader, EmptyState, ButtonLink } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Zu- & Absagen" };
 
-function termineHref(nurLiga: boolean, nurOffen: boolean) {
+function termineHref(
+  nurLiga: boolean,
+  nurOffen: boolean,
+  nurKaderKnapp: boolean,
+) {
   const params = new URLSearchParams();
   if (nurLiga) params.set("liga", "1");
   if (nurOffen) params.set("offen", "1");
+  if (nurKaderKnapp) params.set("kader", "knapp");
   const query = params.toString();
   return query ? `/mitglieder/termine?${query}` : "/mitglieder/termine";
+}
+
+function filterSubtitle(
+  nurLiga: boolean,
+  nurOffen: boolean,
+  nurKaderKnapp: boolean,
+) {
+  if (nurKaderKnapp) {
+    if (nurLiga && nurOffen) {
+      return "Hier siehst du knapp besetzte Ligaspiele, für die deine Rückmeldung noch fehlt.";
+    }
+    if (nurLiga) return "Hier siehst du nur knapp besetzte Ligaspiele.";
+    if (nurOffen) {
+      return "Hier siehst du knapp besetzte Spieltage, für die deine Rückmeldung noch fehlt.";
+    }
+    return "Hier siehst du Spieltage, bei denen der Kader noch knapp oder zu klein ist.";
+  }
+  if (nurLiga && nurOffen) {
+    return "Hier siehst du nur Ligaspiele, die noch auf deine Rückmeldung warten.";
+  }
+  if (nurOffen) {
+    return "Hier siehst du nur Termine, die noch auf deine Rückmeldung warten.";
+  }
+  if (nurLiga) return "Hier siehst du nur die anstehenden Ligaspiele.";
+  return "Sag zu oder ab – für Spieltage, Freundschaftsspiele und Training (Monatsansicht unter „Kalender“ im Menü)";
 }
 
 export default async function MemberTerminePage({
@@ -29,6 +60,7 @@ export default async function MemberTerminePage({
   searchParams: Promise<{
     liga?: string | string[];
     offen?: string | string[];
+    kader?: string | string[];
   }>;
 }) {
   const profile = await requireProfile();
@@ -36,21 +68,20 @@ export default async function MemberTerminePage({
   const params = await searchParams;
   const nurLiga = params.liga === "1";
   const nurOffen = params.offen === "1";
-  const hatFilter = nurLiga || nurOffen;
+  const nurKaderKnapp = params.kader === "knapp";
+  const hatFilter = nurLiga || nurOffen || nurKaderKnapp;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title={nurOffen ? "Offene Zu-/Absagen" : "Zu- & Absagen"}
-        subtitle={
-          nurLiga && nurOffen
-            ? "Hier siehst du nur Ligaspiele, die noch auf deine Rückmeldung warten."
+        title={
+          nurKaderKnapp
+            ? "Kader-Check"
             : nurOffen
-            ? "Hier siehst du nur Termine, die noch auf deine Rückmeldung warten."
-            : nurLiga
-              ? "Hier siehst du nur die anstehenden Ligaspiele."
-            : "Sag zu oder ab – für Spieltage, Freundschaftsspiele und Training (Monatsansicht unter „Kalender“ im Menü)"
+              ? "Offene Zu-/Absagen"
+              : "Zu- & Absagen"
         }
+        subtitle={filterSubtitle(nurLiga, nurOffen, nurKaderKnapp)}
         action={
           hatFilter ? (
             <ButtonLink href="/mitglieder/termine" variant="secondary">
@@ -66,16 +97,22 @@ export default async function MemberTerminePage({
       >
         <span className="mr-1 text-sm font-medium text-muted">Filtern:</span>
         <ButtonLink
-          href={termineHref(!nurLiga, nurOffen)}
+          href={termineHref(!nurLiga, nurOffen, nurKaderKnapp)}
           variant={nurLiga ? "primary" : "secondary"}
         >
           🎯 Nur Ligaspiele
         </ButtonLink>
         <ButtonLink
-          href={termineHref(nurLiga, !nurOffen)}
+          href={termineHref(nurLiga, !nurOffen, nurKaderKnapp)}
           variant={nurOffen ? "primary" : "secondary"}
         >
           ⏳ Noch nicht abgestimmt
+        </ButtonLink>
+        <ButtonLink
+          href={termineHref(nurLiga, nurOffen, !nurKaderKnapp)}
+          variant={nurKaderKnapp ? "primary" : "secondary"}
+        >
+          ⚠️ Kader knapp
         </ButtonLink>
       </nav>
 
@@ -83,6 +120,7 @@ export default async function MemberTerminePage({
         profileId={profile.id}
         nurLiga={nurLiga}
         nurOffen={nurOffen}
+        nurKaderKnapp={nurKaderKnapp}
       />
 
       {/* Der Rahmenterminplan hat jetzt einen eigenen Reiter im Menü */}
@@ -115,12 +153,14 @@ async function ListView({
   profileId,
   nurLiga,
   nurOffen,
+  nurKaderKnapp,
 }: {
   profileId: string;
   nurLiga: boolean;
   nurOffen: boolean;
+  nurKaderKnapp: boolean;
 }) {
-  const hatFilter = nurLiga || nurOffen;
+  const hatFilter = nurLiga || nurOffen || nurKaderKnapp;
   const pastPromise: Promise<EventWithStatus[]> = hatFilter
     ? Promise.resolve([])
     : getMemberEvents(profileId, { past: true, limit: 10 });
@@ -131,12 +171,20 @@ async function ListView({
   const visibleUpcoming = allUpcoming
     .filter((event) => !isCompSpiegel(event))
     .filter((event) => !nurLiga || event.type === "match");
+  const attendanceByEvent = await getMatchAttendanceSummaries(visibleUpcoming);
+  const attendanceLoadFailed = attendanceByEvent === null;
   const past = allPast.filter((event) => !isCompSpiegel(event));
-  const upcoming = visibleUpcoming.filter(
-    (event) =>
-      !nurOffen ||
-      (event.myStatus === null && brauchtRueckmeldung(event)),
-  );
+  const upcoming = visibleUpcoming
+    .filter(
+      (event) =>
+        !nurOffen ||
+        (event.myStatus === null && brauchtRueckmeldung(event)),
+    )
+    .filter((event) => {
+      if (!nurKaderKnapp) return true;
+      const attendance = attendanceByEvent?.get(event.id);
+      return !!attendance && attendance.yes <= attendance.required;
+    });
 
   // Namen der Ansprechpartner auflösen (eine Abfrage für alle Termine)
   const kontaktIds = [
@@ -164,7 +212,11 @@ async function ListView({
     <>
       <section>
         <h2 className="mb-3 text-lg font-bold">
-          {nurLiga && nurOffen
+          {nurKaderKnapp && nurLiga
+            ? "Knappe Ligaspiele"
+            : nurKaderKnapp
+              ? "Spieltage mit Handlungsbedarf"
+            : nurLiga && nurOffen
             ? "Offene Ligaspiele"
             : nurLiga
               ? "Anstehende Ligaspiele"
@@ -175,7 +227,11 @@ async function ListView({
         {upcoming.length === 0 ? (
           <EmptyState
             title={
-              nurLiga && nurOffen
+              attendanceLoadFailed && nurKaderKnapp
+                ? "Kader-Check gerade nicht verfügbar"
+                : nurKaderKnapp
+                ? "Keine knapp besetzten Spieltage"
+                : nurLiga && nurOffen
                 ? "Keine offenen Rückmeldungen zu Ligaspielen"
                 : nurLiga
                   ? "Keine anstehenden Ligaspiele"
@@ -184,7 +240,11 @@ async function ListView({
                 : "Keine anstehenden Termine"
             }
             hint={
-              nurOffen
+              attendanceLoadFailed && nurKaderKnapp
+                ? "Bitte lade die Seite noch einmal. Deine Zu-/Absagen sind davon nicht betroffen."
+                : nurKaderKnapp
+                ? "Für alle berücksichtigten Spieltage gibt es bereits mehr Zusagen als benötigt."
+                : nurOffen
                 ? "Alles erledigt – du hast alle erforderlichen Zu-/Absagen beantwortet."
                 : undefined
             }
@@ -196,6 +256,7 @@ async function ListView({
                 key={event.id}
                 event={event}
                 contactNames={kontakteFuer(event)}
+                attendance={attendanceByEvent?.get(event.id)}
               />
             ))}
           </div>

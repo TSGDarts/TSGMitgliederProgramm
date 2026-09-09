@@ -7,17 +7,37 @@ import {
   isCompSpiegel,
   brauchtRueckmeldung,
 } from "@/lib/types";
-import type { EventWithStatus } from "@/lib/member-queries";
+import type {
+  EventWithStatus,
+  MatchAttendanceSummary,
+} from "@/lib/member-queries";
 import { formatDate, formatTime, formatUntil } from "@/lib/format";
+
+function attendanceTone(
+  attendance: MatchAttendanceSummary,
+): "ok" | "warn" | "danger" {
+  if (attendance.yes < attendance.required) return "danger";
+  if (attendance.yes === attendance.required) return "warn";
+  return "ok";
+}
+
+function attendanceLabel(attendance: MatchAttendanceSummary) {
+  const parts = [`${attendance.yes}/${attendance.required} Zusagen`];
+  if (attendance.yes === attendance.required) parts.push("knapp");
+  if (attendance.open > 0) parts.push(`${attendance.open} offen`);
+  return parts.join(" · ");
+}
 
 export function EventCard({
   event,
   trainerNames,
   contactNames,
+  attendance,
 }: {
   event: EventWithStatus;
   trainerNames?: string[];
   contactNames?: string[];
+  attendance?: MatchAttendanceSummary;
 }) {
   return (
     <Card>
@@ -81,6 +101,12 @@ export function EventCard({
               <AddressLine address={event.location} className="mt-0.5 text-sm" />
             )}
           </div>
+          {attendance && (
+            <Badge tone={attendanceTone(attendance)}>
+              {attendance.yes <= attendance.required ? "⚠️ " : "👥 "}
+              {attendanceLabel(attendance)}
+            </Badge>
+          )}
         </div>
 
         {/* Gespiegelte Competition-Abende und „nur zur Info"-Termine sind

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getEventArchiveDays, archiveCutoffIso } from "@/lib/settings";
+import { brauchtRueckmeldung } from "@/lib/types";
 import type {
   EventRow,
   Profile,
@@ -147,6 +148,175 @@ export type Participant = {
   isCaptain: boolean;
   isViceCaptain: boolean;
 };
+
+export type MatchAttendanceSummary = {
+  yes: number;
+  maybe: number;
+  no: number;
+  open: number;
+  required: number;
+};
+
+const ACHTER_CUP_TITLE = /(?:\b8(?:er|ter)\b|achter|bdv)/i;
+
+/**
+ * Benötigte Spielerzahl für die Kader-Ampel. Der 8ter Cup ist am Termin
+ * noch nicht strukturiert gespeichert; die Aufstellungsansicht verwendet
+ * dieselbe eindeutige Kennzeichnung im Titel als Rückfall.
+ */
+export function requiredPlayersForEvent(
+  event: Pick<EventRow, "type" | "title">,
+): number {
+  return event.type === "pokal" && ACHTER_CUP_TITLE.test(event.title) ? 8 : 4;
+}
+
+/**
+ * Liefert die Kaderstände aller relevanten Spieltermine gebündelt. Damit
+ * bleibt die Terminübersicht bei vielen Spieltagen bei wenigen Abfragen und
+ * nutzt dieselbe Zusage-Logik wie die Teilnehmerseite (inkl. Team-Standard).
+ * Vereinsweite Spieltermine verwenden – wie die Teilnehmerseite – alle
+ * aktiven Mitglieder, sofern keine Einladungsliste vorhanden ist.
+ */
+export async function getMatchAttendanceSummaries(
+  events: EventRow[],
+): Promise<Map<string, MatchAttendanceSummary> | null> {
+  const gameEvents = events.filter(
+    (event) =>
+      (event.type === "match" || event.type === "pokal") &&
+      brauchtRueckmeldung(event),
+  );
+  if (!gameEvents.length) return new Map();
+
+  const supabase = await createClient();
+  const eventIds = gameEvents.map((event) => event.id);
+  const teamIds = [
+    ...new Set(
+      gameEvents
+        .map((event) => event.team_id)
+        .filter((teamId): teamId is string => !!teamId),
+    ),
+  ];
+  const hasClubwideGame = gameEvents.some((event) => !event.team_id);
+  const [
+    inviteesResult,
+    teamMembersResult,
+    rsvpsResult,
+    teamsResult,
+    activeProfilesResult,
+  ] = await Promise.all([
+      supabase
+        .from("event_invitees")
+        .select("event_id, profile_id")
+        .in("event_id", eventIds),
+      teamIds.length
+        ? supabase
+            .from("team_members")
+            .select("team_id, profile_id")
+            .in("team_id", teamIds)
+        : Promise.resolve({ data: [], error: null }),
+      supabase
+        .from("rsvps")
+        .select("event_id, profile_id, status")
+        .in("event_id", eventIds),
+      teamIds.length
+        ? supabase
+            .from("teams")
+            .select("id, default_rsvp")
+            .in("id", teamIds)
+        : Promise.resolve({ data: [], error: null }),
+      hasClubwideGame
+        ? supabase.from("profiles").select("id").eq("is_active", true)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+  if (
+    inviteesResult.error ||
+    teamMembersResult.error ||
+    rsvpsResult.error ||
+    teamsResult.error ||
+    activeProfilesResult.error
+  ) {
+    return null;
+  }
+
+  const inviteesByEvent = new Map<string, Set<string>>();
+  for (const row of inviteesResult.data ?? []) {
+    const eventId = row.event_id as string;
+    const profileId = row.profile_id as string;
+    const invitees = inviteesByEvent.get(eventId) ?? new Set<string>();
+    invitees.add(profileId);
+    inviteesByEvent.set(eventId, invitees);
+  }
+
+  const membersByTeam = new Map<string, Set<string>>();
+  for (const row of teamMembersResult.data ?? []) {
+    const teamId = row.team_id as string;
+    const profileId = row.profile_id as string;
+    const members = membersByTeam.get(teamId) ?? new Set<string>();
+    members.add(profileId);
+    membersByTeam.set(teamId, members);
+  }
+
+  const rsvpsByEvent = new Map<string, Map<string, RsvpStatus>>();
+  for (const row of rsvpsResult.data ?? []) {
+    const eventId = row.event_id as string;
+    const profileId = row.profile_id as string;
+    const rsvps = rsvpsByEvent.get(eventId) ?? new Map<string, RsvpStatus>();
+    rsvps.set(profileId, row.status as RsvpStatus);
+    rsvpsByEvent.set(eventId, rsvps);
+  }
+
+  const defaultByTeam = new Map<string, RsvpStatus | null>();
+  for (const row of teamsResult.data ?? []) {
+    defaultByTeam.set(
+      row.id as string,
+      ((row.default_rsvp as string) || null) as RsvpStatus | null,
+    );
+  }
+  const activeProfiles = new Set(
+    (activeProfilesResult.data ?? []).map((row) => row.id as string),
+  );
+
+  const summaries = new Map<string, MatchAttendanceSummary>();
+  for (const event of gameEvents) {
+    const participants =
+      inviteesByEvent.get(event.id) ??
+      (event.team_id
+        ? (membersByTeam.get(event.team_id) ?? new Set<string>())
+        : activeProfiles);
+
+    const rsvps = rsvpsByEvent.get(event.id);
+    const teamDefault = event.team_id
+      ? (defaultByTeam.get(event.team_id) ?? null)
+      : null;
+    const summary: MatchAttendanceSummary = {
+      yes: 0,
+      maybe: 0,
+      no: 0,
+      open: 0,
+      required: requiredPlayersForEvent(event),
+    };
+
+    for (const profileId of participants) {
+      switch (rsvps?.get(profileId) ?? teamDefault) {
+        case "yes":
+          summary.yes += 1;
+          break;
+        case "maybe":
+          summary.maybe += 1;
+          break;
+        case "no":
+          summary.no += 1;
+          break;
+        default:
+          summary.open += 1;
+      }
+    }
+    summaries.set(event.id, summary);
+  }
+
+  return summaries;
+}
 
 /**
  * Teilnehmerliste eines Termins mit Zu-/Absage-Status.
