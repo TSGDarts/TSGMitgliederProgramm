@@ -93,6 +93,7 @@ export async function claimMember(
       is_trainer: invite.is_trainer ?? false,
       is_planner: invite.is_planner ?? false,
       is_treasurer: invite.is_treasurer ?? false,
+      can_view_jersey_report: invite.can_view_jersey_report ?? false,
       email,
       phone,
       birthday,

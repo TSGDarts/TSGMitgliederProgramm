@@ -99,6 +99,23 @@ export async function requireTreasurer(): Promise<Profile> {
   return profile;
 }
 
+/** Darf alle Trikotgrößen sehen: eigener Freigabe-Haken oder Admin. */
+export function canViewJerseyReport(profile: Profile): boolean {
+  return (
+    profile.is_active &&
+    (profile.role === "admin" || !!profile.can_view_jersey_report)
+  );
+}
+
+/** Erzwingt die Leseberechtigung für die Trikotgrößen-Auswertung. */
+export async function requireJerseyReportViewer(): Promise<Profile> {
+  const profile = await requireProfile("/mitglieder/trikotgroessen");
+  if (!canViewJerseyReport(profile)) {
+    redirect("/mitglieder");
+  }
+  return profile;
+}
+
 /** Erzwingt einen Trainer (oder Admin/Bearbeiter). Leitet sonst um. */
 export async function requireTrainer(): Promise<Profile> {
   const profile = await requireProfile("/mitglieder");

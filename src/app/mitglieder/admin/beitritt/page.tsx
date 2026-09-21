@@ -29,6 +29,7 @@ type Invite = {
   is_trainer?: boolean | null;
   is_planner?: boolean | null;
   is_treasurer?: boolean | null;
+  can_view_jersey_report?: boolean | null;
   left_on?: string | null;
   claimed: boolean;
 };
@@ -145,6 +146,10 @@ export default async function AdminBeitrittPage({
               <input type="checkbox" name="is_trainer" />
               💪 Trainer – darf Trainings eintragen
             </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="can_view_jersey_report" />
+              👕 Trikot-Auswertung – darf Größen aller Mitglieder sehen
+            </label>
             <Button type="submit">Name hinzufügen</Button>
           </form>
         </CardBody>
@@ -177,6 +182,9 @@ export default async function AdminBeitrittPage({
                       )}
                       {inv.role === "member" && <Badge>ohne Liga</Badge>}
                       {inv.is_trainer && <Badge tone="ok">💪 Trainer</Badge>}
+                      {inv.can_view_jersey_report && (
+                        <Badge tone="ok">👕 Trikot-Auswertung</Badge>
+                      )}
                       {inv.birthday ? (
                         <span className="ml-2 text-sm text-muted">
                           🎂 {inv.birthday}
@@ -296,6 +304,14 @@ export default async function AdminBeitrittPage({
                           defaultChecked={inv.is_treasurer ?? false}
                         />
                         💰 Kassierer – darf das Kassenbuch verwalten
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="can_view_jersey_report"
+                          defaultChecked={inv.can_view_jersey_report ?? false}
+                        />
+                        👕 Trikot-Auswertung – darf Größen aller Mitglieder sehen
                       </label>
                       <Button type="submit">Änderungen speichern</Button>
                     </form>

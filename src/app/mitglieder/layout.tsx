@@ -1,6 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
-import { requireProfile, canPlanSeason, canManageKasse } from "@/lib/auth";
+import {
+  requireProfile,
+  canPlanSeason,
+  canManageKasse,
+  canViewJerseyReport,
+} from "@/lib/auth";
 import { getManageableTeamIds } from "@/lib/member-queries";
 import { getNuligaStaffelUrl } from "@/lib/settings";
 import {
@@ -67,6 +72,14 @@ export default async function MemberLayout({
         { href: "/mitglieder/kasse", label: "Kasse", icon: "wallet" },
         { href: "/mitglieder/rechnungen", label: "Rechnungen", icon: "receipt" },
       );
+    }
+    if (canViewJerseyReport(profile)) {
+      const i = kopie.findIndex((n) => n.href === "/mitglieder/profil");
+      kopie.splice(i >= 0 ? i : kopie.length, 0, {
+        href: "/mitglieder/trikotgroessen",
+        label: "Trikotgrößen",
+        icon: "table",
+      });
     }
     return kopie;
   })();

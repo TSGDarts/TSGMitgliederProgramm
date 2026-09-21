@@ -85,6 +85,10 @@ export function CreateMemberForm() {
             <input type="checkbox" name="is_treasurer" />
             💰 Kassierer – darf das Kassenbuch verwalten
           </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="can_view_jersey_report" />
+            👕 Trikot-Auswertung – darf Größen aller Mitglieder sehen
+          </label>
 
           <p className="text-xs text-muted">
             Die Mannschafts-Zuordnung läuft komplett über „Mannschaften

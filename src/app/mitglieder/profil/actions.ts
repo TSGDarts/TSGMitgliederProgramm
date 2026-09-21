@@ -42,6 +42,7 @@ export async function updateJerseySize(formData: FormData) {
   revalidatePath(PFAD);
   revalidatePath("/mitglieder");
   revalidatePath("/mitglieder/admin/mitglieder");
+  revalidatePath("/mitglieder/trikotgroessen");
   redirect(
     `${PFAD}?gespeichert=trikot-${profile.id}-${Date.now()}#trikotgroesse`,
   );

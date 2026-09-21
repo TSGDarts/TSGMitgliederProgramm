@@ -66,6 +66,7 @@ export default async function AdminMembersPage({
     is_trainer?: boolean | null;
     is_planner?: boolean | null;
     is_treasurer?: boolean | null;
+    can_view_jersey_report?: boolean | null;
     left_on?: string | null;
   }>;
   const wartende = openInvites.filter((i) => !istAusgetreten(i.left_on));
@@ -113,12 +114,20 @@ export default async function AdminMembersPage({
                   registrierten Mitgliedern haben eine Größe gewählt.
                 </p>
               </div>
-              <Link
-                href="/mitglieder/admin/einstellungen#einstellungen-trikotgroesse"
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                Abfrage verwalten →
-              </Link>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href="/mitglieder/trikotgroessen"
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  Vollständige Auswertung →
+                </Link>
+                <Link
+                  href="/mitglieder/admin/einstellungen#einstellungen-trikotgroesse"
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  Abfrage verwalten →
+                </Link>
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-7">
@@ -186,6 +195,9 @@ export default async function AdminMembersPage({
                       {inv.is_trainer && <Badge tone="ok">💪 Trainer</Badge>}
                       {inv.is_planner && <Badge tone="ok">🧠 Saisonplaner</Badge>}
                       {inv.is_treasurer && <Badge tone="ok">💰 Kassierer</Badge>}
+                      {inv.can_view_jersey_report && (
+                        <Badge tone="ok">👕 Trikot-Auswertung</Badge>
+                      )}
                       <Badge tone="warn">noch nicht angemeldet</Badge>
                       {inv.left_on && (
                         <Badge tone="warn">👋 Austritt zum {inv.left_on}</Badge>
@@ -312,6 +324,14 @@ export default async function AdminMembersPage({
                         />
                         💰 Kassierer – darf das Kassenbuch verwalten
                       </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          name="can_view_jersey_report"
+                          defaultChecked={inv.can_view_jersey_report ?? false}
+                        />
+                        👕 Trikot-Auswertung – darf Größen aller Mitglieder sehen
+                      </label>
                       <Button type="submit">Änderungen speichern</Button>
                     </form>
                   </details>
@@ -358,6 +378,9 @@ export default async function AdminMembersPage({
                     {m.is_trainer && <Badge tone="ok">💪 Trainer</Badge>}
                     {m.is_planner && <Badge tone="ok">🧠 Saisonplaner</Badge>}
                     {m.is_treasurer && <Badge tone="ok">💰 Kassierer</Badge>}
+                    {m.can_view_jersey_report && (
+                      <Badge tone="ok">👕 Trikot-Auswertung</Badge>
+                    )}
                     {m.jersey_size ? (
                       <Badge tone="primary">
                         👕 {jerseySizeLabel(m.jersey_size)}
@@ -541,6 +564,14 @@ export default async function AdminMembersPage({
                       defaultChecked={m.is_treasurer ?? false}
                     />
                     💰 Kassierer – darf das Kassenbuch verwalten
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name="can_view_jersey_report"
+                      defaultChecked={m.can_view_jersey_report ?? false}
+                    />
+                    👕 Trikot-Auswertung – darf Größen aller Mitglieder sehen
                   </label>
                   <Button type="submit">Speichern</Button>
                 </form>

@@ -39,35 +39,35 @@ export function TrikotgroessenTabelle() {
           in cm.
         </p>
         <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-96 text-left text-sm">
+          <table className="w-full text-left text-xs sm:text-sm">
             <caption className="sr-only">
               Hersteller-Maße des Poloshirts nach Trikotgröße in Zentimetern
             </caption>
             <thead className="bg-border/40">
               <tr>
-                <th scope="col" className="px-3 py-2 font-semibold">
+                <th scope="col" className="px-2 py-2 font-semibold sm:px-3">
                   Größe
                 </th>
-                <th scope="col" className="px-3 py-2 font-semibold">
-                  A Brust
+                <th scope="col" className="px-2 py-2 font-semibold sm:px-3">
+                  A Brust (cm)
                 </th>
-                <th scope="col" className="px-3 py-2 font-semibold">
-                  B Länge
+                <th scope="col" className="px-2 py-2 font-semibold sm:px-3">
+                  B Länge (cm)
                 </th>
-                <th scope="col" className="px-3 py-2 font-semibold">
-                  C Ärmel
+                <th scope="col" className="px-2 py-2 font-semibold sm:px-3">
+                  C Ärmel (cm)
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {JERSEY_SIZES.map((size) => (
                 <tr key={size}>
-                  <th scope="row" className="px-3 py-2 font-medium">
+                  <th scope="row" className="px-2 py-2 font-medium sm:px-3">
                     {jerseySizeLabel(size)}
                   </th>
-                  <td className="px-3 py-2">{MASSE[size].brust}</td>
-                  <td className="px-3 py-2">{MASSE[size].laenge}</td>
-                  <td className="px-3 py-2">{MASSE[size].aermel}</td>
+                  <td className="px-2 py-2 sm:px-3">{MASSE[size].brust}</td>
+                  <td className="px-2 py-2 sm:px-3">{MASSE[size].laenge}</td>
+                  <td className="px-2 py-2 sm:px-3">{MASSE[size].aermel}</td>
                 </tr>
               ))}
             </tbody>

@@ -59,6 +59,7 @@ export async function createMember(
   const is_trainer = formData.get("is_trainer") === "on";
   const is_planner = formData.get("is_planner") === "on";
   const is_treasurer = formData.get("is_treasurer") === "on";
+  const can_view_jersey_report = formData.get("can_view_jersey_report") === "on";
 
   // Ohne E-Mail: Name für die Selbst-Anmeldung anlegen. Die Person
   // registriert sich später über den Beitritts-Link/QR und gibt ihre
@@ -83,6 +84,7 @@ export async function createMember(
         is_trainer,
         is_planner,
         is_treasurer,
+        can_view_jersey_report,
       });
     if (error) {
       return {
@@ -142,6 +144,7 @@ export async function createMember(
       is_trainer,
       is_planner,
       is_treasurer,
+      can_view_jersey_report,
     })
     .eq("id", userId);
 
@@ -253,6 +256,7 @@ export async function updateMemberData(formData: FormData) {
       is_trainer: formData.get("is_trainer") === "on",
       is_planner: formData.get("is_planner") === "on",
       is_treasurer: formData.get("is_treasurer") === "on",
+      can_view_jersey_report: formData.get("can_view_jersey_report") === "on",
       left_on,
       member_since,
     })

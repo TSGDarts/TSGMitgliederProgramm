@@ -158,6 +158,7 @@ export async function saveJerseySurveySetting(formData: FormData) {
   revalidatePath("/mitglieder");
   revalidatePath("/mitglieder/profil");
   revalidatePath("/mitglieder/admin/mitglieder");
+  revalidatePath("/mitglieder/trikotgroessen");
   redirect(`${PFAD}?gespeichert=trikot-${Date.now()}`);
 }
 
