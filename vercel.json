@@ -1,6 +1,7 @@
 {
   "regions": ["fra1"],
   "crons": [
+    { "path": "/api/nuliga-sync", "schedule": "0 3 * * *" },
     { "path": "/api/comp-import", "schedule": "0 4 * * *" },
     { "path": "/api/erinnerungen", "schedule": "0 6 * * *" }
   ]

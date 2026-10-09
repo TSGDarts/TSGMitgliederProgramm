@@ -86,20 +86,29 @@ export function CarpoolSection({
       fahrerId?: string;
     },
   ) {
-    setRolle(neueRolle);
-    if (override?.seats != null) setSeats(override.seats);
-    if (override?.fahrerId != null) setFahrerId(override.fahrerId);
+    setFehler("");
+    setGespeichert(false);
     startTransition(async () => {
-      const res = await setCarpool(eventId, neueRolle, {
-        seats: override?.seats ?? seats,
-        ort: override?.ort ?? ort,
-        ziel: override?.ziel ?? ziel,
-        abfahrt: override?.abfahrt ?? abfahrt,
-        fahrerId: override?.fahrerId ?? fahrerId,
-      });
-      setFehler(res.ok ? "" : (res.message ?? "Konnte nicht gespeichert werden."));
-      setGespeichert(res.ok);
-      router.refresh();
+      try {
+        const res = await setCarpool(eventId, neueRolle, {
+          seats: override?.seats ?? seats,
+          ort: override?.ort ?? ort,
+          ziel: override?.ziel ?? ziel,
+          abfahrt: override?.abfahrt ?? abfahrt,
+          fahrerId: override?.fahrerId ?? fahrerId,
+        });
+        if (!res.ok) {
+          setFehler(res.message ?? "Konnte nicht gespeichert werden.");
+          return;
+        }
+        setRolle(neueRolle);
+        if (override?.seats != null) setSeats(override.seats);
+        if (override?.fahrerId != null) setFahrerId(override.fahrerId);
+        setGespeichert(true);
+        router.refresh();
+      } catch {
+        setFehler("Die Fahrgemeinschaft konnte nicht gespeichert werden. Bitte versuche es erneut.");
+      }
     });
   }
 
@@ -131,6 +140,7 @@ export function CarpoolSection({
             mit
             <select
               value={seats}
+              disabled={isPending}
               onChange={(e) => speichern("fahrer", { seats: Number(e.target.value) })}
               className="rounded-lg border border-border bg-surface px-2 py-1 text-sm"
             >
@@ -161,8 +171,14 @@ export function CarpoolSection({
         )}
       </div>
 
+      {isPending ? (
+        <p role="status" className="text-sm text-muted">Speichert …</p>
+      ) : gespeichert ? (
+        <p role="status" className="text-sm text-ok">✓ gespeichert</p>
+      ) : null}
+
       {fehler && (
-        <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
+        <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
           ⚠️ {fehler}
         </p>
       )}
@@ -176,6 +192,7 @@ export function CarpoolSection({
             </span>
             <input
               value={ort}
+              disabled={isPending}
               onChange={(e) => {
                 setOrt(e.target.value);
                 setGespeichert(false);
@@ -189,6 +206,7 @@ export function CarpoolSection({
             <span className="mb-1 block text-xs text-muted">🎯 Ziel</span>
             <input
               value={ziel}
+              disabled={isPending}
               onChange={(e) => {
                 setZiel(e.target.value);
                 setGespeichert(false);
@@ -204,6 +222,7 @@ export function CarpoolSection({
             </span>
             <input
               value={abfahrt}
+              disabled={isPending}
               onChange={(e) => {
                 setAbfahrt(e.target.value);
                 setGespeichert(false);
@@ -222,6 +241,7 @@ export function CarpoolSection({
               </span>
               <select
                 value={fahrerId}
+                disabled={isPending}
                 onChange={(e) => speichern("mitfahrer", { fahrerId: e.target.value })}
                 className={feld}
               >
@@ -244,11 +264,6 @@ export function CarpoolSection({
             >
               💾 Speichern
             </button>
-            {isPending ? (
-              <span className="text-sm text-muted">speichert …</span>
-            ) : gespeichert ? (
-              <span className="text-sm text-ok">✓ gespeichert</span>
-            ) : null}
             <span className="text-xs text-muted">Ziel leer = Spielort.</span>
           </div>
         </div>

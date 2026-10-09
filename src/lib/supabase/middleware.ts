@@ -54,6 +54,7 @@ export async function updateSession(request: NextRequest) {
     "/ergebnisse",
     "/api/dart-feed",
     "/api/comp-import",
+    "/api/nuliga-sync",
     "/api/kalender",
     "/api/erinnerungen",
   ];

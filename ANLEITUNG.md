@@ -79,7 +79,7 @@ Damit kannst du dich später mit dieser E-Mail + Passwort als Admin einloggen.
 
 1. Auf **https://vercel.com** mit dem GitHub-Konto anmelden.
 2. **Add New → Project** → das `tsg-dart`-Repository importieren.
-3. Unter **Environment Variables** diese vier Werte eintragen
+3. Unter **Environment Variables** diese fünf Werte eintragen
    (aus Schritt 1 bzw. deine spätere Adresse):
 
    | Name | Wert |
@@ -88,6 +88,7 @@ Damit kannst du dich später mit dieser E-Mail + Passwort als Admin einloggen.
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | der anon-Schlüssel |
    | `SUPABASE_SERVICE_ROLE_KEY` | der service_role-Schlüssel |
    | `NEXT_PUBLIC_SITE_URL` | deine Vercel-Adresse, z. B. `https://tsg-dart.vercel.app` |
+   | `CRON_SECRET` | ein zufälliger geheimer Wert mit mindestens 16 Zeichen; schützt den täglichen nuLiga-Abgleich |
 
 4. **Deploy** klicken. Nach ein paar Minuten ist die Seite online.
 
@@ -142,8 +143,24 @@ hinzufügen, Kapitän markieren.
 1. Bei einer Mannschaft (**Mannschaften verwalten**) die **nuLiga-Adresse**
    (Tabelle/Spielplan) und die **iCal-Adresse** (Kalender-Export aus nuLiga)
    eintragen und speichern.
-2. Auf **„Termine aus nuLiga importieren“** klicken – die Spieltermine landen
-   automatisch im Kalender (inkl. Zu-/Absage). Erneut klicken aktualisiert sie.
+2. Unter **Mannschaften verwalten** oben auf
+   **„Alle Mannschaften mit nuLiga abgleichen“** klicken. Ein Klick gleicht alle
+   Mannschaften mit gespeicherter iCal-Adresse ab – die Spieltermine
+   landen im Kalender (inkl. Zu-/Absage). Danach prüft die App alle hinterlegten
+   nuLiga-Kalender täglich automatisch. Der Knopf startet den Abgleich bei Bedarf
+   zusätzlich sofort für alle Mannschaften. Falls du nur eine Mannschaft
+   abgleichen möchtest, kannst du sie öffnen und dort optional auf
+   **„Jetzt mit nuLiga abgleichen“** klicken.
+   Im gleichen Lauf werden die **Endergebnisse** aus dem Liga-Spielplan übernommen,
+   auch wenn der vollständige Spielbericht noch fehlt. Sobald dieser auf nuLiga
+   vorliegt, ergänzt die App Einzel, Doppel und Bestleistungen in der
+   **Liga-Statistik**. Für Ergebnisse und Statistik muss die
+   nuLiga-Adresse der Liga oder der Tabellen-Link (`groupPage` mit Liga und Gruppe)
+   hinterlegt sein. Der tägliche Lauf ist auf 03:00 UTC eingestellt, also 05:00 Uhr
+   während der Sommerzeit und 04:00 Uhr während der Winterzeit.
+   Berichte werden am bestehenden Termin ergänzt oder bei Korrekturen ersetzt;
+   vorhandene 3K-Berichte bleiben erhalten. Nicht eindeutig zuordenbare oder
+   unvollständige Berichte werden im Abgleichergebnis gemeldet und nicht übernommen.
 3. Die Liga-Tabelle wird auf der Mannschaftsseite eingebettet angezeigt.
 
 ---
@@ -154,7 +171,7 @@ Nur falls du auf deinem eigenen Rechner ausprobieren willst:
 
 1. **Node.js** (LTS) von https://nodejs.org installieren.
 2. In diesem Ordner die Datei `.env.example` nach `.env.local` kopieren und die
-   vier Werte eintragen.
+   fünf Werte eintragen.
 3. Im Ordner ein Terminal öffnen und:
    ```
    npm install
@@ -167,10 +184,12 @@ Nur falls du auf deinem eigenen Rechner ausprobieren willst:
 ## Grenzen / gut zu wissen
 
 - **nuLiga**: Es gibt keine offizielle Voll-Synchronisation. Umgesetzt ist der
-  offizielle Weg: **iCal-Import** der Termine + **eingebettete** Liga-Seiten.
+  Weg: täglicher **iCal-Abgleich** der Termine, **Ergebnis- und Spielbericht-Abgleich** über die
+  öffentlichen Liga-Seiten und **eingebettete** Tabellen. Verlegungen aktualisieren denselben App-Termin, damit Zu-/Absagen
+  und Handy-Kalender-Abos erhalten bleiben.
   Manche nuLiga-Seiten verbieten das Einbetten – dann greift automatisch ein
   „Bei nuLiga öffnen“-Link.
 - Der **service_role-Schlüssel** ist geheim und steht nur in den
   Server-Umgebungsvariablen (nie im Browser). Nicht weitergeben.
 - Alles Weitere (z. B. E-Mail-Benachrichtigungen bei neuen Terminen,
-  Statistiken) lässt sich später ergänzen.
+  weitere Datenquellen) lässt sich später ergänzen.

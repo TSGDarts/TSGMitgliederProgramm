@@ -22,6 +22,8 @@ import {
 } from "@/components/ui";
 import type { Profile, Team } from "@/lib/types";
 
+export const maxDuration = 300;
+
 export default async function AdminTeamDetailPage({
   params,
 }: {
@@ -167,7 +169,7 @@ export default async function AdminTeamDetailPage({
             </Field>
             <Field
               label="nuLiga iCal-Adresse (Kalender-Export)"
-              hint="Für den automatischen Import der Spieltermine"
+              hint="Wird einmal täglich automatisch mit dem App-Kalender abgeglichen"
             >
               <input
                 name="nuliga_ical_url"
@@ -195,12 +197,21 @@ export default async function AdminTeamDetailPage({
       {/* nuLiga-Import */}
       <Card>
         <CardBody className="space-y-3">
-          <h2 className="font-semibold">Spieltermine importieren</h2>
+          <h2 className="font-semibold">Automatischer Abgleich: Spielplan, Ergebnisse & Statistik</h2>
           <p className="text-sm text-muted">
-            Liest den nuLiga-Kalender und legt die Punktspiele als Termine an
-            (bestehende werden aktualisiert). Gegnervereine, Mannschaftsnummer,
-            Heim/Auswärts und die Auswärtsadresse werden automatisch übernommen;
-            bereits gepflegte Gegnerdaten bleiben erhalten.
+            Der nuLiga-Kalender wird täglich automatisch geprüft. Der Knopf
+            startet den gleichen Abgleich sofort. Neue und verlegte Punktspiele,
+            Gegnervereine, Mannschaftsnummer, Heim/Auswärts und die
+            Auswärtsadresse werden übernommen; bereits gepflegte Gegnerdaten und
+            Zu-/Absagen bleiben erhalten.
+          </p>
+          <p className="text-sm text-muted">
+            Im gleichen Lauf werden die Endergebnisse übernommen, auch wenn der
+            vollständige Spielbericht noch fehlt. Sobald dieser auf nuLiga
+            vorliegt, werden Einzel, Doppel und Bestleistungen in der
+            Liga-Statistik ergänzt. Für Ergebnisse und Statistik muss auch der
+            nuLiga-Link der Liga hinterlegt sein. Vorhandene 3K-Berichte bleiben
+            erhalten.
           </p>
           <ImportButton teamId={team.id} icalUrl={team.nuliga_ical_url ?? ""} />
         </CardBody>

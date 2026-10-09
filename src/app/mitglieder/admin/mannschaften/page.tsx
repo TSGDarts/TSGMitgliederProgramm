@@ -5,6 +5,7 @@ import { getAllTeams } from "@/lib/member-queries";
 import { getSpielModi } from "@/lib/settings";
 import { createTeam, saveSpielModi } from "./actions";
 import { Einklappbar } from "@/components/Einklappbar";
+import { AllNuligaSyncButton } from "./AllNuligaSyncButton";
 import {
   PageHeader,
   Card,
@@ -16,11 +17,13 @@ import {
 } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Mannschaften verwalten" };
+export const maxDuration = 300;
 
 export default async function AdminTeamsPage() {
   await requireEditor();
   const teams = await getAllTeams();
   const modi = await getSpielModi();
+  const configuredTeams = teams.filter((team) => team.nuliga_ical_url?.trim()).length;
 
   return (
     <div className="space-y-8">
@@ -28,6 +31,18 @@ export default async function AdminTeamsPage() {
         title="Mannschaften verwalten"
         subtitle="Teams anlegen, Liga & nuLiga verknüpfen, Kader pflegen"
       />
+
+      <Card>
+        <CardBody className="space-y-3">
+          <h2 className="font-semibold">nuLiga-Abgleich für alle Mannschaften</h2>
+          <p className="text-sm text-muted">
+            Ein Klick gleicht Spielplan, Ergebnisse und Liga-Statistik für alle
+            Mannschaften mit hinterlegter nuLiga-iCal-Adresse ab. Der gleiche
+            Abgleich läuft täglich automatisch.
+          </p>
+          <AllNuligaSyncButton configuredTeams={configuredTeams} />
+        </CardBody>
+      </Card>
 
       {/* Spielmodus je Wettbewerb */}
       <Einklappbar

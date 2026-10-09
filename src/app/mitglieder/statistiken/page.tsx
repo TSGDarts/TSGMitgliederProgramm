@@ -115,7 +115,7 @@ export default async function StatistikenPage({
       {saisonListen[0].liste.length === 0 ? (
         <EmptyState
           title="Noch keine Spielberichte eingespielt"
-          hint="Sobald der Admin nuLiga-Spielberichte einspielt, füllt sich die Liste automatisch."
+          hint="Veröffentlichte nuLiga-Spielberichte werden beim täglichen Abgleich übernommen. Berichte können auch von Hand eingespielt werden."
         />
       ) : zeigeRekorde ? (
         <Einklappbar id="statistiken-rekorde" title="🏅 Vereins-Rekorde">

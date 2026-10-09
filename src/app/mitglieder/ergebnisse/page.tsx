@@ -19,7 +19,7 @@ export default async function ErgebnissePage({
   searchParams: Promise<{ saison?: string }>;
 }) {
   const { saison } = await searchParams;
-  await requireProfile();
+  const profile = await requireProfile();
   const supabase = await createClient();
   const teams = await getAllTeams();
 
@@ -82,6 +82,24 @@ export default async function ErgebnissePage({
         title="🎯 Ergebnisse"
         subtitle="Alle Spiele je Mannschaft – Spiel antippen für Details"
       />
+
+      <p className="text-sm text-muted">
+        nuLiga-Endergebnisse werden täglich automatisch übernommen. Die
+        Liga-Statistik wird ergänzt, sobald der vollständige Spielbericht
+        vorliegt.
+        {(profile.role === "admin" || profile.role === "editor") && (
+          <>
+            {" "}Für einen sofortigen Abgleich aller Mannschaften unter{" "}
+            <Link
+              href="/mitglieder/admin/mannschaften"
+              className="text-primary hover:underline"
+            >
+              Mannschaften verwalten
+            </Link>{" "}
+            oben auf „Alle Mannschaften mit nuLiga abgleichen“ klicken.
+          </>
+        )}
+      </p>
 
       {/* Saison wählen */}
       {saisons.length > 1 && (

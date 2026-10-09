@@ -22,12 +22,15 @@ export default async function NuLigaPage() {
 
       <Card className="bg-primary/5">
         <CardBody className="text-sm text-muted">
-          Die Spieltermine aus nuLiga landen über den iCal-Import automatisch im{" "}
+          Die Spieltermine aus nuLiga werden einmal täglich automatisch mit dem{" "}
           <Link href="/mitglieder/termine" className="text-primary hover:underline">
             Terminkalender
-          </Link>
-          . Tabellen und Spielpläne siehst du hier bzw. auf der jeweiligen
-          Mannschaftsseite.{" "}
+          </Link>{" "}
+          abgeglichen. Im gleichen Lauf werden die Endergebnisse übernommen,
+          auch wenn der vollständige Spielbericht noch fehlt. Sobald dieser auf
+          nuLiga vorliegt, wird auch die Liga-Statistik ergänzt. Tabellen und
+          Spielpläne siehst du hier bzw. auf der
+          jeweiligen Mannschaftsseite.{" "}
           <a
             href={nuligaStaffelUrl}
             target="_blank"

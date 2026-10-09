@@ -5,6 +5,7 @@ export interface IcalEvent {
   summary: string;
   location: string;
   description: string;
+  categories: string;
   start: string; // ISO
   end: string | null; // ISO
 }
@@ -76,12 +77,15 @@ export function parseIcal(raw: string): IcalEvent[] {
       continue;
     }
     if (line === "END:VEVENT") {
-      if (cur && cur.start) {
+      // UID ist für einen dauerhaften Abgleich zwingend. Ohne UID würde derselbe
+      // Termin bei jedem täglichen Import als neuer Datensatz erscheinen.
+      if (cur && cur.start && cur.uid?.trim()) {
         events.push({
-          uid: cur.uid ?? crypto.randomUUID(),
+          uid: cur.uid.trim(),
           summary: cur.summary ?? "Termin",
           location: cur.location ?? "",
           description: cur.description ?? "",
+          categories: cur.categories ?? "",
           start: cur.start,
           end: cur.end ?? null,
         });
@@ -109,6 +113,9 @@ export function parseIcal(raw: string): IcalEvent[] {
         break;
       case "DESCRIPTION":
         cur.description = unescape(value);
+        break;
+      case "CATEGORIES":
+        cur.categories = unescape(value);
         break;
       case "DTSTART":
         cur.start = parseIcalDate(value) ?? undefined;

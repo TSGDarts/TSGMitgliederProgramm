@@ -46,11 +46,14 @@ export async function setCarpool(
   const supabase = await createClient();
 
   if (!role) {
-    await supabase
+    const { error } = await supabase
       .from("event_carpool")
       .delete()
       .eq("event_id", eventId)
       .eq("profile_id", profile.id);
+    if (error) {
+      return { ok: false, message: "Der Eintrag konnte nicht entfernt werden. Bitte versuche es erneut." };
+    }
   } else {
     const { error } = await supabase.from("event_carpool").upsert({
       event_id: eventId,

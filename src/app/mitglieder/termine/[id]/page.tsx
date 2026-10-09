@@ -126,9 +126,9 @@ export default async function EventDetailPage({
     !spiegel
       ? supabase
           .from("event_carpool")
-          .select("profile_id, role, seats, ort, ziel, abfahrt, fahrer_id, profiles(full_name)")
+          .select("profile_id, role, seats, ort, ziel, abfahrt, fahrer_id, profiles!profile_id(full_name)")
           .eq("event_id", event.id)
-      : Promise.resolve({ data: null }),
+      : Promise.resolve({ data: null, error: null }),
     istHeimspiel
       ? supabase
           .from("event_helpers")
@@ -552,18 +552,24 @@ export default async function EventDetailPage({
       <Card>
         <CardBody className="space-y-2">
           <p className="font-medium">🚗 Fahrgemeinschaft</p>
-          <CarpoolSection
-            eventId={event.id}
-            meineRolle={meineRolle}
-            meineSeats={meineSeats}
-            meinOrt={meinOrt}
-            meinZiel={meinZiel}
-            meineAbfahrt={meineAbfahrt}
-            meinFahrerId={meinFahrerId}
-            zielVorgabe={event.location ?? ""}
-            fahrer={fahrer}
-            mitfahrer={mitfahrerListe}
-          />
+          {carpoolRes.error ? (
+            <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
+              Die Fahrgemeinschaft konnte nicht geladen werden. Bitte lade den Termin erneut.
+            </p>
+          ) : (
+            <CarpoolSection
+              eventId={event.id}
+              meineRolle={meineRolle}
+              meineSeats={meineSeats}
+              meinOrt={meinOrt}
+              meinZiel={meinZiel}
+              meineAbfahrt={meineAbfahrt}
+              meinFahrerId={meinFahrerId}
+              zielVorgabe={event.location ?? ""}
+              fahrer={fahrer}
+              mitfahrer={mitfahrerListe}
+            />
+          )}
         </CardBody>
       </Card>
 
