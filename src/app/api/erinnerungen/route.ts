@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { benachrichtige } from "@/lib/benachrichtigung";
 import { formatDate, formatTime } from "@/lib/format";
+import { geburtstagsAlter } from "@/lib/geburtstag";
 import { brauchtRueckmeldung, eventKategorie } from "@/lib/types";
 import type { EventRow, RsvpStatus } from "@/lib/types";
 import type { Tournament } from "@/lib/extras";
@@ -186,8 +187,8 @@ export async function GET() {
         .from("notification_log")
         .insert({ key: `geburtstag:${p.id}:${heute.slice(0, 4)}` });
       if (logError) continue;
-      const alter =
-        Number(heute.slice(0, 4)) - Number((p.birthday as string).slice(0, 4));
+      const jahr = Number(heute.slice(0, 4));
+      const alter = geburtstagsAlter(p.birthday as string, jahr, jahr);
       const { data: alle } = await admin
         .from("profiles")
         .select("id")
@@ -195,7 +196,9 @@ export async function GET() {
         .neq("id", p.id);
       await benachrichtige((alle ?? []).map((x) => x.id as string), {
         title: `🎂 ${p.full_name} hat heute Geburtstag!`,
-        body: `${p.full_name} wird heute ${alter} – gratuliert fleißig! 🎉`,
+        body: alter === null
+          ? `${p.full_name} hat heute Geburtstag – gratuliert fleißig! 🎉`
+          : `${p.full_name} wird heute ${alter} – gratuliert fleißig! 🎉`,
         url: "/mitglieder",
       });
       verschickt++;

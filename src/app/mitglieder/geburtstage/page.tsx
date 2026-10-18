@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { requireProfile } from "@/lib/auth";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { istAusgetreten } from "@/lib/invites";
+import { geburtstagsAlter } from "@/lib/geburtstag";
 import { PageHeader, Card, CardBody, Badge, EmptyState } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Geburtstage & Jubiläen" };
@@ -27,6 +28,12 @@ const geburtsdatumFmt = new Intl.DateTimeFormat("de-DE", {
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
+  timeZone: "Europe/Berlin",
+});
+
+const geburtstagFmt = new Intl.DateTimeFormat("de-DE", {
+  day: "2-digit",
+  month: "2-digit",
   timeZone: "Europe/Berlin",
 });
 
@@ -116,7 +123,7 @@ export default async function GeburtstagePage() {
     .filter((p) => p.birthday && p.birthday_public)
     .map((p) => {
       const n = naechstes(p.birthday!, heute);
-      const alter = n.jahr - Number(p.birthday!.slice(0, 4));
+      const alter = geburtstagsAlter(p.birthday!, n.jahr, Number(heute.slice(0, 4)));
       return { name: p.name, geburtsdatum: p.birthday!, ...n, alter };
     })
     .sort((a, b) => a.bisTage - b.bisTage);
@@ -163,7 +170,7 @@ export default async function GeburtstagePage() {
                   <div>
                     <p className="font-medium">
                       {g.name}
-                      {g.alter % 10 === 0 && (
+                      {g.alter !== null && g.alter > 0 && g.alter % 10 === 0 && (
                         <>
                           {" "}
                           <Badge tone="primary">
@@ -173,14 +180,15 @@ export default async function GeburtstagePage() {
                       )}
                     </p>
                     <p className="mt-0.5 text-xs text-muted">
-                      Geburtsdatum:{" "}
-                      {geburtsdatumFmt.format(
+                      {g.alter === null ? "Geburtstag" : "Geburtsdatum"}:{" "}
+                      {(g.alter === null ? geburtstagFmt : geburtsdatumFmt).format(
                         new Date(g.geburtsdatum + "T12:00:00Z"),
                       )}
                     </p>
                   </div>
                   <span className="text-sm text-muted">
-                    wird {g.alter} · {wann(g.bisTage, g.datum)}
+                    {g.alter !== null && <>wird {g.alter} · </>}
+                    {wann(g.bisTage, g.datum)}
                   </span>
                 </CardBody>
               </Card>

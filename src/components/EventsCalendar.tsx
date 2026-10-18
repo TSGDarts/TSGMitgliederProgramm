@@ -8,6 +8,7 @@ import { MonthPicker } from "@/components/MonthPicker";
 import { KalenderZoom } from "@/components/KalenderZoom";
 import { brauchtRueckmeldung } from "@/lib/types";
 import { feiertageBayern } from "@/lib/feiertage";
+import { geburtstagsAlter } from "@/lib/geburtstag";
 import type { EventRow, EventType, RsvpStatus } from "@/lib/types";
 import type { Tournament } from "@/lib/extras";
 
@@ -71,6 +72,8 @@ export async function EventsCalendar({
   team?: string | string[];
 }) {
   const { y, m } = parseMonth(monat);
+  const todayKey = berlinDay.format(new Date());
+  const aktuellesJahr = Number(todayKey.slice(0, 4));
   const teams = await getAllTeams();
   const filterOrder = ["verein", ...teams.map((t) => t.id)];
   const requestedFilters = new Set(
@@ -238,7 +241,7 @@ export async function EventsCalendar({
 
   // Geburtstage (nur Mitglieder, die der Anzeige zugestimmt haben).
   // Erscheinen ausschließlich hier im Mitglieder-Kalender – nie in Feeds.
-  const birthdayByDay = new Map<string, { name: string; age: number }[]>();
+  const birthdayByDay = new Map<string, { name: string; age: number | null }[]>();
   const { data: bdayData } = await supabase
     .from("profiles")
     .select("full_name, birthday")
@@ -248,7 +251,6 @@ export async function EventsCalendar({
   const gridEnd = gridStart + totalCells * 864e5;
   for (const p of bdayData ?? []) {
     const bday = String(p.birthday); // JJJJ-MM-TT
-    const bYear = Number(bday.slice(0, 4));
     const bMonth = Number(bday.slice(5, 7));
     const bDay = Number(bday.slice(8, 10));
     const startYear = new Date(gridStart).getUTCFullYear();
@@ -260,7 +262,10 @@ export async function EventsCalendar({
       if (t >= gridStart && t < gridEnd) {
         const key = new Date(t).toISOString().slice(0, 10);
         const list = birthdayByDay.get(key) ?? [];
-        list.push({ name: p.full_name as string, age: year - bYear });
+        list.push({
+          name: p.full_name as string,
+          age: geburtstagsAlter(bday, year, aktuellesJahr),
+        });
         birthdayByDay.set(key, list);
       }
     }
@@ -276,7 +281,6 @@ export async function EventsCalendar({
     for (const f of feiertageBayern(jahr)) feiertagByDay.set(f.datum, f.name);
   }
 
-  const todayKey = berlinDay.format(new Date());
   const prev = addMonth(y, m, -1);
   const next = addMonth(y, m, 1);
 
@@ -421,7 +425,9 @@ export async function EventsCalendar({
                     {(birthdayByDay.get(key) ?? []).map((b) => (
                       <div
                         key={`bday-${b.name}`}
-                        title={`${b.name} wird ${b.age} Jahre 🎂`}
+                        title={b.age === null
+                          ? `${b.name} hat Geburtstag 🎂`
+                          : `${b.name} wird ${b.age} Jahre 🎂`}
                         className="truncate rounded bg-purple-600/15 px-1.5 py-0.5 text-xs text-purple-600"
                       >
                         🎂 {b.name}
