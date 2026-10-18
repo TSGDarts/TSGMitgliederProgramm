@@ -207,11 +207,11 @@ export function Bestenliste({ saisons }: { saisons: VereinsSaison[] }) {
         <table className="w-full whitespace-nowrap text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
-              <th className="px-1 py-2">#</th>
+              <th className="px-[3px] py-2">#</th>
               {spalten.map((s) => (
                 <th
                   key={s.key}
-                  className="px-1 py-2"
+                  className="px-[3px] py-2"
                   aria-sort={sortKey === s.key ? richtung === "asc" ? "ascending" : "descending" : "none"}
                 >
                   <button
@@ -241,8 +241,8 @@ export function Bestenliste({ saisons }: { saisons: VereinsSaison[] }) {
                 className={"cursor-pointer border-b border-border/50 " +
                   (markiert.has(s.anzeige) ? "bg-primary/15 hover:bg-primary/20" : "hover:bg-border/20")}
               >
-                <td className="px-1 py-2 text-muted">{markiert.has(s.anzeige) ? "📌" : String(i + 1) + "."}</td>
-                {spalten.map((spalte) => <td key={spalte.key} className="px-1 py-2">{zellInhalt(s, spalte.key)}</td>)}
+                <td className="px-[3px] py-2 text-muted">{markiert.has(s.anzeige) ? "📌" : String(i + 1) + "."}</td>
+                {spalten.map((spalte) => <td key={spalte.key} className="px-[3px] py-2">{zellInhalt(s, spalte.key)}</td>)}
               </tr>
             ))}
           </tbody>
