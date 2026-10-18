@@ -28,6 +28,18 @@ export function ergebnisTone(result: string): "ok" | "danger" | "neutral" {
   return a > b ? "ok" : "danger";
 }
 
+/** Gespeicherte TSG-Sicht passend zur Begegnung als Heim : Gast anzeigen. */
+export function formatErgebnisHeimGast(
+  result: string,
+  homeAway?: "" | "heim" | "auswaerts" | null,
+): string {
+  const text = result.trim();
+  const score = /^(\d+)\s*:\s*(\d+)$/.exec(text);
+  return homeAway === "auswaerts" && score
+    ? `${score[2]}:${score[1]}`
+    : text;
+}
+
 export function formatTime(value: string | Date): string {
   return timeFmt.format(new Date(value));
 }

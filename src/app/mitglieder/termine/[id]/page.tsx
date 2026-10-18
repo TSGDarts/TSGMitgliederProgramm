@@ -36,6 +36,7 @@ import {
 import {
   formatDate,
   formatDateTime,
+  formatErgebnisHeimGast,
   formatTime,
   formatUntil,
 } from "@/lib/format";
@@ -424,7 +425,8 @@ export default async function EventDetailPage({
 
       {(event.result ?? "").trim() && (
         <p className="text-sm font-semibold">
-          🏁 Endergebnis: {(event.result ?? "").trim()}
+          🏁 Endergebnis (Heim : Gast):{" "}
+          {formatErgebnisHeimGast(event.result ?? "", event.home_away)}
         </p>
       )}
 

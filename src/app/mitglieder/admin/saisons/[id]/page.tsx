@@ -24,7 +24,12 @@ import {
   ArchivEintragLoeschenKnopf,
   SpieltagLoeschenKnopf,
 } from "./ArchivKnoepfe";
-import { formatDate, formatTime, ergebnisTone } from "@/lib/format";
+import {
+  formatDate,
+  formatTime,
+  ergebnisTone,
+  formatErgebnisHeimGast,
+} from "@/lib/format";
 import { berlinISOToLocalInput } from "@/lib/tz";
 import { SpielberichtImport } from "./SpielberichtImport";
 import { spielerBilanz, alsMatchStats } from "@/lib/spielbericht";
@@ -639,7 +644,7 @@ export default async function AdminSeasonDetailPage({
                                       const t = ergebnisTone(r);
                                       const zeichen =
                                         t === "ok" ? "✅" : t === "danger" ? "❌" : "➖";
-                                      return `${zeichen} ${r}`;
+                                      return `${zeichen} ${formatErgebnisHeimGast(r, ev.home_away)}`;
                                     })()}
                                   </Badge>
                                 ) : (

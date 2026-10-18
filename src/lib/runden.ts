@@ -43,11 +43,12 @@ export function teamBilanz(spiele: EventRow[]) {
 }
 
 /**
- * Punktspiele einer Saison in Hin- und Rückrunde teilen (erste Hälfte der
- * Spieltage = Hinrunde – Standard bei Hin-/Rückrunden-Ligen). Pokal- und
- * Freundschaftsspiele kommen separat.
+ * Den vollständigen Spielplan einer Saison in Hin- und Rückrunde teilen
+ * (erste Hälfte der Spieltage = Hinrunde). Auch zukünftige Spiele müssen
+ * enthalten sein. Eine optionale Zeitgrenze filtert erst nach der Einteilung;
+ * Pokal- und Freundschaftsspiele kommen separat.
  */
-export function teileInRunden(spiele: EventRow[]): {
+export function teileInRunden(spiele: EventRow[], bis?: string): {
   hinrunde: EventRow[];
   rueckrunde: EventRow[];
   sonstige: EventRow[];
@@ -59,9 +60,13 @@ export function teileInRunden(spiele: EventRow[]): {
     .filter((s) => s.type !== "match")
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   const haelfte = Math.ceil(liga.length / 2);
+  const bisZeit = bis === undefined ? undefined : Date.parse(bis);
+  const sichtbar = (liste: EventRow[]) => bisZeit === undefined
+    ? liste
+    : liste.filter((spiel) => Date.parse(spiel.starts_at) <= bisZeit);
   return {
-    hinrunde: liga.slice(0, haelfte),
-    rueckrunde: liga.slice(haelfte),
-    sonstige,
+    hinrunde: sichtbar(liga.slice(0, haelfte)),
+    rueckrunde: sichtbar(liga.slice(haelfte)),
+    sonstige: sichtbar(sonstige),
   };
 }

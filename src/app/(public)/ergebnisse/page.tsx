@@ -3,7 +3,7 @@ import Link from "next/link";
 import { createAdminSupabase } from "@/lib/supabase/admin";
 import { Einklappbar } from "@/components/Einklappbar";
 import { PageHeader, EmptyState, Badge } from "@/components/ui";
-import { formatDate, ergebnisTone } from "@/lib/format";
+import { formatDate, ergebnisTone, formatErgebnisHeimGast } from "@/lib/format";
 import { teileInRunden, teamBilanz } from "@/lib/runden";
 import { EVENT_TYPE_LABELS, type EventRow } from "@/lib/types";
 import type { Season } from "@/lib/season";
@@ -42,13 +42,14 @@ export default async function OeffentlicheErgebnissePage({
     saisons[0] ??
     null;
 
-  // Nur öffentliche, bereits gespielte Team-Spiele der Saison
+  const jetzt = new Date().toISOString();
+  // Vollständiger öffentlicher Saisonspielplan für die Rundenzuordnung;
+  // für die Anzeige erst danach auf bereits gespielte Partien begrenzen.
   let q = supabase
     .from("events")
     .select("*")
     .in("type", ["match", "pokal", "friendly"])
     .eq("is_public", true)
-    .lte("starts_at", new Date().toISOString())
     .order("starts_at", { ascending: false });
   if (gewaehlteSaison?.starts_on) {
     q = q.gte("starts_at", gewaehlteSaison.starts_on);
@@ -57,12 +58,12 @@ export default async function OeffentlicheErgebnissePage({
     q = q.lte("starts_at", `${gewaehlteSaison.ends_on}T23:59:59Z`);
   }
   const { data: ergData } = await q;
-  const ergebnisseJeTeam = new Map<string, EventRow[]>();
+  const spielplanJeTeam = new Map<string, EventRow[]>();
   for (const ev of ((ergData as EventRow[]) ?? [])) {
     const key = ev.team_id ?? "verein";
-    const list = ergebnisseJeTeam.get(key) ?? [];
+    const list = spielplanJeTeam.get(key) ?? [];
     list.push(ev);
-    ergebnisseJeTeam.set(key, list);
+    spielplanJeTeam.set(key, list);
   }
 
   const { data: teamsData } = await supabase
@@ -88,10 +89,10 @@ export default async function OeffentlicheErgebnissePage({
     }
   }
 
-  const ergebnisText = (result: string): string => {
+  const ergebnisText = (result: string, homeAway: EventRow["home_away"]): string => {
     const t = ergebnisTone(result);
     const zeichen = t === "ok" ? "✅" : t === "danger" ? "❌" : "➖";
-    return `${zeichen} ${result}`;
+    return `${zeichen} ${formatErgebnisHeimGast(result, homeAway)}`;
   };
 
   return (
@@ -133,10 +134,13 @@ export default async function OeffentlicheErgebnissePage({
               league: null as string | null,
             },
           ].map((t) => {
-            const liste = ergebnisseJeTeam.get(t.id) ?? [];
+            const spielplan = spielplanJeTeam.get(t.id) ?? [];
+            const liste = spielplan.filter(
+              (ev) => Date.parse(ev.starts_at) <= Date.parse(jetzt),
+            );
             if (t.id === "verein" && liste.length === 0) return null;
             const liga = archivLiga.get(t.name) || t.league;
-            const runden = teileInRunden(liste);
+            const runden = teileInRunden(spielplan, jetzt);
             const gruppen = [
               { titel: "Hinrunde", spiele: runden.hinrunde },
               { titel: "Rückrunde", spiele: runden.rueckrunde },
@@ -218,7 +222,7 @@ export default async function OeffentlicheErgebnissePage({
                               <Badge
                                 tone={ergebnisTone((ev.result ?? "").trim())}
                               >
-                                {ergebnisText((ev.result ?? "").trim())}
+                                {ergebnisText((ev.result ?? "").trim(), ev.home_away)}
                               </Badge>
                             ) : (
                               <Badge>Ergebnis folgt</Badge>

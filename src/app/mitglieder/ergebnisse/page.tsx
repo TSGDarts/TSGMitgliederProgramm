@@ -5,7 +5,7 @@ import { getAllTeams } from "@/lib/member-queries";
 import { createClient } from "@/lib/supabase/server";
 import { Einklappbar } from "@/components/Einklappbar";
 import { PageHeader, EmptyState, Badge } from "@/components/ui";
-import { formatDate, ergebnisTone } from "@/lib/format";
+import { formatDate, ergebnisTone, formatErgebnisHeimGast } from "@/lib/format";
 import { teileInRunden, teamBilanz } from "@/lib/runden";
 import { vereinsAggregat } from "@/lib/statistik";
 import { EVENT_TYPE_LABELS, type EventRow } from "@/lib/types";
@@ -35,13 +35,13 @@ export default async function ErgebnissePage({
     saisons[0] ??
     null;
 
-  // Alle gespielten Spiele der Saison je Mannschaft (inkl. vereinsweiter
-  // Pokalspiele ohne Mannschaft)
+  const jetzt = new Date().toISOString();
+  // Für die Rundenzuordnung den vollständigen Saisonspielplan laden;
+  // erst danach die bereits gespielten Partien für die Anzeige auswählen.
   let q = supabase
     .from("events")
     .select("*")
     .in("type", ["match", "pokal", "friendly"])
-    .lte("starts_at", new Date().toISOString())
     .order("starts_at", { ascending: false });
   if (gewaehlteSaison?.starts_on) {
     q = q.gte("starts_at", gewaehlteSaison.starts_on);
@@ -50,12 +50,16 @@ export default async function ErgebnissePage({
     q = q.lte("starts_at", `${gewaehlteSaison.ends_on}T23:59:59Z`);
   }
   const { data: ergData } = await q;
-  const ergebnisseJeTeam = new Map<string, EventRow[]>();
-  for (const ev of ((ergData as EventRow[]) ?? [])) {
+  const saisonSpiele = (ergData as EventRow[]) ?? [];
+  const vergangeneSpiele = saisonSpiele.filter(
+    (ev) => Date.parse(ev.starts_at) <= Date.parse(jetzt),
+  );
+  const spielplanJeTeam = new Map<string, EventRow[]>();
+  for (const ev of saisonSpiele) {
     const key = ev.team_id ?? "verein";
-    const list = ergebnisseJeTeam.get(key) ?? [];
+    const list = spielplanJeTeam.get(key) ?? [];
     list.push(ev);
-    ergebnisseJeTeam.set(key, list);
+    spielplanJeTeam.set(key, list);
   }
 
   // Bei archivierten Saisons: damalige Liga aus dem Archiv anzeigen
@@ -70,10 +74,10 @@ export default async function ErgebnissePage({
     }
   }
 
-  const ergebnisText = (result: string): string => {
+  const ergebnisText = (result: string, homeAway: EventRow["home_away"]): string => {
     const t = ergebnisTone(result);
     const zeichen = t === "ok" ? "✅" : t === "danger" ? "❌" : "➖";
-    return `${zeichen} ${result}`;
+    return `${zeichen} ${formatErgebnisHeimGast(result, homeAway)}`;
   };
 
   return (
@@ -124,7 +128,7 @@ export default async function ErgebnissePage({
       {/* Saison-Rückblick (bei abgeschlossenen Saisons) */}
       {gewaehlteSaison?.status === "archived" &&
         (() => {
-          const rows = ((ergData as EventRow[]) ?? []).map((ev) => ({
+          const rows = vergangeneSpiele.map((ev) => ({
             id: ev.id,
             title: ev.title,
             starts_at: ev.starts_at,
@@ -203,10 +207,13 @@ export default async function ErgebnissePage({
               league: null as string | null,
             },
           ].map((t) => {
-            const liste = ergebnisseJeTeam.get(t.id) ?? [];
+            const spielplan = spielplanJeTeam.get(t.id) ?? [];
+            const liste = spielplan.filter(
+              (ev) => Date.parse(ev.starts_at) <= Date.parse(jetzt),
+            );
             if (t.id === "verein" && liste.length === 0) return null;
             const liga = archivLiga.get(t.name) || t.league;
-            const runden = teileInRunden(liste);
+            const runden = teileInRunden(spielplan, jetzt);
             const gruppen = [
               { titel: "Hinrunde", spiele: runden.hinrunde },
               { titel: "Rückrunde", spiele: runden.rueckrunde },
@@ -289,7 +296,7 @@ export default async function ErgebnissePage({
                               <Badge
                                 tone={ergebnisTone((ev.result ?? "").trim())}
                               >
-                                {ergebnisText((ev.result ?? "").trim())}
+                                {ergebnisText((ev.result ?? "").trim(), ev.home_away)}
                               </Badge>
                             ) : (
                               <Badge>Ergebnis folgt</Badge>
