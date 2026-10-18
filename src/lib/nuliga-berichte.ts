@@ -271,8 +271,14 @@ export function parseNuligaSpielberichtHtml(
           !names.length || names.some((n) => !/^[^\d:].*,\s*\S/.test(n))) {
           return fail("Bestleistungen im nuLiga-Bericht sind unvollständig.");
         }
-        for (const name of names) {
-          text.push([values[0], values[1], name, values[3]].join("\t"));
+        // Bei Low Darts die gemeinsame Spielerzelle erhalten: Der Textparser
+        // kann nur so Einzel und Doppel vor dem Aufteilen der Namen belegen.
+        if (/^Bestleistungen Low Darts$/i.test(achievementHeading)) {
+          text.push([values[0], values[1], ...names, values[3]].join("\t"));
+        } else {
+          for (const name of names) {
+            text.push([values[0], values[1], name, values[3]].join("\t"));
+          }
         }
       }
     }

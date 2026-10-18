@@ -228,6 +228,8 @@ export interface SpielerZeile {
   anzahl180: number;
   besterFinish: number | null;
   besterLowDarts: number | null;
+  besterLowDartsEinzel: number | null;
+  besterLowDartsDoppel: number | null;
 }
 
 /**
@@ -257,6 +259,8 @@ export function vereinsAggregat(rows: EventZeile[]): SpielerZeile[] {
         anzahl180: 0,
         besterFinish: null,
         besterLowDarts: null,
+        besterLowDartsEinzel: null,
+        besterLowDartsDoppel: null,
       } as SpielerZeile & { key: string });
     spieler.set(key, e);
     return e;
@@ -310,6 +314,12 @@ export function vereinsAggregat(rows: EventZeile[]): SpielerZeile[] {
       } else if (b.kategorie === "lowdarts") {
         if (e.besterLowDarts === null || b.wert < e.besterLowDarts) {
           e.besterLowDarts = b.wert;
+        }
+        // Altberichte ohne eindeutige Disziplin zählen weiterhin nur gesamt.
+        if (b.doppel === false && (e.besterLowDartsEinzel === null || b.wert < e.besterLowDartsEinzel)) {
+          e.besterLowDartsEinzel = b.wert;
+        } else if (b.doppel === true && (e.besterLowDartsDoppel === null || b.wert < e.besterLowDartsDoppel)) {
+          e.besterLowDartsDoppel = b.wert;
         }
       }
     }

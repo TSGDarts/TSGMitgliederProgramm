@@ -18,6 +18,8 @@ export interface Bestleistung {
   wert: number;
   name: string; // "Nachname, Vorname"
   mannschaft: string;
+  /** Nur Low Darts: true = Doppel, false = Einzel; fehlend = Art nicht belegt. */
+  doppel?: boolean;
 }
 
 export interface Spielbericht {
@@ -171,6 +173,9 @@ export function parseSpielbericht(
   // Bestleistungen (180er, High Finishes, Low Darts): Zeilen
   // "Anzahl  Wert  Spieler  Mannschaft" unter der jeweiligen Überschrift
   const bestleistungen: Bestleistung[] = [];
+  const mannschaftKey = (name: string) =>
+    name.normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase("de-DE");
+  const bekannteMannschaften = new Set([mannschaftKey(heim), mannschaftKey(gast)]);
   let kategorie: Bestleistung["kategorie"] | "" = "";
   for (const zeile of zeilen) {
     const z = zeile.trim();
@@ -184,6 +189,22 @@ export function parseSpielbericht(
     const anzahl = Number(tokens[0]);
     const wert = Number(tokens[1]);
     if (!Number.isFinite(anzahl) || !Number.isFinite(wert)) continue;
+    // Eine originale Low-Darts-Zeile enthält einen oder zwei Spielernamen und
+    // danach genau eine der beiden Mannschaften. Andere/ältere Textformen
+    // behalten ihre bisherige Darstellung und bleiben ohne Art-Kennzeichnung.
+    const namen = tokens.slice(2, -1);
+    const mannschaft = tokens[tokens.length - 1];
+    if (kategorie === "lowdarts" && (tokens.length === 4 || tokens.length === 5) &&
+      namen.every((name) => istName(name) && name.split(",").length === 2) &&
+      bekannteMannschaften.has(mannschaftKey(mannschaft))) {
+      for (const name of namen) {
+        bestleistungen.push({
+          kategorie, anzahl, wert, name, mannschaft,
+          doppel: namen.length === 2,
+        });
+      }
+      continue;
+    }
     bestleistungen.push({
       kategorie,
       anzahl,

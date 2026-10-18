@@ -13,7 +13,8 @@ import {
 
 type SpaltenKey =
   | "name" | "punkte" | "spieltage" | "spiele" | "siege" | "niederlagen"
-  | "einzel" | "doppel" | "quote" | "legs" | "m180" | "finish" | "lowdarts";
+  | "einzel" | "doppel" | "quote" | "legs" | "m180" | "finish"
+  | "lowdartsEinzel" | "lowdartsDoppel";
 
 const ANSICHTEN: { key: BestenlistenAnsicht; label: string }[] = [
   { key: "gesamt", label: "Einzel & Doppel" },
@@ -57,14 +58,18 @@ const SPALTEN: {
   { key: "doppel", label: "Doppel (S–N)", wert: (s) => s.doppelSiege, standard: "desc" },
   { key: "m180", label: "180er", wert: (s) => s.anzahl180, standard: "desc" },
   { key: "finish", label: "Höchstes Highfinish", wert: (s) => s.besterFinish, standard: "desc" },
-  { key: "lowdarts", label: "Kürzestes Leg", wert: (s) => s.besterLowDarts, standard: "asc" },
+  { key: "lowdartsEinzel", label: "Kürzestes Leg Einzel", wert: (s) => s.besterLowDartsEinzel ?? null, standard: "asc" },
+  { key: "lowdartsDoppel", label: "Kürzestes Leg Doppel", wert: (s) => s.besterLowDartsDoppel ?? null, standard: "asc" },
 ];
 
 const GESAMT_SPALTEN: SpaltenKey[] = [
-  "name", "punkte", "legs", "quote", "spieltage", "einzel", "doppel", "m180", "finish", "lowdarts",
+  "name", "punkte", "legs", "quote", "spieltage", "einzel", "doppel", "m180", "finish", "lowdartsEinzel", "lowdartsDoppel",
 ];
-const EINZEL_DOPPEL_SPALTEN: SpaltenKey[] = [
-  "name", "punkte", "legs", "quote", "spiele", "siege", "niederlagen",
+const EINZEL_SPALTEN: SpaltenKey[] = [
+  "name", "punkte", "legs", "quote", "spiele", "siege", "niederlagen", "lowdartsEinzel",
+];
+const DOPPEL_SPALTEN: SpaltenKey[] = [
+  "name", "punkte", "legs", "quote", "spiele", "siege", "niederlagen", "lowdartsDoppel",
 ];
 const ausgewaehlt = "bg-primary text-primary-fg";
 const nichtAusgewaehlt = "border border-border text-muted hover:text-foreground";
@@ -76,7 +81,8 @@ export function Bestenliste({ saisons }: { saisons: VereinsSaison[] }) {
   const [saisonIndex, setSaisonIndex] = useState(0);
   const [ansicht, setAnsicht] = useState<BestenlistenAnsicht>("gesamt");
   const liste = saisons[saisonIndex]?.liste ?? saisons[0]?.liste ?? [];
-  const spaltenKeys = ansicht === "gesamt" ? GESAMT_SPALTEN : EINZEL_DOPPEL_SPALTEN;
+  const spaltenKeys = ansicht === "gesamt" ? GESAMT_SPALTEN
+    : ansicht === "einzel" ? EINZEL_SPALTEN : DOPPEL_SPALTEN;
   const spalten = spaltenKeys.map((key) => SPALTEN.find((s) => s.key === key)!);
   const spalte = SPALTEN.find((s) => s.key === sortKey)!;
   const sortiert = bestenlisteFuerAnsicht(liste, ansicht).sort((a, b) => {
@@ -156,7 +162,8 @@ export function Bestenliste({ saisons }: { saisons: VereinsSaison[] }) {
       );
       case "m180": return s.anzahl180;
       case "finish": return s.besterFinish ?? "–";
-      case "lowdarts": return s.besterLowDarts ?? "–";
+      case "lowdartsEinzel": return s.besterLowDartsEinzel ?? "–";
+      case "lowdartsDoppel": return s.besterLowDartsDoppel ?? "–";
     }
   }
 
@@ -247,6 +254,7 @@ export function Bestenliste({ saisons }: { saisons: VereinsSaison[] }) {
         unter der jeweiligen Bilanz. Spaltenüberschrift antippen zum Sortieren;
         nochmal antippen kehrt die Richtung um. Zeile antippen markiert den
         Spieler 📌, der Name öffnet die Detail-Statistik.
+        Low-Darts werden nur bei eindeutiger Einzel-/Doppelzuordnung getrennt gewertet.
       </p>
     </div>
   );

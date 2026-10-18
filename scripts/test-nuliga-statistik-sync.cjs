@@ -133,6 +133,42 @@ function harness(input = {}) {
     assert.ok(!Object.hasOwn(h.state.writes[1], "result"));
     assert.ok(h.state.revalidated.some(([url]) => url === "/mitglieder/statistiken"));
   });
+  await check("Low-Darts-Metadaten ergänzen bestehenden Bericht einmalig und erhalten Ergebnis sowie 3K", async () => {
+    const dreik = { gesamtAvg: "59.9", spiele: [], statistiken: [{ name: "Jauch, Marco", avg: 61.2 }] };
+    const previousReport = { ...report, bestleistungen: [
+      { kategorie: "lowdarts", anzahl: 1, wert: 16, name: "Jauch, Marco", mannschaft: team.name },
+      { kategorie: "lowdarts", anzahl: 1, wert: 20, name: "Hempel, Max", mannschaft: team.name },
+      { kategorie: "lowdarts", anzahl: 1, wert: 20, name: "Jauch, Marco", mannschaft: team.name },
+    ] };
+    const taggedReport = { ...previousReport, bestleistungen: previousReport.bestleistungen.map((b, index) => ({
+      ...b, doppel: index > 0,
+    })) };
+    const h = harness({
+      rows: [event({ result: report.ergebnis, match_stats: { quelle: "3k", dreik, nuliga: previousReport } })],
+      report: taggedReport,
+    });
+
+    const first = await h.run();
+    assert.equal(first.aktualisiert, 1);
+    assert.equal(first.neu, 0);
+    assert.equal(first.ergebnisseUnveraendert, 1);
+    assert.equal(first.ergebnisseNeu, 0);
+    assert.equal(first.ergebnisseAktualisiert, 0);
+    assert.deepEqual(h.state.rows[0].match_stats, { quelle: "3k", dreik, nuliga: taggedReport });
+    assert.equal(h.state.rows[0].result, report.ergebnis);
+    assert.equal(h.state.writes.length, 1);
+    assert.ok(!Object.hasOwn(h.state.writes[0], "result"));
+
+    const second = await h.run();
+    assert.equal(second.aktualisiert, 0);
+    assert.equal(second.neu, 0);
+    assert.equal(second.unveraendert, 1);
+    assert.equal(second.ergebnisseUnveraendert, 1);
+    assert.equal(second.ergebnisseNeu, 0);
+    assert.equal(second.ergebnisseAktualisiert, 0);
+    assert.equal(h.state.parsed.length, 2);
+    assert.equal(h.state.writes.length, 1);
+  });
   await check("Korrektur und alte direkt gespeicherte Berichte", async () => {
     const h = harness({ rows: [event({ result: "11:7", match_stats: { ...report, ergebnis: "11:7" } })] });
     const result = await h.run();

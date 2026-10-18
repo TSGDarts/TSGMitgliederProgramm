@@ -47,21 +47,24 @@ function player(name, singles, doubles, extra = {}) {
     einzelLegsGewonnen, einzelLegsVerloren, doppelLegsGewonnen, doppelLegsVerloren,
     legsGewonnen: einzelLegsGewonnen + doppelLegsGewonnen,
     legsVerloren: einzelLegsVerloren + doppelLegsVerloren,
-    anzahl180: 0, besterFinish: null, besterLowDarts: null, ...extra,
+    anzahl180: 0, besterFinish: null, besterLowDarts: null,
+    besterLowDartsEinzel: null, besterLowDartsDoppel: null, ...extra,
   };
 }
-const anna = player("Anna Sieg", [2, 1, 6, 4], [0, 1, 1, 3], { anzahl180: 2, besterFinish: 100, besterLowDarts: 18 });
-const bert = player("Bert Doppel", [0, 0, 0, 0], [4, 2, 12, 8]);
+// Der alte Gesamtwert weicht bewusst ab: er darf in keine Disziplinspalte
+// zurückfallen, auch wenn deren eigener Wert fehlt.
+const anna = player("Anna Sieg", [2, 1, 6, 4], [0, 1, 1, 3], { anzahl180: 2, besterFinish: 100, besterLowDarts: 9, besterLowDartsEinzel: 18, besterLowDartsDoppel: 24 });
+const bert = player("Bert Doppel", [0, 0, 0, 0], [4, 2, 12, 8], { besterLowDarts: 10, besterLowDartsDoppel: 16 });
 const clara = player("Clara Einzel", [2, 2, 8, 8], [0, 0, 0, 0]);
 const dora = player("Dora Verlust", [0, 2, 1, 6], [0, 1, 2, 3]);
-const emil = player("Emil NurDoppel", [0, 0, 0, 0], [1, 0, 3, 1]);
+const emil = player("Emil NurDoppel", [0, 0, 0, 0], [1, 0, 3, 1], { besterLowDarts: 12, besterLowDartsDoppel: 21 });
 const fiona = player("Fiona NurEinzel", [1, 0, 3, 0], [0, 0, 0, 0]);
-const gerd = player("Gerd Gewicht", [3, 2, 11, 9], [0, 0, 0, 0], { besterFinish: 120, besterLowDarts: 15 });
+const gerd = player("Gerd Gewicht", [3, 2, 11, 9], [0, 0, 0, 0], { besterFinish: 120, besterLowDarts: 11, besterLowDartsEinzel: 15 });
 // Absichtlich keine vorab sortierten Daten: die Component muss selbst sortieren.
 const liste = [dora, emil, clara, anna, bert, fiona, gerd];
 const saisons = [
   { label: "Gesamt", liste },
-  { label: "2025/26", liste: [player("Zoe Archiv", [0, 0, 0, 0], [1, 1, 5, 4]), player(anna.anzeige, [0, 1, 1, 3], [2, 1, 7, 5])] },
+  { label: "2025/26", liste: [player("Zoe Archiv", [0, 0, 0, 0], [1, 1, 5, 4], { besterLowDarts: 13, besterLowDartsDoppel: 22 }), player(anna.anzeige, [0, 1, 1, 3], [2, 1, 7, 5], { besterLowDarts: 10, besterLowDartsEinzel: 20, besterLowDartsDoppel: 27 })] },
   { label: "Nur Einzel", liste: [clara] },
 ];
 const defaultOrder = [gerd.anzeige, bert.anzeige, anna.anzeige, clara.anzeige, fiona.anzeige, emil.anzeige, dora.anzeige];
@@ -190,11 +193,66 @@ try {
     assert.deepEqual(h.order(), defaultOrder);
     assert.equal(h.header("Punkte").props["aria-sort"], "descending");
   });
-  check("Fehlende Bestleistungswerte stehen bei beiden Sortierrichtungen am Ende", () => {
-    const h = harness(); h.click("Kürzestes Leg");
-    assert.deepEqual(h.order().slice(0, 2), [gerd.anzeige, anna.anzeige]);
-    h.click("Kürzestes Leg");
-    assert.deepEqual(h.order().slice(0, 2), [anna.anzeige, gerd.anzeige]);
+  check("Einzel-Low-Darts sortiert zuerst aufsteigend; fehlende Werte bleiben in beiden Richtungen hinten", () => {
+    const h = harness(); h.click("Kürzestes Leg Einzel");
+    assert.deepEqual(h.order(), [gerd.anzeige, anna.anzeige, bert.anzeige, clara.anzeige, fiona.anzeige, emil.anzeige, dora.anzeige]);
+    assert.equal(h.header("Kürzestes Leg Einzel").props["aria-sort"], "ascending");
+    h.click("Kürzestes Leg Einzel");
+    assert.deepEqual(h.order(), [anna.anzeige, gerd.anzeige, bert.anzeige, clara.anzeige, fiona.anzeige, emil.anzeige, dora.anzeige]);
+    assert.equal(h.header("Kürzestes Leg Einzel").props["aria-sort"], "descending");
+  });
+  check("Gesamtansicht zeigt getrennte Einzel-/Doppel-Low-Darts ohne Rückfall auf den alten Gesamtwert", () => {
+    const h = harness();
+    assert.ok(h.header("Kürzestes Leg Einzel"));
+    assert.ok(h.header("Kürzestes Leg Doppel"));
+    assert.equal(h.header("Kürzestes Leg"), undefined);
+    assert.equal(textOf(h.cell(anna.anzeige, "Kürzestes Leg Einzel")), "18");
+    assert.equal(textOf(h.cell(anna.anzeige, "Kürzestes Leg Doppel")), "24");
+    assert.equal(textOf(h.cell(bert.anzeige, "Kürzestes Leg Einzel")), "–");
+    assert.equal(textOf(h.cell(bert.anzeige, "Kürzestes Leg Doppel")), "16");
+    assert.equal(textOf(h.cell(gerd.anzeige, "Kürzestes Leg Doppel")), "–");
+  });
+  check("Einzel/Doppel zeigen ausschließlich ihre eigene Low-Darts-Spalte und ihren eigenen Wert", () => {
+    const h = harness(); h.click("Einzel");
+    assert.ok(h.header("Kürzestes Leg Einzel"));
+    assert.equal(h.header("Kürzestes Leg Doppel"), undefined);
+    assert.equal(textOf(h.cell(anna.anzeige, "Kürzestes Leg Einzel")), "18");
+    h.click("Kürzestes Leg Einzel");
+    assert.deepEqual(h.order(), [gerd.anzeige, anna.anzeige, clara.anzeige, fiona.anzeige, dora.anzeige]);
+    h.click("Kürzestes Leg Einzel");
+    assert.deepEqual(h.order(), [anna.anzeige, gerd.anzeige, clara.anzeige, fiona.anzeige, dora.anzeige]);
+    h.click("Doppel");
+    assert.equal(h.header("Kürzestes Leg Einzel"), undefined);
+    assert.ok(h.header("Kürzestes Leg Doppel"));
+    assert.equal(textOf(h.cell(anna.anzeige, "Kürzestes Leg Doppel")), "24");
+  });
+  check("Doppel-Low-Darts sortiert in beide Richtungen numerisch und hält Nullwerte hinten", () => {
+    const h = harness(); h.click("Kürzestes Leg Doppel");
+    assert.deepEqual(h.order(), [bert.anzeige, emil.anzeige, anna.anzeige, gerd.anzeige, clara.anzeige, fiona.anzeige, dora.anzeige]);
+    assert.equal(h.header("Kürzestes Leg Doppel").props["aria-sort"], "ascending");
+    h.click("Kürzestes Leg Doppel");
+    assert.deepEqual(h.order(), [anna.anzeige, emil.anzeige, bert.anzeige, gerd.anzeige, clara.anzeige, fiona.anzeige, dora.anzeige]);
+    assert.equal(h.header("Kürzestes Leg Doppel").props["aria-sort"], "descending");
+    h.click("Doppel");
+    assert.deepEqual(h.order(), [bert.anzeige, emil.anzeige, dora.anzeige, anna.anzeige]);
+    assert.equal(h.header("Punkte").props["aria-sort"], "descending");
+    h.click("Kürzestes Leg Doppel");
+    assert.deepEqual(h.order(), [bert.anzeige, emil.anzeige, anna.anzeige, dora.anzeige]);
+    h.click("Kürzestes Leg Doppel");
+    assert.deepEqual(h.order(), [anna.anzeige, emil.anzeige, bert.anzeige, dora.anzeige]);
+    h.click("Einzel");
+    assert.equal(h.header("Punkte").props["aria-sort"], "descending");
+    assert.equal(h.header("Kürzestes Leg Doppel"), undefined);
+  });
+  check("Saisonwechsel verwendet disziplinspezifische Saisonwerte statt Gesamtwerten", () => {
+    const h = harness(); h.click("Doppel"); h.click("2025/26");
+    assert.equal(textOf(h.cell(anna.anzeige, "Kürzestes Leg Doppel")), "27");
+    h.click("Kürzestes Leg Doppel");
+    assert.deepEqual(h.order(), ["Zoe Archiv", anna.anzeige]);
+    h.click("Einzel");
+    assert.equal(textOf(h.cell(anna.anzeige, "Kürzestes Leg Einzel")), "20");
+    assert.equal(h.header("Punkte").props["aria-sort"], "descending");
+    assert.equal(h.header("Kürzestes Leg Doppel"), undefined);
   });
   check("Zeilenmarkierung bleibt beim Sortieren/Moduswechsel bestehen und lässt sich entfernen", () => {
     const h = harness(); h.row(anna.anzeige).props.onClick();
