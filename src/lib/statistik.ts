@@ -219,6 +219,10 @@ export interface SpielerZeile {
   einzelNiederlagen: number;
   doppelSiege: number;
   doppelNiederlagen: number;
+  einzelLegsGewonnen: number;
+  einzelLegsVerloren: number;
+  doppelLegsGewonnen: number;
+  doppelLegsVerloren: number;
   legsGewonnen: number;
   legsVerloren: number;
   anzahl180: number;
@@ -244,6 +248,10 @@ export function vereinsAggregat(rows: EventZeile[]): SpielerZeile[] {
         einzelNiederlagen: 0,
         doppelSiege: 0,
         doppelNiederlagen: 0,
+        einzelLegsGewonnen: 0,
+        einzelLegsVerloren: 0,
+        doppelLegsGewonnen: 0,
+        doppelLegsVerloren: 0,
         legsGewonnen: 0,
         legsVerloren: 0,
         anzahl180: 0,
@@ -275,6 +283,13 @@ export function vereinsAggregat(rows: EventZeile[]): SpielerZeile[] {
         if (Number.isFinite(a) && Number.isFinite(b)) {
           e.legsGewonnen += a;
           e.legsVerloren += b;
+          if (s.doppel) {
+            e.doppelLegsGewonnen += a;
+            e.doppelLegsVerloren += b;
+          } else {
+            e.einzelLegsGewonnen += a;
+            e.einzelLegsVerloren += b;
+          }
         }
       }
     }
